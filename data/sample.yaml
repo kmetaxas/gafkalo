@@ -1,0 +1,75 @@
+---
+topics:
+  - name: SKATA.VROMIA.POLY
+    partitions: 6
+    replication_factor: 1
+    configs:
+      cleanup.policy: delete
+      min.insync.replicas: 1
+      retention.ms: 10000000
+    key:
+      schema: "data/schemas/schema-key.json"
+      compatibility: BACKWARD
+    value:
+      schema: "data/schemas/schema.json"
+      compatibility: NONE
+  - name: SKATA.VROMIA.LIGO
+    partitions: 6
+    replication_factor: 3
+    configs:
+      cleanup.policy: delete
+      min.insync.replicas: 1
+    key:
+      schema: "data/schemas/schema-key.json"
+      schema_type: "AVRO"
+  - name: SKATA1
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA2
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA3
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA4
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA5
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA6
+    partitions: 1
+    replication_factor: 1
+  - name: SKATA7
+    partitions: 1
+    replication_factor: 1
+
+clients:
+  - principal: User:poutanaola
+    consumer_for:
+      - topic: TOPIC1.
+      - topic: TOPIC2.
+        prefixed: false
+    producer_for:
+      - topic: TOPIC1.
+    resourceowner_for:
+      - topic: TOPIC4.
+  - principal: Group:malakes
+    consumer_for:
+      - topic: TOPIC1.
+      - topic: TOPIC2.
+    producer_for:
+      - topic: TOPIC1.
+  - principal: User:produser
+    producer_for:
+      - topic: TOPIC1.
+        # Strict mode is mean for production.
+        # It will make the producer able to write the topics but read-only
+        # access to the schema registry
+        strict: false
+    groups:
+      - name: consumer-produser-
+      - name: consumer-produser-owner-
+        # if not specified, roles is [DeveloperRead]
+        roles: ["ResourceOwner"]
+        prefixed: false
