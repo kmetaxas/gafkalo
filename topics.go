@@ -139,6 +139,7 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool, s
 	for _, topicName := range newTopics {
 		topic := topics[topicName]
 		topicRes := TopicResultFromTopic(topic)
+		topicRes.IsNew = true
 		detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
 		err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
 		if err != nil {
@@ -150,7 +151,9 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool, s
 	// Alter configs
 	for topicName, topic := range topics {
 		topicRes := TopicResultFromTopic(topic)
+		topicRes.FillFromOldTopic(existing_topics[topicName])
 		// TODO skip topics we just created
+		// TODO skip topics that failed creation
 		err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
 		if err != nil {
 			log.Printf("Updating configs failed with: %s\n", err)

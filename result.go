@@ -1,6 +1,8 @@
 package main
 
-import ()
+import (
+	"github.com/Shopify/sarama"
+)
 
 type Results struct {
 	Topics  []TopicResult
@@ -17,6 +19,7 @@ type TopicResult struct {
 	NewConfigs           map[string]*string // Contains only 'changed' configs (all of new topic)
 	OldConfigs           map[string]*string // Old configs. Can be compared with NewConfigs.
 	Errors               []string           // List of errors reported
+	IsNew                bool               // NEwly created. Not expected to have anything old
 
 }
 
@@ -32,7 +35,15 @@ func TopicResultFromTopic(topic Topic) TopicResult {
 		NewPartitions:        topic.Partitions,
 		NewReplicationFactor: topic.ReplicationFactor,
 		NewConfigs:           topic.Configs,
+		IsNew:                false, // Defaul value
 	}
+}
+
+// Fill-in
+func (tr *TopicResult) FillFromOldTopic(old sarama.TopicDetail) {
+	tr.OldPartitions = old.NumPartitions
+	tr.OldReplicationFactor = old.ReplicationFactor
+	tr.OldConfigs = old.ConfigEntries
 }
 
 // A nice , easy way to process changes in configs

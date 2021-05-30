@@ -8,7 +8,7 @@
 Topic {{ .Name }} Create/Updated. Configs:
   {{ range .ChangedConfigs }} 
   - Config {{ .Name }} changed from {{ .OldVal }} to {{ .NewVal }}
-  {{ end -}} 
+  {{- end }} 
 {{ end -}}
 {{ end -}}
 
