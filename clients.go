@@ -40,10 +40,10 @@ type MDSAdmin struct {
 }
 
 const (
-	CTX_KAFKA   = iota
-	CTX_SR      = iota
-	CTX_KSQL    = iota
-	CTX_CONNECT = iota
+	CTX_KAFKA   = iota // 0
+	CTX_SR      = iota // 1
+	CTX_KSQL    = iota // 2
+	CTX_CONNECT = iota // 3
 )
 
 type MDSContext struct {
