@@ -42,5 +42,8 @@ func main() {
 		}
 
 	}
+	// Do MDS
+	mdsadmin := NewMDSAdmin(config.Connections.Mds)
+	mdsadmin.SetRoleBinding(CTX_KAFKA, "Topic", "SKATARES", "User:arcanum", []string{"ResourceOwner"}, true, false)
 	NewReport(topicResults)
 }

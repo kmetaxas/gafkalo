@@ -11,11 +11,19 @@ import (
 	"strings"
 )
 
+type MDSConfig struct {
+	Url                     string `yaml:"url"`
+	User                    string `yaml:"username"`
+	Password                string `yaml:"password"`
+	SchemaRegistryClusterID string `yaml:"schema-registry-cluster-id"`
+	ConnectClusterId        string `yaml:"connect-cluster-id"`
+	KSQLClusterID           string `yaml:"ksql-cluster-id"`
+}
 type Configuration struct {
 	Connections struct {
 		Kafka          map[string]string `yaml:"kafka"`
 		Schemaregistry map[string]string `yaml:"schemaregistry"`
-		Mds            map[string]string `yaml:"mds"`
+		Mds            MDSConfig         `yaml:"mds"`
 	} `yaml:"connections"`
 	Kafkalo struct {
 		InputDirs []string `yaml:"input_dirs"`
