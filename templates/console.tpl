@@ -12,3 +12,7 @@ Topic {{ .Name }} Create/Updated. Configs:
 {{ end -}}
 {{ end -}}
 
+{{ range .Clients -}}
+{{ if $.IsPlan }}[PLAN]{{ end }}. Add role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}
+{{ end }}
+

@@ -221,8 +221,8 @@ func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
 	return respObj.Compatibility, nil
 }
 
-// Reconcile actual with desired schemas
-func (admin *SRAdmin) Reconcile(schema Schema, dryRun bool) *SchemaResult {
+// Reconcile actual with desired schema for a single schema
+func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult {
 	globalCompat, err := admin.GetCompatibilityGlobal()
 	existingID, existingVersion, err := admin.LookupSchema(schema)
 	if err != nil {
@@ -261,5 +261,24 @@ func (admin *SRAdmin) Reconcile(schema Schema, dryRun bool) *SchemaResult {
 		NewCompat:   newCompat,
 	}
 	return &result
+
+}
+
+// Get the list of topics and reconcile all subjects
+func (admin *SRAdmin) Reconcile(topics map[string]Topic, dryRun bool) []SchemaResult {
+	var schemaResults []SchemaResult
+	for _, topic := range topics {
+		if (Schema{} != topic.Value) {
+			res := admin.ReconcileSchema(topic.Value, false)
+			schemaResults = append(schemaResults, *res)
+		}
+		if (Schema{} != topic.Key) {
+			res := admin.ReconcileSchema(topic.Key, false)
+			schemaResults = append(schemaResults, *res)
+		}
+
+	}
+
+	return schemaResults
 
 }

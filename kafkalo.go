@@ -24,26 +24,13 @@ func main() {
 	//fmt.Printf("Created KafkaAdmin %s\n", kafkadmin)
 	_ = kafkadmin.ListTopics()
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, false, false)
-	sradmin := NewSRAdmin("http://localhost:8081", config.Connections.Schemaregistry["user"], config.Connections.Schemaregistry["password"])
-	//fmt.Printf("SubjectCache = %s\n", sradmin.SubjectCache)
-	for _, topic := range inputData.Topics {
-		if (Schema{} != topic.Value) {
-			sradmin.LookupSchema(topic.Value)
-			res := sradmin.Reconcile(topic.Value, false)
-			fmt.Printf("Reconcile result=%+vs\n", res)
-			//sradmin.RegisterSubject(topic.Value)
-			//curCompat, _ := sradmin.GetCompatibility(topic.Value)
-			//log.Printf("Compat for topic %s = %s", topic.Name, curCompat)
-			//sradmin.SetCompatibility(topic.Value, "FORWARD")
-		}
-		if (Schema{} != topic.Key) {
-			sradmin.LookupSchema(topic.Key)
-			sradmin.RegisterSubject(topic.Key)
-		}
-
-	}
+	sradmin := NewSRAdmin(config.Connections.Schemaregistry["url"], config.Connections.Schemaregistry["user"], config.Connections.Schemaregistry["password"])
+	schemaResults := sradmin.Reconcile(inputData.Topics, false)
 	// Do MDS
 	mdsadmin := NewMDSAdmin(config.Connections.Mds)
-	mdsadmin.SetRoleBinding(CTX_KAFKA, "Topic", "SKATARES", "User:arcanum", []string{"ResourceOwner"}, true, false)
-	NewReport(topicResults)
+	//_ = mdsadmin.SetRoleBinding(CTX_KAFKA, "Topic", "SKATARES", "User:arcanum", []string{"ResourceOwner"}, true, false)
+	//roles := mdsadmin.getRoleBindingsForPrincipal("User:poutanaola")
+	roleResults := mdsadmin.Reconcile(inputData.Clients, false)
+	fmt.Printf("Roles for USer = %+vs\n", roleResults)
+	NewReport(topicResults, schemaResults, roleResults, false)
 }

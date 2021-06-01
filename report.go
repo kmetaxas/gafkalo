@@ -8,10 +8,13 @@ import (
 	"text/template"
 )
 
-func NewReport(topicResults []TopicResult) {
+func NewReport(topicResults []TopicResult, schemaResults []SchemaResult, clientResults []ClientResult, isPlan bool) {
 
 	var context Results
 	context.Topics = topicResults
+	context.Schemas = schemaResults
+	context.Clients = clientResults
+	context.IsPlan = isPlan
 
 	tmplData, err := ioutil.ReadFile("templates/console.tpl")
 	if err != nil {

@@ -26,6 +26,8 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 		}
 		state.Topics[topic.Name] = topic
 	}
+	// WE don't do any deduplication for clients... maybe we should?
+	state.Clients = data.Clients
 	return nil
 }
 func Parse(inputFiles []string) DesiredState {

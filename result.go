@@ -7,6 +7,7 @@ import (
 type Results struct {
 	Topics  []TopicResult
 	Schemas []SchemaResult
+	Clients []ClientResult
 	IsPlan  bool
 }
 
@@ -27,6 +28,14 @@ type SchemaResult struct {
 	SubjectName string
 	Changed     bool   // Will be true of subject was created or updated
 	NewCompat   string // Will be set if compatibility changed for this Subjec
+}
+
+type ClientResult struct {
+	Principal    string
+	ResourceType string
+	ResourceName string
+	Role         string
+	PatternType  string // LITERAL Or PREFIXED
 }
 
 func TopicResultFromTopic(topic Topic) TopicResult {
