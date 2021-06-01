@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/Shopify/sarama v1.29.0 // indirect
+	github.com/alecthomas/kong v0.2.16 // indirect
 	github.com/go-delve/delve v1.6.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
