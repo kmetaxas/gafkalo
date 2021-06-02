@@ -95,7 +95,7 @@ func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
 			}
 		}
 	}
-	return nil
+	return diff
 }
 
 // Test if a Topic's config need updating

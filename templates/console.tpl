@@ -6,7 +6,7 @@
   - {{ . }} 
   {{ end -}} 
 {{ else -}}
-{{ if $.IsPlan }}[Plan] Will create {{ else }} Created {{ end }} Topic {{ .Name }} Create/Updated. Non-default configs:
+{{ if $.IsPlan }}[Plan] Will {{if .IsNew}}Create{{else}}Update{{end}} {{ else }} {{if .IsNew}}Created{{else}}Update{{end}} {{ end }} Topic {{ .Name }}.  Non-default configs:
   {{- range .ChangedConfigs }} 
   - Config {{ .Name }} changed from {{ .OldVal }} to {{ .NewVal }}
   {{- end }} 
