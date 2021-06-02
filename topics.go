@@ -90,7 +90,7 @@ func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
 	var diff []string
 	for name, newVal := range newTopic.Configs {
 		if oldVal, exists := oldTopic.ConfigEntries[name]; exists {
-			if newVal != oldVal {
+			if *newVal != *oldVal {
 				diff = append(diff, name)
 			}
 		}
