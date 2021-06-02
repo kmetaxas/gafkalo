@@ -11,6 +11,14 @@ Topic {{ .Name }} Create/Updated. Configs:
   {{- end }} 
 {{ end -}}
 {{ end -}}
+{{- /* Schemas */ -}}
+{{ range .Schemas -}}
+{{ if .Changed -}} 
+   {{ if $.IsPlan -}} [PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
+   {{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}{{ end}}
+   {{- end }}
+  {{ end }}
+{{ end }}
 
 {{ range .Clients -}}
 {{ if $.IsPlan }}[PLAN]{{ end }}. Add role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}

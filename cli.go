@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 )
 
@@ -23,7 +22,6 @@ var CLI struct {
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
-	fmt.Printf("Running ApplyCmd%+vs\n", cmd)
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
@@ -31,7 +29,6 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	return nil
 }
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
-	fmt.Printf("Running PlanCmd %+vs\n", cmd)
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
@@ -59,12 +56,11 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin) {
 	return kafkadmin, sradmin, *mdsadmin
 }
 func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, inputData *DesiredState, dryRun bool) {
-	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, false, false)
-	schemaResults := sradmin.Reconcile(inputData.Topics, false)
+	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
+	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	//_ = mdsadmin.SetRoleBinding(CTX_KAFKA, "Topic", "SKATARES", "User:arcanum", []string{"ResourceOwner"}, true, false)
 	//roles := mdsadmin.getRoleBindingsForPrincipal("User:poutanaola")
-	roleResults := mdsadmin.Reconcile(inputData.Clients, false)
-	fmt.Printf("Roles for USer = %+vs\n", roleResults)
-	NewReport(topicResults, schemaResults, roleResults, false)
+	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
+	NewReport(topicResults, schemaResults, roleResults, dryRun)
 }

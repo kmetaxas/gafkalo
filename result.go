@@ -26,6 +26,7 @@ type TopicResult struct {
 
 type SchemaResult struct {
 	SubjectName string
+	NewVersion  int    // New Version registered
 	Changed     bool   // Will be true of subject was created or updated
 	NewCompat   string // Will be set if compatibility changed for this Subjec
 }

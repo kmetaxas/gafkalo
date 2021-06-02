@@ -116,7 +116,9 @@ func getTopicDiff(oldTopic sarama.TopicDetail, newTopic Topic) *TopicResult {
 }
 
 // Reconcile actual with desired state
-func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool, strict bool) []TopicResult {
+func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
+
+	validateOnly := !dry_run // Switch the logic to make reading clear
 	// TODO
 	// 1. Find the difference in existing, desired topics (to add, to drop)
 	//   - Find the new names to only create those
@@ -141,7 +143,8 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool, s
 		topicRes := TopicResultFromTopic(topic)
 		topicRes.IsNew = true
 		detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
-		err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
+		log.Printf("CreateTopic called with %s, %+vs, %t\n", topic.Name, detail, validateOnly)
+		err := admin.AdminClient.CreateTopic(topic.Name, &detail, validateOnly)
 		if err != nil {
 			log.Printf("Creating topic failed with: %s\n", err)
 			topicRes.Errors = append(topicRes.Errors, err.Error())
@@ -154,7 +157,7 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool, s
 		topicRes.FillFromOldTopic(existing_topics[topicName])
 		// TODO skip topics we just created
 		// TODO skip topics that failed creation
-		err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
+		err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, validateOnly)
 		if err != nil {
 			log.Printf("Updating configs failed with: %s\n", err)
 			topicRes.Errors = append(topicRes.Errors, err.Error())

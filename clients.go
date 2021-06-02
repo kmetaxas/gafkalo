@@ -243,16 +243,20 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, prefixed bo
 		subjects = []string{topic}
 	}
 	res = append(res, ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperRead", PatternType: admin.getPrefixStr(prefixed)})
-	err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperRead"}, prefixed, dryRun)
-	if err != nil {
-		return res, err
+	if !dryRun {
+		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperRead"}, prefixed, dryRun)
+		if err != nil {
+			return res, err
+		}
 	}
 	// Set DeveloperRead on subject value
 	for _, subject := range subjects {
 		res = append(res, ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "DeveloperRead", PatternType: admin.getPrefixStr(prefixed)})
-		err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, []string{"DeveloperRead"}, prefixed, dryRun)
-		if err != nil {
-			return res, err
+		if !dryRun {
+			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, []string{"DeveloperRead"}, prefixed, dryRun)
+			if err != nil {
+				return res, err
+			}
 		}
 	}
 	return res, nil
@@ -274,18 +278,22 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, prefixed bo
 		srRoles = append(srRoles, "DeveloperWrite")
 	}
 	res = append(res, ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperWrite", PatternType: admin.getPrefixStr(prefixed)})
-	err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperWrite"}, prefixed, dryRun)
-	if err != nil {
-		return res, err
+	if !dryRun {
+		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperWrite"}, prefixed, dryRun)
+		if err != nil {
+			return res, err
+		}
 	}
 	for _, subject := range subjects {
 		// Set DeveloperRead on subject value
 		for _, sRole := range srRoles {
 			res = append(res, ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: admin.getPrefixStr(prefixed)})
 		}
-		err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, srRoles, prefixed, dryRun)
-		if err != nil {
-			return res, err
+		if !dryRun {
+			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, srRoles, prefixed, dryRun)
+			if err != nil {
+				return res, err
+			}
 		}
 	}
 
@@ -325,6 +333,10 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, prefix
 func (admin *MDSAdmin) Reconcile(clients []Client, dryRun bool) []ClientResult {
 	var clientResults []ClientResult
 	for _, client := range clients {
+		// TODO get existingroles and skip if already applied
+		//existingRoles := admin.getRoleBindingsForPrincipal(client.Principal)
+		//fmt.Printf("ExistingRoles: %s\n", existingRoles)
+
 		for _, consumerRole := range client.ConsumerFor {
 			clientRes, err := admin.doConsumerFor(consumerRole.Topic, client.Principal, consumerRole.Prefixed, dryRun)
 			if err != nil {

@@ -47,8 +47,6 @@ func (s *Schema) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal(&raw); err != nil {
 		return err
 	}
-	//fmt.Printf("------- Unmarshaling %s\n", raw)
-	//fmt.Printf("-------SchemaType=%s Compatib:%s \n", raw.SchemaType, raw.Compatibility)
 	var err error
 	*s, err = CreateSchema(raw.SubjectName, raw.SchemaPath, raw.Compatibility, raw.SchemaType)
 	if err != nil {
@@ -82,16 +80,14 @@ func NewSRAdmin(url string, username string, password string) SRAdmin {
 	return sradmin
 }
 
-func (admin *SRAdmin) RegisterSubject(schema Schema) error {
+func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
 
 	// Create a value subject (isKey = false)
-	fmt.Printf("++Trying to create Schema: %s...", schema.SubjectName)
-	_, err := admin.Client.CreateSchemaWithArbitrarySubject(schema.SubjectName, schema.SchemaData, schema.SchemaType)
+	newSchema, err := admin.Client.CreateSchemaWithArbitrarySubject(schema.SubjectName, schema.SchemaData, schema.SchemaType)
 	if err != nil {
-		log.Fatalf("FAILED:: %s\n", err)
+		return 0, err
 	}
-	fmt.Printf("DONE!\n")
-	return nil
+	return newSchema.Version(), nil
 }
 
 func (admin *SRAdmin) IsRegistered(schema Schema) error {
@@ -223,6 +219,9 @@ func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
 
 // Reconcile actual with desired schema for a single schema
 func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult {
+	result := SchemaResult{
+		SubjectName: schema.SubjectName,
+	}
 	globalCompat, err := admin.GetCompatibilityGlobal()
 	existingID, existingVersion, err := admin.LookupSchema(schema)
 	if err != nil {
@@ -246,7 +245,13 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		mustRegister = true // Must register new schema
 	}
 	if mustRegister {
-		admin.RegisterSubject(schema)
+		if !dryRun {
+			newVersion, err := admin.RegisterSubject(schema)
+			if err != nil {
+				log.Fatal(err)
+			}
+			result.NewVersion = newVersion
+		}
 	}
 	// --- compat
 	var newCompat string = ""
@@ -255,11 +260,8 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		admin.SetCompatibility(schema, schema.Compatibility)
 		newCompat = schema.Compatibility
 	}
-	result := SchemaResult{
-		SubjectName: schema.SubjectName,
-		Changed:     mustRegister,
-		NewCompat:   newCompat,
-	}
+	result.NewCompat = newCompat
+	result.Changed = mustRegister
 	return &result
 
 }
@@ -269,11 +271,11 @@ func (admin *SRAdmin) Reconcile(topics map[string]Topic, dryRun bool) []SchemaRe
 	var schemaResults []SchemaResult
 	for _, topic := range topics {
 		if (Schema{} != topic.Value) {
-			res := admin.ReconcileSchema(topic.Value, false)
+			res := admin.ReconcileSchema(topic.Value, dryRun)
 			schemaResults = append(schemaResults, *res)
 		}
 		if (Schema{} != topic.Key) {
-			res := admin.ReconcileSchema(topic.Key, false)
+			res := admin.ReconcileSchema(topic.Key, dryRun)
 			schemaResults = append(schemaResults, *res)
 		}
 
