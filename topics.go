@@ -131,9 +131,13 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 
 	// Get topics which are to be created
 	var topicResults []TopicResult
-
 	existing_topics := admin.ListTopics()
+	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
 	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	// Initialize newTopicsStatus to false
+	for _, name := range newTopics {
+		newTopicsStatus[name] = false
+	}
 
 	fmt.Printf("We need to create the topics: %s\n", newTopics)
 	// Create new topics
@@ -146,21 +150,25 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 		if err != nil {
 			log.Printf("Creating topic failed with: %s\n", err)
 			topicRes.Errors = append(topicRes.Errors, err.Error())
+			newTopicsStatus[topicName] = false
 		}
 		topicResults = append(topicResults, topicRes)
+		newTopicsStatus[topicName] = true
 	}
 	// Alter configs
 	for topicName, topic := range topics {
 		topicRes := TopicResultFromTopic(topic)
 		topicRes.FillFromOldTopic(existing_topics[topicName])
-		// TODO skip topics we just created
-		// TODO skip topics that failed creation
-		err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
-		if err != nil {
-			log.Printf("Updating configs failed with: %s\n", err)
-			topicRes.Errors = append(topicRes.Errors, err.Error())
+		// skip topics we just created or topics that failed creation. So all new ones
+		_, isNew := newTopicsStatus[topicName]
+		if !isNew {
+			err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
+			if err != nil {
+				log.Printf("Updating configs failed with: %s\n", err)
+				topicRes.Errors = append(topicRes.Errors, err.Error())
+			}
+			topicResults = append(topicResults, topicRes)
 		}
-		topicResults = append(topicResults, topicRes)
 	}
 	return topicResults
 }
