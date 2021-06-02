@@ -25,14 +25,14 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, true)
+	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, false)
 	return nil
 }
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, false)
+	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, true)
 	return nil
 }
 func LoadConfig(config string) Configuration {
