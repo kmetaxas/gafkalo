@@ -74,6 +74,10 @@ func (tr *TopicResult) ChangedConfigs() []ChangedConfig {
 		} else {
 			oldVal = *oldValP
 		}
+		// We only care about changed conf values
+		if *confVal == oldVal {
+			continue
+		}
 		changedConf := ChangedConfig{
 			Name:   confName,
 			NewVal: *confVal,
