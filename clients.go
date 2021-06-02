@@ -30,6 +30,15 @@ type Client struct {
 	Groups           []ClientGroupRole `yaml:"groups"`
 }
 
+func mergeClients(target Client, source Client) Client {
+	target.ConsumerFor = append(target.ConsumerFor, source.ConsumerFor...)
+	target.ProducerFor = append(target.ProducerFor, source.ProducerFor...)
+	target.ResourceownerFor = append(target.ResourceownerFor, source.ResourceownerFor...)
+	target.Groups = append(target.Groups, source.Groups...)
+	return target
+
+}
+
 type MDSAdmin struct {
 	User                    string
 	Password                string
@@ -234,7 +243,6 @@ func (admin *MDSAdmin) getRoleBindingsForPrincipal(principal string) MDSRolebind
 func (admin *MDSAdmin) doConsumerFor(topic string, principal string, prefixed bool, dryRun bool) ([]ClientResult, error) {
 	var res []ClientResult
 	var err error
-	// TODO construct ClientResult
 	var subjects []string
 	if !prefixed {
 		subjects = []string{fmt.Sprintf("%s-value", topic), fmt.Sprintf("%s-key", topic)}
@@ -264,7 +272,6 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, prefixed bo
 func (admin *MDSAdmin) doProducerFor(topic string, principal string, prefixed bool, strict bool, dryRun bool) ([]ClientResult, error) {
 	var res []ClientResult
 	var err error
-	// TODO construct ClientResult
 	// Default role for SR is Read but if strict=false then add Write
 	srRoles := []string{"DeveloperRead"}
 	var subjects []string
@@ -306,7 +313,6 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, prefix
 	var err error
 	roles := []string{"ResourceOwner"}
 	var subjects []string
-	// TODO construct ClientResult
 	if !prefixed {
 		subjects = []string{fmt.Sprintf("%s-value", topic), fmt.Sprintf("%s-key", topic)}
 	} else {
@@ -330,7 +336,7 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, prefix
 	return res, nil
 
 }
-func (admin *MDSAdmin) Reconcile(clients []Client, dryRun bool) []ClientResult {
+func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []ClientResult {
 	var clientResults []ClientResult
 	for _, client := range clients {
 		// TODO get existingroles and skip if already applied

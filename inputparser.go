@@ -10,7 +10,7 @@ import (
 // It a merge of all individual input files
 type DesiredState struct {
 	Topics  map[string]Topic
-	Clients []Client
+	Clients map[string]Client
 }
 
 type InputYaml struct {
@@ -26,12 +26,19 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 		}
 		state.Topics[topic.Name] = topic
 	}
-	// WE don't do any deduplication for clients... maybe we should?
-	state.Clients = data.Clients
+	// We don't do deduplication fore clients because its normal to have multiple definitions. We merge the rules in one big object for each principal
+	for _, client := range data.Clients {
+		if _, exists := state.Clients[client.Principal]; exists {
+			state.Clients[client.Principal] = mergeClients(state.Clients[client.Principal], client)
+
+		} else {
+			state.Clients[client.Principal] = client
+		}
+	}
 	return nil
 }
 func Parse(inputFiles []string) DesiredState {
-	var desiredState = DesiredState{Topics: make(map[string]Topic), Clients: make([]Client, 20)}
+	var desiredState = DesiredState{Topics: make(map[string]Topic), Clients: make(map[string]Client, 20)}
 	for _, filename := range inputFiles {
 		data, err := ioutil.ReadFile(filename)
 		if err != nil {

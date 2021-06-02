@@ -118,17 +118,6 @@ func getTopicDiff(oldTopic sarama.TopicDetail, newTopic Topic) *TopicResult {
 // Reconcile actual with desired state
 func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
 
-	// TODO
-	// 1. Find the difference in existing, desired topics (to add, to drop)
-	//   - Find the new names to only create those
-	//   - Call the create topics in kafka, and get the success/error
-	//   - Add create/failed topic to TopicResult array
-	// 2 Alter configs
-	//   - Filter out topics created in previous step (sarama does configs in one Call)
-	//   - Find the topic names with changed configs.
-	//   - Call AlterConfigs for this names.
-	//   - Call DescribeConfig (or describeTopic)  for the same names and create a TopicResult by comparing the desired vs described results
-
 	// Get topics which are to be created
 	var topicResults []TopicResult
 	existing_topics := admin.ListTopics()
