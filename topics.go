@@ -85,10 +85,26 @@ func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-// Compare two topic definitions and return a f
-func getTopicConfigDiff(newTopic Topic, oldTopic Topic) map[string]string {
-
+// Compare two topic definitions of newTopic with oldTopic and give back a list of configs that are different from new to old
+func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
+	var diff []string
+	for name, newVal := range newTopic.Configs {
+		if oldVal, exists := oldTopic.ConfigEntries[name]; exists {
+			if newVal != oldVal {
+				diff = append(diff, name)
+			}
+		}
+	}
 	return nil
+}
+
+// Test if a Topic's config need updating
+func topicConfigNeedsUpdate(topic Topic, existing sarama.TopicDetail) bool {
+	diff := getTopicConfigDiff(topic, existing)
+	if len(diff) > 0 {
+		return true
+	}
+	return false
 }
 
 // Compare the topic names and give back a list of string on which topics are new and need to be created
@@ -151,13 +167,17 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 		// skip topics we just created or topics that failed creation. So all new ones
 		_, isNew := newTopicsStatus[topicName]
 		if !isNew {
-			err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
-			if err != nil {
-				log.Printf("Updating configs failed with: %s\n", err)
-				topicRes.Errors = append(topicRes.Errors, err.Error())
+			if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
+				err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
+				if err != nil {
+					log.Printf("Updating configs failed with: %s\n", err)
+					topicRes.Errors = append(topicRes.Errors, err.Error())
+				}
+				topicRes.NewConfigs = topic.Configs
+				topicResults = append(topicResults, topicRes)
 			}
-			topicResults = append(topicResults, topicRes)
 		}
 	}
+	// TODO we currently don't update partitions or replicationFactor for existing topics. Fix that
 	return topicResults
 }
