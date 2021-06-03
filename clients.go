@@ -287,6 +287,8 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, prefixed bo
 		if err != nil {
 			return res, err
 		}
+	}
+	if !admin.roleExists(newRole, existingRoles) {
 		res = append(res, newRole)
 	}
 	// Set DeveloperRead on subject value
@@ -297,6 +299,8 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, prefixed bo
 			if err != nil {
 				return res, err
 			}
+		}
+		if !admin.roleExists(newRole, existingRoles) {
 			res = append(res, newRole)
 		}
 	}
@@ -324,6 +328,8 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, prefixed bo
 		if err != nil {
 			return res, err
 		}
+	}
+	if !admin.roleExists(newRole, existingRoles) {
 		res = append(res, newRole)
 	}
 	for _, subject := range subjects {
@@ -336,6 +342,8 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, prefixed bo
 			if err != nil {
 				return res, err
 			}
+		}
+		if !admin.roleExists(newRole, existingRoles) {
 			res = append(res, newRole)
 		}
 	}
@@ -361,8 +369,11 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, prefix
 
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, roles, prefixed, dryRun)
+	}
+	if !admin.roleExists(newRole, existingRoles) {
 		res = append(res, newRole)
 	}
+
 	if err != nil {
 		return res, err
 	}
@@ -371,6 +382,8 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, prefix
 
 		if !dryRun && !admin.roleExists(newRole, existingRoles) {
 			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, roles, prefixed, dryRun)
+		}
+		if !admin.roleExists(newRole, existingRoles) {
 			res = append(res, newRole)
 		}
 		if err != nil {
