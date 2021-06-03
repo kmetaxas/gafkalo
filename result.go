@@ -15,7 +15,8 @@ type TopicResult struct {
 	Name                 string
 	NewPartitions        int32 // can be compared with OldPartitions to see if changed
 	OldPartitions        int32
-	NewReplicationFactor int16 // Can be compared with OldReplicationFactor to see if changed
+	ReplicaPlan          [][]int32 // Filled in if partitions changed or replicationfactor changed. Represents the new replica assignment plan
+	NewReplicationFactor int16     // Can be compared with OldReplicationFactor to see if changed
 	OldReplicationFactor int16
 	NewConfigs           map[string]*string // Contains only 'changed' configs (all of new topic)
 	OldConfigs           map[string]*string // Old configs. Can be compared with NewConfigs.
@@ -95,4 +96,10 @@ func (tr *TopicResult) HasErrors() bool {
 	} else {
 		return false
 	}
+}
+func (tr *TopicResult) PartitionsChanged() bool {
+	if (tr.NewPartitions != tr.OldPartitions) && !tr.IsNew {
+		return true
+	}
+	return false
 }

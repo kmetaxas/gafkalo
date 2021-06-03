@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"log"
+	"math/rand"
 )
 
 type Topic struct {
@@ -107,6 +109,13 @@ func topicConfigNeedsUpdate(topic Topic, existing sarama.TopicDetail) bool {
 	return false
 }
 
+func topicPartitionNeedUpdate(topic Topic, existing sarama.TopicDetail) bool {
+	if topic.Partitions != existing.NumPartitions {
+		return true
+	}
+	return false
+}
+
 // Compare the topic names and give back a list of string on which topics are new and need to be created
 func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[string]Topic) []string {
 	var newNames []string
@@ -131,8 +140,94 @@ func getTopicDiff(oldTopic sarama.TopicDetail, newTopic Topic) *TopicResult {
 	return topicDiff
 }
 
+// Changes the partition count. Automatically calculates a re-assignment plan.
+// Returns the new plan
+func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replicationFactor int16, dry_run bool) ([][]int32, error) {
+	var numBrokers int
+	topicMetadata, err := admin.AdminClient.DescribeTopics([]string{topic})
+	if err != nil {
+		return nil, err
+	}
+	brokers, _, err := admin.AdminClient.DescribeCluster()
+	numBrokers = len(brokers)
+	if err != nil {
+		return nil, err
+	}
+	var oldPlan [][]int32
+	for _, partition := range topicMetadata[0].Partitions {
+		oldPlan = append(oldPlan, partition.Replicas)
+	}
+	if len(oldPlan) > int(count) {
+		return nil, errors.New("Decreasing partition number is not possible in Kafka")
+	}
+	newPlan, err := calculatePartitionPlan(int32(int(count)-len(oldPlan)), numBrokers, replicationFactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	if !dry_run {
+		err = admin.AdminClient.CreatePartitions(topic, count, newPlan, false)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newPlan, nil
+}
+
+/// Generate a new partitioning plan. If oldPlan is provided then respect that.
+// if oldPlan is nil then it creates a plan for the requested count.
+// if count == len(oldPlan) then a new plan is created (respecting oldPlan if possible). This is typicaly to modify replication factor
+// If count != len(oldPlan) That is an error
+func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16, oldPlan [][]int32) ([][]int32, error) {
+	var newPlan [][]int32
+	if oldPlan != nil && int(count) != len(oldPlan) {
+		return newPlan, errors.New(fmt.Sprintf("Can't calculate partition plan as count %d != length of old plan (%d)", count, len(oldPlan)))
+	}
+	// Generate
+	if oldPlan == nil {
+		for i := 0; i < (int(count) - len(oldPlan)); i++ {
+			var replicas []int32
+			for b := 0; b < numBrokers; b++ {
+				replicas = append(replicas, int32(rand.Intn(int(numBrokers))))
+			}
+			newPlan = append(newPlan, []int32{0})
+		}
+	} else {
+		for _, part := range oldPlan {
+			var newParts []int32
+			switch curLen := int16(len(part)); {
+			case curLen == replicationFactor:
+				newParts = part[:replicationFactor]
+			case curLen < replicationFactor:
+				newParts = part
+			case curLen > replicationFactor:
+				{
+					var brokerIsTaken map[int32]bool
+					for _, taken := range part {
+						brokerIsTaken[taken] = true
+					}
+					for i := 0; i < numBrokers; i++ {
+						brokerIsTaken[int32(i)] = true
+					}
+					var availableSet []int32
+					for i := 0; i < numBrokers; i++ {
+						if taken := brokerIsTaken[int32(i)]; !taken {
+							availableSet = append(availableSet, int32(i))
+						}
+					}
+					rand.Shuffle(len(availableSet), func(i, j int) {
+						availableSet[i], availableSet[j] = availableSet[j], availableSet[i]
+					})
+					newParts = append(part, availableSet[:int(replicationFactor-int16(len(part)))]...)
+				}
+			}
+			newPlan = append(newPlan, newParts)
+		}
+	}
+	return newPlan, nil
+}
+
 // Reconcile actual with desired state
-func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
+func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
 
 	// Get topics which are to be created
 	var topicResults []TopicResult
@@ -144,7 +239,6 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 		newTopicsStatus[name] = false
 	}
 
-	fmt.Printf("We need to create the topics: %s\n", newTopics)
 	// Create new topics
 	for _, topicName := range newTopics {
 		topic := topics[topicName]
@@ -153,7 +247,6 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 		detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
 		err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
 		if err != nil {
-			log.Printf("Creating topic failed with: %s\n", err)
 			topicRes.Errors = append(topicRes.Errors, err.Error())
 			newTopicsStatus[topicName] = false
 		}
@@ -170,14 +263,24 @@ func (admin KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) [
 			if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
 				err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
 				if err != nil {
-					log.Printf("Updating configs failed with: %s\n", err)
 					topicRes.Errors = append(topicRes.Errors, err.Error())
 				}
 				topicRes.NewConfigs = topic.Configs
 				topicResults = append(topicResults, topicRes)
 			}
+			if topicPartitionNeedUpdate(topic, existing_topics[topicName]) {
+				newPlan, err := admin.ChangePartitionCount(topicName, topic.Partitions, topic.ReplicationFactor, dry_run)
+				if err != nil {
+					topicRes.Errors = append(topicRes.Errors, err.Error())
+				}
+				topicRes.NewPartitions = topic.Partitions
+				topicRes.OldPartitions = existing_topics[topicName].NumPartitions
+				topicRes.ReplicaPlan = newPlan
+
+				topicResults = append(topicResults, topicRes)
+			}
 		}
 	}
-	// TODO we currently don't update partitions or replicationFactor for existing topics. Fix that
+	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }
