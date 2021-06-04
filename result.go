@@ -88,6 +88,12 @@ func (tr *TopicResult) ChangedConfigs() []ChangedConfig {
 	}
 	return res
 }
+func (tr *TopicResult) HasChangedConfigs() bool {
+	if len(tr.ChangedConfigs()) > 0 {
+		return true
+	}
+	return false
+}
 
 // Does the TopicResult have errors
 func (tr *TopicResult) HasErrors() bool {
