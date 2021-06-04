@@ -59,8 +59,6 @@ func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, inputDa
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
-	//_ = mdsadmin.SetRoleBinding(CTX_KAFKA, "Topic", "SKATARES", "User:arcanum", []string{"ResourceOwner"}, true, false)
-	//roles := mdsadmin.getRoleBindingsForPrincipal("User:poutanaola")
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
 	NewReport(topicResults, schemaResults, roleResults, dryRun)
 }
