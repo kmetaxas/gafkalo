@@ -74,13 +74,13 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
 		config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
+		config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
 		if conf.Krb5.Keytab != "" {
 			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
 			config.Net.SASL.GSSAPI.KeyTabPath = conf.Krb5.Keytab
 
 		} else {
 			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
-			config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
 			config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
 		}
 		if conf.Krb5.ServiceName == "" {
