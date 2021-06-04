@@ -2,11 +2,14 @@ package main
 
 import (
 	//"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"text/template"
 )
+import _ "embed"
+
+//go:embed templates/console.tpl
+var consoleTmplData string
 
 func NewReport(topicResults []TopicResult, schemaResults []SchemaResult, clientResults []ClientResult, isPlan bool) {
 
@@ -16,12 +19,8 @@ func NewReport(topicResults []TopicResult, schemaResults []SchemaResult, clientR
 	context.Clients = clientResults
 	context.IsPlan = isPlan
 
-	tmplData, err := ioutil.ReadFile("templates/console.tpl")
-	if err != nil {
-		log.Fatal(err)
-	}
-	tmpl := template.Must(template.New("console").Parse(string(tmplData)))
-	err = tmpl.Execute(os.Stdout, context)
+	tmpl := template.Must(template.New("console").Parse(consoleTmplData))
+	err := tmpl.Execute(os.Stdout, context)
 	if err != nil {
 		log.Fatal(err)
 	}
