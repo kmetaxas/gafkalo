@@ -1,4 +1,4 @@
-module code.metaxas.gr/arcanum/gafkalo
+module github.com/kmetaxas/gafkalo
 
 go 1.16
 
