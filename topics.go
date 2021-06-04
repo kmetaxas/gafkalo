@@ -1,11 +1,15 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"os"
 )
 
 type Topic struct {
@@ -29,6 +33,7 @@ type TopicPlan struct {
 		After  string
 	}
 }
+
 type KafkaAdmin struct {
 	AdminClient sarama.ClusterAdmin
 	Consumer    string
@@ -37,15 +42,60 @@ type KafkaAdmin struct {
 	DryRunPlan  []TopicPlan
 }
 
-func NewKafkaAdmin() KafkaAdmin {
+func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
+	// Get system Cert Pool
+	config := &tls.Config{}
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	pem, err := ioutil.ReadFile(CAPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
+		log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+	}
+	config.RootCAs = rootCAs
+	config.InsecureSkipVerify = SkipVerify
+	return config
+
+}
+func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
-	brokers := []string{"localhost:9093"}
+
 	config := sarama.NewConfig()
 	config.Metadata.Full = true
-	config.Net.TLS.Enable = false
+	config.Net.TLS.Enable = conf.SSL.Enabled
+	if conf.Krb5.Enabled {
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
+		config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
+		config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
+		config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
 
-	saramaAdmin, err := sarama.NewClusterAdmin(brokers, config)
+		config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
+		if conf.Krb5.ServiceName == "" {
+			config.Net.SASL.GSSAPI.ServiceName = "kafka"
+		} else {
+			config.Net.SASL.GSSAPI.ServiceName = conf.Krb5.ServiceName
+		}
+		if conf.Krb5.KerberosConfigPath == "" {
+			config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
+		} else {
+			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
+		}
+	}
+	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
+		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
+		config.Net.TLS.Config = tlsConfig
+	}
+
+	saramaAdmin, err := sarama.NewClusterAdmin(conf.Brokers, config)
 	if err != nil {
 		log.Fatalf("Failed to create adminclient with: %s\n", err)
 	}

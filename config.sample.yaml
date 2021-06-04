@@ -1,0 +1,30 @@
+# Configs to reach out all API endpoints
+connections:
+  kafka:
+    # look at librdkafka docs
+    bootstrapBrokers: ["localhost:9093"]
+    ssl:
+      enabled: false
+      caPath: "/path/to/ca.crt"
+    kerberos:
+      enabled: true
+      serviceName: "kafka"
+      realm: "EXAMPLE.COM"
+      username: "userame"
+      password: "password"
+  schemaregistry:
+    url: "http://localhost:8081"
+    user: "user"
+    password: "password!"
+  mds:
+    url: "http://localhost:8090"
+    username: "username"
+    password: "password"
+    schema-registry-cluster-id: "schemaregistry"
+
+# App specific configs
+kafkalo:
+  input_dirs:
+    - "data/*"
+    - "data/team2.yaml"
+

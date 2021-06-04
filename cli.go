@@ -50,7 +50,7 @@ func GetInputData(config Configuration) DesiredState {
 }
 
 func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin) {
-	kafkadmin := NewKafkaAdmin()
+	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	sradmin := NewSRAdmin(config.Connections.Schemaregistry["url"], config.Connections.Schemaregistry["user"], config.Connections.Schemaregistry["password"])
 	mdsadmin := NewMDSAdmin(config.Connections.Mds)
 	return kafkadmin, sradmin, *mdsadmin

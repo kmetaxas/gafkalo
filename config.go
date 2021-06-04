@@ -11,6 +11,22 @@ import (
 	"strings"
 )
 
+type KafkaConfig struct {
+	Brokers []string `yaml:"bootstrapBrokers"`
+	SSL     struct {
+		Enabled    bool   `yaml:"enabled"`
+		CA         string `yaml:"caPath"`
+		SkipVerify bool   `yaml:"skipVerify"`
+	} `yaml:"ssl"`
+	Krb5 struct {
+		Enabled            bool   `yaml:"enabled"`
+		ServiceName        string `yaml:"serviceName"`
+		Realm              string `yaml:"realm"`
+		Username           string `yaml:"username"`
+		Password           string `yaml:"password"`
+		KerberosConfigPath string `yaml:"krb5Path"`
+	} `yaml:"kerberos"`
+}
 type MDSConfig struct {
 	Url                     string `yaml:"url"`
 	User                    string `yaml:"username"`
@@ -21,7 +37,7 @@ type MDSConfig struct {
 }
 type Configuration struct {
 	Connections struct {
-		Kafka          map[string]string `yaml:"kafka"`
+		Kafka          KafkaConfig       `yaml:"kafka"`
 		Schemaregistry map[string]string `yaml:"schemaregistry"`
 		Mds            MDSConfig         `yaml:"mds"`
 	} `yaml:"connections"`
