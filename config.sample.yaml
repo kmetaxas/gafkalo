@@ -8,6 +8,7 @@ connections:
       caPath: "/path/to/ca.crt"
     kerberos:
       enabled: true
+      keytab: "path_to.key" # Will disable user auth if specified
       serviceName: "kafka"
       realm: "EXAMPLE.COM"
       username: "userame"

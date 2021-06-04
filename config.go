@@ -20,6 +20,7 @@ type KafkaConfig struct {
 	} `yaml:"ssl"`
 	Krb5 struct {
 		Enabled            bool   `yaml:"enabled"`
+		Keytab             string `yaml:"keytab"`
 		ServiceName        string `yaml:"serviceName"`
 		Realm              string `yaml:"realm"`
 		Username           string `yaml:"username"`
