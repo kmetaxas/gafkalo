@@ -139,7 +139,7 @@ func (admin *MDSAdmin) SetRoleBinding(context int, res_type string, res_name str
 		ResourceType: res_type,
 		Name:         res_name,
 	}
-	resPattern.PatternType = admin.getPrefixStr(isLiteral)
+	resPattern.PatternType = getPrefixStr(isLiteral)
 	reqData.ResourcePatterns = append(reqData.ResourcePatterns, resPattern)
 	// Now should be read to do the POST
 	for _, role := range roles {
@@ -226,7 +226,7 @@ func (admin *MDSAdmin) getRoleBindingsForPrincipalContext(principal string, cont
 
 }
 
-func (admin *MDSAdmin) getPrefixStr(isLiteral bool) string {
+func getPrefixStr(isLiteral bool) string {
 	var rval string
 	if !isLiteral {
 		rval = "PREFIXED"
@@ -288,7 +288,7 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, isLiteral b
 	} else {
 		subjects = []string{topic}
 	}
-	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperRead", PatternType: admin.getPrefixStr(isLiteral)}
+	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperRead", PatternType: getPrefixStr(isLiteral)}
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperRead"}, isLiteral, dryRun)
 		if err != nil {
@@ -300,7 +300,7 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, isLiteral b
 	}
 	// Set DeveloperRead on subject value
 	for _, subject := range subjects {
-		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "DeveloperRead", PatternType: admin.getPrefixStr(isLiteral)}
+		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "DeveloperRead", PatternType: getPrefixStr(isLiteral)}
 		if !dryRun && !admin.roleExists(newRole, existingRoles) {
 			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, []string{"DeveloperRead"}, isLiteral, dryRun)
 			if err != nil {
@@ -329,7 +329,7 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 	if !strict {
 		srRoles = append(srRoles, "DeveloperWrite")
 	}
-	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperWrite", PatternType: admin.getPrefixStr(isLiteral)}
+	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperWrite", PatternType: getPrefixStr(isLiteral)}
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperWrite"}, isLiteral, dryRun)
 		if err != nil {
@@ -342,7 +342,7 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 	for _, subject := range subjects {
 		// Prepare plan/result
 		for _, sRole := range srRoles {
-			newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: admin.getPrefixStr(isLiteral)}
+			newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: getPrefixStr(isLiteral)}
 			if !admin.roleExists(newRole, existingRoles) {
 				res = append(res, newRole)
 			}
@@ -373,7 +373,7 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 
 	}
 
-	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "ResourceOwner", PatternType: admin.getPrefixStr(isLiteral)}
+	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "ResourceOwner", PatternType: getPrefixStr(isLiteral)}
 
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, roles, isLiteral, dryRun)
@@ -386,7 +386,7 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 		return res, err
 	}
 	for _, subject := range subjects {
-		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "ResourceOwner", PatternType: admin.getPrefixStr(isLiteral)}
+		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "ResourceOwner", PatternType: getPrefixStr(isLiteral)}
 
 		if !dryRun && !admin.roleExists(newRole, existingRoles) {
 			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, roles, isLiteral, dryRun)
