@@ -1,8 +1,6 @@
 package main
 
 import (
-	//	"fmt"
-	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -100,7 +98,6 @@ func (conf *Configuration) ResolveFilesFromPatterns(patterns []string) ([]string
 			}
 		}
 	}
-	fmt.Printf("Resolve returning files: %s\n", files)
 	return files, nil
 }
 
