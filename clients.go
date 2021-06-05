@@ -13,8 +13,8 @@ import (
 
 type ClientTopicRole struct {
 	Topic     string `yaml:"topic"`
-	IsLiteral bool   `yaml:"isLiteral" default:"true"`
-	Strict    bool   `yaml:"strict" default:"false"`
+	IsLiteral bool   `yaml:"isLiteral"`
+	Strict    bool   `yaml:"strict"`
 }
 
 type ClientGroupRole struct {
@@ -333,18 +333,19 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 		res = append(res, newRole)
 	}
 	for _, subject := range subjects {
-		// Set DeveloperRead on subject value
+		// Prepare plan/result
 		for _, sRole := range srRoles {
 			newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: admin.getPrefixStr(isLiteral)}
+			if !admin.roleExists(newRole, existingRoles) {
+				res = append(res, newRole)
+			}
 		}
+		// Actually change it, if needed
 		if !dryRun && !admin.roleExists(newRole, existingRoles) {
 			err = admin.SetRoleBinding(CTX_SR, "Subject", subject, principal, srRoles, isLiteral, dryRun)
 			if err != nil {
 				return res, err
 			}
-		}
-		if !admin.roleExists(newRole, existingRoles) {
-			res = append(res, newRole)
 		}
 	}
 

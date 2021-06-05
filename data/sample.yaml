@@ -23,8 +23,10 @@ topics:
       schema: "data/schemas/schema-key.json"
       schema_type: "AVRO"
   - name: SKATA1
-    partitions: 1
+    partitions: 12
     replication_factor: 1
+    configs:
+      cleanup.policy: delete
   - name: SKATA2
     partitions: 1
     replication_factor: 1
@@ -49,7 +51,8 @@ clients:
     consumer_for:
       - topic: TOPIC1.
       - topic: TOPIC2.
-        prefixed: false
+        isLiteral: true
+      - topic: TOPICLOL
     producer_for:
       - topic: TOPIC1.
     resourceowner_for:
@@ -60,16 +63,17 @@ clients:
       - topic: TOPIC2.
     producer_for:
       - topic: TOPIC1.
+        isLiteral: true
   - principal: User:produser
     producer_for:
       - topic: TOPIC1.
         # Strict mode is mean for production.
         # It will make the producer able to write the topics but read-only
         # access to the schema registry
-        strict: false
+        strict: true
     groups:
       - name: consumer-produser-
       - name: consumer-produser-owner-
         # if not specified, roles is [DeveloperRead]
         roles: ["ResourceOwner"]
-        prefixed: false
+        isLiteral: true
