@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/riferrei/srclient"
@@ -63,15 +64,21 @@ type SRAdmin struct {
 	url          string
 	user         string
 	pass         string
+	TlsConfig    *tls.Config
 }
 
 // Create a new SRAdmin
-func NewSRAdmin(url string, username string, password string) SRAdmin {
-	srclient := srclient.CreateSchemaRegistryClient(url)
-	srclient.SetCredentials(username, password)
+func NewSRAdmin(config *SRConfig) SRAdmin {
+	srclient := srclient.CreateSchemaRegistryClient(config.Url)
+	if config.Username != "" && config.Password != "" {
+		srclient.SetCredentials(config.Username, config.Password)
+	}
 
-	sradmin := SRAdmin{Client: *srclient, user: username, pass: password}
-	sradmin.url = url
+	sradmin := SRAdmin{Client: *srclient, user: config.Username, pass: config.Password}
+	sradmin.url = config.Url
+	if config.CAPath != "" {
+		sradmin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+	}
 	subjects, err := sradmin.Client.GetSubjects()
 	sradmin.SubjectCache = subjects
 	if err != nil {

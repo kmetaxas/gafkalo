@@ -35,12 +35,22 @@ type MDSConfig struct {
 	SchemaRegistryClusterID string `yaml:"schema-registry-cluster-id"`
 	ConnectClusterId        string `yaml:"connect-cluster-id"`
 	KSQLClusterID           string `yaml:"ksql-cluster-id"`
+	CAPath                  string `yaml:"caPath"` // Add a trusted CA
+	SkipVerify              bool   `yaml:"skipVerify"`
+}
+
+type SRConfig struct {
+	Url        string `yaml:"url"`
+	Username   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	CAPath     string `yaml:"caPath"` // Add a trusted CA
+	SkipVerify bool   `yaml:"skipVerify"`
 }
 type Configuration struct {
 	Connections struct {
-		Kafka          KafkaConfig       `yaml:"kafka"`
-		Schemaregistry map[string]string `yaml:"schemaregistry"`
-		Mds            MDSConfig         `yaml:"mds"`
+		Kafka          KafkaConfig `yaml:"kafka"`
+		Schemaregistry SRConfig    `yaml:"schemaregistry"`
+		Mds            MDSConfig   `yaml:"mds"`
 	} `yaml:"connections"`
 	Kafkalo struct {
 		InputDirs []string `yaml:"input_dirs"`

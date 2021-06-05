@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,6 +49,7 @@ type MDSAdmin struct {
 	KafkaClusterID          string
 	KSQLClusterID           string
 	RolebindingsCache       map[string]MDSRolebindings // [principal]rolbindings
+	TlsConfig               *tls.Config
 }
 
 const (
@@ -85,6 +87,9 @@ func NewMDSAdmin(config MDSConfig) *MDSAdmin {
 	admin.ConnectClusterId = config.ConnectClusterId
 	admin.KSQLClusterID = config.KSQLClusterID
 	admin.RolebindingsCache = make(map[string]MDSRolebindings)
+	if config.CAPath != "" {
+		admin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+	}
 	return &admin
 }
 
@@ -153,7 +158,9 @@ func (admin *MDSAdmin) SetRoleBinding(context int, res_type string, res_name str
 }
 
 func (admin *MDSAdmin) doRest(method string, url string, payload io.Reader) ([]byte, error) {
-	hClient := http.Client{}
+
+	transport := &http.Transport{TLSClientConfig: admin.TlsConfig}
+	hClient := http.Client{Transport: transport}
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
 		log.Fatal(err)

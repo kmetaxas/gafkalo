@@ -17,16 +17,16 @@
   | {{ $partition }} | {{range $broker := $brokers}}{{$broker}},{{end}} |
 {{- end}}
 {{- end }}
-{{ end -}}
-{{ end -}}
+{{- end }}
+{{- end }}
 ## Schemas
 {{ range .Schemas -}}
 {{ if .Changed -}} 
-   {{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
-   {{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}{{ end}}
-   {{- end }}
-  {{ end -}}
-{{ end }}
+-{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
+{{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}{{ end}}
+{{- end }}
+{{- end }}
+{{- end }}
 ## Roles and Clients
 {{ range .Clients -}}
 {{ if $.IsPlan }}[PLAN]. Will add{{ else }} Added {{ end }} role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}
