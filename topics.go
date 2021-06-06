@@ -330,7 +330,6 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 				topicRes.NewPartitions = topic.Partitions
 				topicRes.OldPartitions = existing_topics[topicName].NumPartitions
 				topicRes.ReplicaPlan = newPlan
-
 				topicResults = append(topicResults, topicRes)
 			}
 		}

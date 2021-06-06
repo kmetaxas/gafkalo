@@ -1,0 +1,35 @@
+# Configs to reach out all API endpoints
+connections:
+  kafka:
+    # look at librdkafka docs
+    bootstrapBrokers: ["localhost:9093"]
+    ssl:
+      enabled: false
+      caPath: "/path/to/ca.crt"
+    kerberos:
+      enabled: true
+      keytab: "path_to.key" # Will disable user auth if specified
+      serviceName: "kafka"
+      realm: "EXAMPLE.COM"
+      username: "userame"
+      password: "password"
+  schemaregistry:
+    url: "http://localhost:8081"
+    username: "user"
+    password: "password!"
+    caPath: "/home/arcanum/Downloads/ca.crt" # Add a CA to trust store
+    skipVerify: true # Skip TLS verify
+  mds:
+    url: "http://localhost:8090"
+    username: "username"
+    password: "password"
+    schema-registry-cluster-id: "schemaregistry"
+    caPath: "/home/arcanum/Downloads/ca.crt" # Add a CA to trust store
+    skipVerify: false # Skip TLS verify
+
+# App specific configs
+kafkalo:
+  input_dirs:
+    - "data/*"
+    - "data/team2.yaml"
+
