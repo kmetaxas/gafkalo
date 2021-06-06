@@ -8,7 +8,13 @@ import (
 func getTopic() Topic {
 	return Topic{Name: "TestTopic", Partitions: 2, ReplicationFactor: 2}
 }
-func getTopicResult(changed bool, errors bool) TopicResult {
+
+func getTestClientResult() ClientResult {
+	res := ClientResult{Principal: "User:testuser", ResourceType: "Topic", ResourceName: "TestTopic", Role: "DeveloperRead", PatternType: "LITERAL"}
+
+	return res
+}
+func getTestTopicResult(changed bool, errors bool) TopicResult {
 	topic := getTopic()
 	tr := TopicResultFromTopic(topic)
 	if changed {
@@ -36,12 +42,12 @@ func TestTopicResultFromTopic(t *testing.T) {
 }
 
 func TestChangedConfigs(t *testing.T) {
-	tr := getTopicResult(false, false)
+	tr := getTestTopicResult(false, false)
 	diff := tr.ChangedConfigs()
 	if len(diff) != 0 {
 		t.Error("ChangedConfigs[] != 0")
 	}
-	tr = getTopicResult(true, false)
+	tr = getTestTopicResult(true, false)
 	diff = tr.ChangedConfigs()
 	if len(diff) == 0 {
 		t.Error(fmt.Sprintf("No changed configs detected:%+vs", tr))
@@ -50,22 +56,22 @@ func TestChangedConfigs(t *testing.T) {
 }
 
 func TestHasChangedConfigs(t *testing.T) {
-	tr := getTopicResult(false, false)
+	tr := getTestTopicResult(false, false)
 	if tr.HasChangedConfigs() {
 		t.Error("TopicResult should not have changed configs")
 	}
-	tr = getTopicResult(true, false)
+	tr = getTestTopicResult(true, false)
 	if !tr.HasChangedConfigs() {
 		t.Error("TopicResult should have changed configs")
 	}
 }
 
 func TestHasErrors(t *testing.T) {
-	tr := getTopicResult(false, false)
+	tr := getTestTopicResult(false, false)
 	if tr.HasErrors() {
 		t.Error("TopicResult should not have errors")
 	}
-	tr = getTopicResult(false, true)
+	tr = getTestTopicResult(false, true)
 	if !tr.HasErrors() {
 		t.Error("TopicResult should have errors")
 	}
@@ -73,11 +79,17 @@ func TestHasErrors(t *testing.T) {
 }
 
 func TestPartitionsChanged(t *testing.T) {
-	tr := getTopicResult(false, false)
+	tr := getTestTopicResult(false, false)
 	tr.NewPartitions = 5
 	tr.OldPartitions = 2
 	changed := tr.PartitionsChanged()
 	if !changed {
 		t.Error("Partitions should be detected as changed")
+	}
+	tr.NewPartitions = 2
+	tr.OldPartitions = 2
+	changed = tr.PartitionsChanged()
+	if changed {
+		t.Error("Partitions NOT should be detected as changed")
 	}
 }

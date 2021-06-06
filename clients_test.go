@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func getAdmin() *MDSAdmin {
+func getTestAdmin() *MDSAdmin {
 	mdsAdmin := MDSAdmin{
 		Url:                     "localhost:9093",
 		SchemaRegistryClusterID: "schemaregistry",
@@ -12,9 +12,20 @@ func getAdmin() *MDSAdmin {
 	}
 	return &mdsAdmin
 }
+func getTestMDSResourcePattern() MDSResourcePattern {
+	pat1 := MDSResourcePattern{ResourceType: "Subject", Name: "TestTopic", PatternType: "PREFIXED"}
+	return pat1
+}
+func getTestRolebindings() MDSRolebindings {
+	res := MDSRolebindings{}
+	res.DeveloperRead = append(res.DeveloperRead, getTestMDSResourcePattern())
+	res.DeveloperWrite = append(res.DeveloperRead, getTestMDSResourcePattern())
+	res.ResourceOwner = append(res.DeveloperRead, getTestMDSResourcePattern())
+	return res
+}
 
 func TestGetContext(t *testing.T) {
-	admin := getAdmin()
+	admin := getTestAdmin()
 	ctx := admin.getContext(CTX_KAFKA)
 	if ctx.Clusters["kafka-cluster"] != "clusterID" || ctx.Clusters["schema-registry-cluster"] != "" || ctx.Clusters["ksql-cluster"] != "" || ctx.Clusters["connect-cluster"] != "" {
 		t.Error("Wrong Cluster context for CTX_KAFKA")
@@ -60,4 +71,26 @@ func TestCompareResultWithResourcePatterns(t *testing.T) {
 	if found {
 		t.Error("Result should not be in MDSResourcePattern list")
 	}
+}
+
+func Test_roleExists(t *testing.T) {
+	admin := getTestAdmin()
+	result := getTestClientResult()
+	roles := getTestRolebindings()
+	roleNames := []string{"DeveloperRead", "DeveloperWrite", "ResourceOwner"}
+	for _, roleName := range roleNames {
+		result.ResourceType = "Subject"
+		result.PatternType = "PREFIXED"
+		result.Role = roleName
+		exists := admin.roleExists(result, roles)
+		if !exists {
+			t.Errorf("Pattern %s should exist in %s", result, roles)
+		}
+		result.PatternType = "LITERAL"
+		exists = admin.roleExists(result, roles)
+		if exists {
+			t.Errorf("Pattern %s should NOT exist in %s", result, roles)
+		}
+	}
+
 }
