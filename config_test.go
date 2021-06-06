@@ -2,29 +2,38 @@ package main
 
 import (
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 )
 
 func TestParseConfig(t *testing.T) {
-	// TODO instantiate structs with the expected data and compare them (possible cmp.Equal. Fow now we just verfiy a few things.
+	var expectedConf Configuration
+	expKafkaConf := KafkaConfig{Brokers: []string{"localhost:9093"}}
+	expKafkaConf.SSL.Enabled = false
+	expKafkaConf.SSL.CA = "/path/to/ca.crt"
+	expKafkaConf.SSL.SkipVerify = false
+	expKafkaConf.Krb5.Enabled = true
+	expKafkaConf.Krb5.Keytab = "path_to.key"
+	expKafkaConf.Krb5.ServiceName = "kafka"
+	expKafkaConf.Krb5.Realm = "EXAMPLE.COM"
+	expKafkaConf.Krb5.Username = "username"
+	expKafkaConf.Krb5.Password = "password"
+	expMDSConf := MDSConfig{Url: "http://localhost:8090", User: "username", Password: "password", SchemaRegistryClusterID: "schemaregistry", ConnectClusterId: "", KSQLClusterID: "", CAPath: "/home/arcanum/Downloads/ca.crt", SkipVerify: false}
+
+	expSRConf := SRConfig{Url: "http://localhost:8081", Username: "user", Password: "password!", CAPath: "/home/arcanum/Downloads/ca.crt", SkipVerify: true}
+	expectedConf.Connections.Kafka = expKafkaConf
+	expectedConf.Connections.Mds = expMDSConf
+	expectedConf.Connections.Schemaregistry = expSRConf
+	expectedConf.Kafkalo.InputDirs = []string{"data/*", "data/team2.yaml"}
+
 	config := parseConfig("testdata/files/config.sample.yaml")
 	if config.Connections.Kafka.Brokers[0] != "localhost:9093" {
 		t.Error("Broker list is wrong")
 	}
-	if !config.Connections.Kafka.Krb5.Enabled {
-		t.Error("Krb should be enabled")
+	diff := cmp.Diff(config, expectedConf)
+	if diff != "" {
+		t.Errorf("Config differs: %s", diff)
 	}
-	if config.Connections.Kafka.Krb5.Keytab != "path_to.key" {
-		t.Error("Keytab not defined")
-	}
-	if config.Connections.Schemaregistry.Url != "http://localhost:8081" {
-		t.Error("SR url could not be read")
-	}
-
-	if len(config.Kafkalo.InputDirs) != 2 {
-		t.Error(fmt.Sprintf("Wrong number of InputDirs (found %d)", len(config.Kafkalo.InputDirs)))
-	}
-
 }
 
 func TestGetInutPatterns(t *testing.T) {

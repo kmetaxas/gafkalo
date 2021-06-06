@@ -11,7 +11,7 @@ connections:
       keytab: "path_to.key" # Will disable user auth if specified
       serviceName: "kafka"
       realm: "EXAMPLE.COM"
-      username: "userame"
+      username: "username"
       password: "password"
   schemaregistry:
     url: "http://localhost:8081"
