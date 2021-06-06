@@ -7,7 +7,7 @@ import (
 
 func TestParseConfig(t *testing.T) {
 	// TODO instantiate structs with the expected data and compare them (possible cmp.Equal. Fow now we just verfiy a few things.
-	config := parseConfig("test/files/config.sample.yaml")
+	config := parseConfig("testdata/files/config.sample.yaml")
 	if config.Connections.Kafka.Brokers[0] != "localhost:9093" {
 		t.Error("Broker list is wrong")
 	}
@@ -28,7 +28,7 @@ func TestParseConfig(t *testing.T) {
 }
 
 func TestGetInutPatterns(t *testing.T) {
-	config := parseConfig("test/files/config.sample.yaml")
+	config := parseConfig("testdata/files/config.sample.yaml")
 	inputPatterns := config.GetInputPatterns()
 	if len(inputPatterns) != 2 {
 		t.Error("Wrong number of inputPatterns returned")
@@ -36,7 +36,7 @@ func TestGetInutPatterns(t *testing.T) {
 
 }
 func TestResoveFilesFromPatterns(t *testing.T) {
-	config := parseConfig("test/files/config.sample.yaml")
+	config := parseConfig("testdata/files/config.sample.yaml")
 	patterns, err := config.ResolveFilesFromPatterns(config.GetInputPatterns())
 	if err != nil {
 		t.Error(err)
@@ -49,8 +49,8 @@ func TestIsValidInputFile(t *testing.T) {
 	if isValidInputFile("test") {
 		t.Error("test is a Dir and should NOT be vaild")
 	}
-	if !isValidInputFile("test/files/config.sample.yaml") {
-		t.Error("file test/files/config.sample.yaml should be valid")
+	if !isValidInputFile("testdata/files/config.sample.yaml") {
+		t.Error("file testdata/files/config.sample.yaml should be valid")
 	}
 
 }
