@@ -63,10 +63,8 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	return config
 
 }
-func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
-	var admin KafkaAdmin
-
+func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	config := sarama.NewConfig()
 	config.Metadata.Full = true
 	config.Net.TLS.Enable = conf.SSL.Enabled
@@ -98,6 +96,13 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
 		config.Net.TLS.Config = tlsConfig
 	}
+	return config
+
+}
+func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
+
+	var admin KafkaAdmin
+	config := SaramaConfigFromKafkaConfig(conf)
 
 	saramaAdmin, err := sarama.NewClusterAdmin(conf.Brokers, config)
 	if err != nil {

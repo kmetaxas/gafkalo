@@ -94,3 +94,7 @@ func Test_roleExists(t *testing.T) {
 	}
 
 }
+
+func Test_getKafkaClusterID(t *testing.T) {
+
+}
