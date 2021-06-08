@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
+	"github.com/Shopify/sarama"
 	"log"
+	"os"
+	"strings"
 )
 
 type CLIContext struct {
@@ -13,6 +18,13 @@ type PlanCmd struct {
 
 type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
+}
+
+type ProduceCmd struct {
+	Topic      string              `required arg help:"Topic to read from"`
+	Idempotent bool                `help:"Make producer idempotent"`
+	Acks       sarama.RequiredAcks `help:"Required acks (0,1,-1) defaults to WaitForAll" default:"-1"`
+	Separator  string              `help:"character to separate Key from Value. If set, alows sending keys from user input"`
 }
 
 type ConsumerCmd struct {
@@ -29,6 +41,7 @@ var CLI struct {
 	Apply    ApplyCmd    `cmd help:"Apply the changes"`
 	Plan     PlanCmd     `cmd help:"Produce a plan of changes"`
 	Consumer ConsumerCmd `cmd help:"Consume from topics"`
+	Produce  ProduceCmd  `cmd help:"Produce to a topic"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -52,6 +65,34 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	err := consumer.Consume(cmd.Topic, cmd.Offset, cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)
+	}
+	return nil
+
+}
+
+func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	producer := NewProducer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Acks, cmd.Idempotent)
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Printf(">")
+	for scanner.Scan() {
+		line := scanner.Text()
+		var key, value string
+		if cmd.Separator != "" {
+			splitStrings := strings.Split(line, cmd.Separator)[:2]
+			if len(splitStrings) != 2 {
+				log.Fatal("Can't split input string in key/value pair")
+			}
+			key, value = splitStrings[0], splitStrings[1]
+		} else {
+			value = line
+			key = "" // TODO maybe generate a sequence here?
+		}
+		err := producer.Produce(cmd.Topic, key, value)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf(">")
 	}
 	return nil
 
