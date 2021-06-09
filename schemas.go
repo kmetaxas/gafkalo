@@ -29,7 +29,8 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 	newSchema.Compatibility = Compatibility
 
 	// Load the schema data
-	data, err := ioutil.ReadFile(SchemaPath)
+	pathToSchemaFile := normalizeSchemaPath(SchemaPath)
+	data, err := ioutil.ReadFile(pathToSchemaFile)
 	if err != nil {
 		log.Fatalf("Unable to create schema with Error: %s\n", err)
 	}
@@ -39,7 +40,6 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 	}
 	newSchema.SchemaType = SchemaType
 	return newSchema, nil
-
 }
 
 func (s *Schema) UnmarshalYAML(unmarshal func(interface{}) error) error {

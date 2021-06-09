@@ -32,4 +32,6 @@ kafkalo:
   input_dirs:
     - "data/*"
     - "data/team2.yaml"
+  # If schema_dir is specified, gafkalo will prepend this to the schema path in each schema definition. This makes it easy to have schema files relative to a shared path.
+  schema_dir: "data/"
 

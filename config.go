@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -52,6 +53,7 @@ type Configuration struct {
 	} `yaml:"connections"`
 	Kafkalo struct {
 		InputDirs []string `yaml:"input_dirs"`
+		SchemaDir string   `yaml:"schema_dir"` // Directory to look for schemas when using a relative path
 	} `yaml:"kafkalo"`
 }
 
@@ -101,15 +103,28 @@ func (conf *Configuration) ResolveFilesFromPatterns(patterns []string) ([]string
 	return files, nil
 }
 
+// Takes a schema path as specified in the yaml and returns a "normalized" path
+// If it is an absolute path, it is returned as is
+// If it is a relative path it is made relative to the source dir
+func normalizeSchemaPath(inputFile string) string {
+	var res string
+	if gafkaloConfig.Kafkalo.SchemaDir != "" {
+		res = path.Join(gafkaloConfig.Kafkalo.SchemaDir, inputFile)
+	} else {
+		res = inputFile
+	}
+	return res
+}
+
 // Validates an input filename as valid (exists, is not dir etc)
 func isValidInputFile(filename string) bool {
 	fi, err := os.Stat(filename)
 	if err != nil {
-		log.Printf("Ignoring file %s due to: %s\n", filename, err)
+		//log.Printf("Ignoring file %s due to: %s\n", filename, err)
 		return false
 	}
 	if !fi.Mode().IsRegular() {
-		log.Printf("Ignoring file %s because its not regular\n", filename)
+		//log.Printf("Ignoring file %s because its not regular\n", filename)
 		return false
 	}
 	return true

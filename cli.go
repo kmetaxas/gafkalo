@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// Make it global so that it can be accessed in callbacks, though its not a great solution
+var gafkaloConfig Configuration
+
 type CLIContext struct {
 	Config string `required arg help:"configuration file"`
 }
@@ -25,6 +28,7 @@ type ProduceCmd struct {
 	Idempotent bool                `help:"Make producer idempotent"`
 	Acks       sarama.RequiredAcks `help:"Required acks (0,1,-1) defaults to WaitForAll" default:"-1"`
 	Separator  string              `help:"character to separate Key from Value. If set, alows sending keys from user input"`
+	Serialize  bool                `help:"Serialize the record"`
 }
 
 type ConsumerCmd struct {
@@ -99,6 +103,8 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 }
 func LoadConfig(config string) Configuration {
 	configuration := parseConfig(config)
+	// set global variable
+	gafkaloConfig = Configuration(configuration)
 	return configuration
 }
 
