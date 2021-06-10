@@ -24,11 +24,13 @@ type ApplyCmd struct {
 }
 
 type ProduceCmd struct {
-	Topic      string              `required arg help:"Topic to read from"`
-	Idempotent bool                `help:"Make producer idempotent"`
-	Acks       sarama.RequiredAcks `help:"Required acks (0,1,-1) defaults to WaitForAll" default:"-1"`
-	Separator  string              `help:"character to separate Key from Value. If set, alows sending keys from user input"`
-	Serialize  bool                `help:"Serialize the record"`
+	Topic           string              `required arg help:"Topic to read from"`
+	Idempotent      bool                `help:"Make producer idempotent"`
+	Acks            sarama.RequiredAcks `help:"Required acks (0,1,-1) defaults to WaitForAll" default:"-1"`
+	Separator       string              `help:"character to separate Key from Value. If set, alows sending keys from user input"`
+	Serialize       bool                `help:"Serialize the record"`
+	ValueSchemaFile string              `help:"Path to schema file for Value. If empty, the latest version will be pulled from the SchemaRegistry"`
+	KeySchemaFile   string              `help:"Path to schema file for Key. If empty, the latest version will be pulled from the SchemaRegistry"`
 }
 
 type ConsumerCmd struct {
@@ -92,7 +94,7 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 			value = line
 			key = "" // TODO maybe generate a sequence here?
 		}
-		err := producer.Produce(cmd.Topic, key, value)
+		err := producer.Produce(cmd.Topic, key, value, cmd.Serialize, cmd.ValueSchemaFile, cmd.KeySchemaFile)
 		if err != nil {
 			log.Fatal(err)
 		}
