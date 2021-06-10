@@ -34,12 +34,13 @@ type ProduceCmd struct {
 }
 
 type ConsumerCmd struct {
-	Topic       string `required arg help:"Topic to read from"`
-	Offset      int    `default:"-1" help:"Offset to read from"` // -1 means latest
-	Partition   int16  `default:"0" help:"Partition to read from (used with --offset)"`
-	MaxRecords  int    `default:"0" help:"Max reacords to read. default to no limit"` // 0 means no limit
-	Deserialize bool   `default:"false" help:"Deserialize message"`
-	GroupID     string `help:"Consumer group ID to use"`
+	Topic            string `required arg help:"Topic to read from"`
+	Offset           int    `default:"-1" help:"Offset to read from"` // -1 means latest
+	Partition        int16  `default:"0" help:"Partition to read from (used with --offset)"`
+	MaxRecords       int    `default:"0" help:"Max reacords to read. default to no limit"` // 0 means no limit
+	DeserializeKey   bool   `default:"false" help:"Deserialize message key"`
+	DeserializeValue bool   `default:"false" help:"Deserialize message value"`
+	GroupID          string `help:"Consumer group ID to use"`
 }
 
 var CLI struct {
@@ -67,7 +68,7 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 
 func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.GroupID, cmd.Deserialize)
+	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.GroupID, cmd.DeserializeKey, cmd.DeserializeValue)
 	err := consumer.Consume(cmd.Topic, cmd.Offset, cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)

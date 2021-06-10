@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/fatih/color"
@@ -12,17 +14,20 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type Consumer struct {
-	Client        sarama.ConsumerGroup
-	SRClient      *srclient.SchemaRegistryClient
-	ConsumerGroup sarama.ConsumerGroup
-	ready         chan bool
-	msgCount      int             // consumed messages count
-	maxRecords    int             //  max records to read
-	ctx           context.Context // tell the consumer to stop
-	cancel        context.CancelFunc
+	Client           sarama.ConsumerGroup
+	SRClient         *srclient.SchemaRegistryClient
+	ConsumerGroup    sarama.ConsumerGroup
+	ready            chan bool
+	msgCount         int             // consumed messages count
+	maxRecords       int             //  max records to read
+	ctx              context.Context // tell the consumer to stop
+	cancel           context.CancelFunc
+	deserializeKey   bool
+	deserializeValue bool
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
@@ -36,7 +41,7 @@ func RandomString(n int) string {
 	return string(s)
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserialize bool) *Consumer {
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializeKey, deserializeValue bool) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -56,6 +61,8 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializ
 	}
 
 	consumer.Client = client
+	consumer.deserializeKey = deserializeKey
+	consumer.deserializeValue = deserializeValue
 	return &consumer
 }
 
@@ -108,25 +115,71 @@ func (c *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// Deserialize a binary payload (wire format)
+// return the deserialized string, the schema id , error
+func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
+	var resp string
+	if len(payload) < 5 {
+		return resp, 0, errors.New("Payload <5 bytes. Not schema registry wire format")
+	}
+	schemaID := binary.BigEndian.Uint32(payload[1:5])
+	schema, err := c.SRClient.GetSchema(int(schemaID))
+	if err != nil {
+		return resp, 0, err
+	}
+	native, _, _ := schema.Codec().NativeFromBinary(payload[5:])
+	deserialized, _ := schema.Codec().TextualFromNative(nil, native)
+	resp = string(deserialized)
+	return resp, int(schemaID), nil
+}
+
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 
 	for message := range claim.Messages() {
-		prettyPrintRecord(message)
+		var key, val string
+		var err error
+		var keySchemaID, valSchemaID int
+		if c.deserializeKey {
+			key, keySchemaID, err = c.DeserializePayload(message.Key)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			key = string(message.Key)
+		}
+		if c.deserializeValue {
+			val, valSchemaID, err = c.DeserializePayload(message.Value)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+		} else {
+			val = string(message.Value)
+		}
+		prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
 		session.MarkMessage(message, "")
+		// Do we need to call Commit()?
 		c.msgCount += 1
 		if c.maxRecords == c.msgCount {
 			c.cancel()
 		}
 	}
-
 	return nil
 }
 
-func prettyPrintRecord(message *sarama.ConsumerMessage) {
+//func prettyPrintRecord(message *sarama.ConsumerMessage) {
+func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	fmtOffset := color.New(color.FgCyan).SprintFunc()
 	fmtValue := color.New(color.FgGreen).SprintFunc()
 	fmtKey := color.New(color.FgBlue).SprintFunc()
-
-	log.Printf("Topic[%s] Offset[%s] Timestamp[%s]: Key:=%s, Value:%s", message.Topic, fmtOffset(fmt.Sprint(message.Offset)), message.Timestamp, fmtKey(string(message.Key)), fmtValue(string(message.Value)))
+	var msg string
+	if keySchemaID > 0 {
+		msg = fmt.Sprintf("SchemaID(key)[%d]", keySchemaID)
+	}
+	if valSchemaID > 0 {
+		msg = fmt.Sprintf("%s SchemaID(value)[%d]", msg, valSchemaID)
+	}
+	msg = fmt.Sprintf("%s Topic[%s] Offset[%s] Timestamp[%s]: Key:=%s, Value:%s", msg, topic, fmtOffset(fmt.Sprint(offset)), timestamp, fmtKey(key), fmtValue(value))
+	fmt.Println(msg)
 }
