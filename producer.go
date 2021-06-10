@@ -61,12 +61,17 @@ func makeBinaryRecordUsingSchema(data string, schema *srclient.Schema) []byte {
 }
 
 func (c *Producer) GetOrCreateSchema(topic, schemaData string, format srclient.SchemaType, isKey bool) (*srclient.Schema, error) {
-	// TODO first check if it exists
 	var schema *srclient.Schema
+	// TODO, it would be better to do a schema Lookup because this schema may not be the Latest but one of the older versions
+	// However srclient does not offer this api yet
+	schema, err := c.SRClient.GetLatestSchema(topic, false)
+	if err != nil || schema == nil {
+		return schema, err
+	}
 	if format == "" {
 		format = "AVRO"
 	}
-	schema, err := c.SRClient.CreateSchema(topic, schemaData, format, isKey)
+	schema, err = c.SRClient.CreateSchema(topic, schemaData, format, isKey)
 	if err != nil {
 		return schema, err
 	}
@@ -74,58 +79,49 @@ func (c *Producer) GetOrCreateSchema(topic, schemaData string, format srclient.S
 
 }
 
+func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format srclient.SchemaType, isKey bool) ([]byte, error) {
+	var resp []byte
+	if schemaPath != "" {
+		schemaData, err := ioutil.ReadFile(schemaPath)
+		if err != nil {
+			return resp, err
+		}
+		schema, err := c.GetOrCreateSchema(topic, string(schemaData), "AVRO", false)
+		if err != nil {
+			return resp, err
+		}
+		resp = makeBinaryRecordUsingSchema(data, schema)
+	} else {
+		schema, err := c.SRClient.GetLatestSchema(topic, false)
+		if err != nil {
+			return resp, err
+		}
+		if schema == nil {
+			log.Fatalf("No schema registered for topic %s and no schema file provided\n", topic)
+			return resp, err
+		}
+		resp = makeBinaryRecordUsingSchema(data, schema)
+	}
+	return resp, nil
+
+}
+
 // Takes care of generating a ProduceMessage.
 func (c *Producer) makeProduceMsg(topic string, key string, value string, serialize bool, valSchemaPath string, keySchemaPath string) *sarama.ProducerMessage {
 	msg := &sarama.ProducerMessage{}
 	msg.Topic = topic
-	var schema *srclient.Schema
-	var err error
 	if serialize {
 		// Value
-		if valSchemaPath != "" {
-			data, err := ioutil.ReadFile(valSchemaPath)
-			if err != nil {
-				log.Fatal(err)
-			}
-			schema, err := c.GetOrCreateSchema(topic, string(data), "AVRO", false)
-			if err != nil {
-				log.Fatal(err)
-			}
-			record := makeBinaryRecordUsingSchema(value, schema)
-			msg.Value = sarama.ByteEncoder(record)
-		} else {
-			schema, err = c.SRClient.GetLatestSchema(topic, false)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if schema == nil {
-				log.Fatalf("No schema registered for topic %s and no schema file provided\n", topic)
-			}
-			record := makeBinaryRecordUsingSchema(value, schema)
-			msg.Value = sarama.ByteEncoder(record)
+		valuePayload, err := c.GetSerializedPayload(topic, string(value), valSchemaPath, "AVRO", false)
+		if err != nil {
+			log.Fatal(err)
 		}
-		if keySchemaPath != "" {
-			data, err := ioutil.ReadFile(keySchemaPath)
-			if err != nil {
-				log.Fatal(err)
-			}
-			schema, err := c.GetOrCreateSchema(topic, string(data), "AVRO", true)
-			if err != nil {
-				log.Fatal(err)
-			}
-			record := makeBinaryRecordUsingSchema(value, schema)
-			msg.Key = sarama.ByteEncoder(record)
-		} else {
-			schema, err = c.SRClient.GetLatestSchema(topic, true)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if schema == nil {
-				log.Fatalf("No schema registered for topic %s and no schema file provided\n", topic)
-			}
-			record := makeBinaryRecordUsingSchema(value, schema)
-			msg.Key = sarama.ByteEncoder(record)
+		msg.Value = sarama.ByteEncoder(valuePayload)
+		keyPayload, err := c.GetSerializedPayload(topic, string(key), valSchemaPath, "AVRO", true)
+		if err != nil {
+			log.Fatal(err)
 		}
+		msg.Key = sarama.ByteEncoder(keyPayload)
 	} else {
 		msg.Value = sarama.StringEncoder(value)
 		msg.Key = sarama.StringEncoder(key)
