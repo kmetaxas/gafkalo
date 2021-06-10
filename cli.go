@@ -85,7 +85,7 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 		line := scanner.Text()
 		var key, value string
 		if cmd.Separator != "" {
-			splitStrings := strings.Split(line, cmd.Separator)[:2]
+			splitStrings := strings.Split(line, cmd.Separator)
 			if len(splitStrings) != 2 {
 				log.Fatal("Can't split input string in key/value pair")
 			}
