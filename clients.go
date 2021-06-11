@@ -420,7 +420,7 @@ func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []Clien
 			clientResults = append(clientResults, clientRes...)
 		}
 		for _, resourceOwnerRole := range client.ResourceownerFor {
-			clientRes, err := admin.doProducerFor(resourceOwnerRole.Topic, client.Principal, resourceOwnerRole.IsLiteral, resourceOwnerRole.Strict, dryRun)
+			clientRes, err := admin.doResourceOwnerFor(resourceOwnerRole.Topic, client.Principal, resourceOwnerRole.IsLiteral, dryRun)
 			if err != nil {
 				log.Fatal(err)
 			}
