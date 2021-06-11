@@ -168,7 +168,6 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	return nil
 }
 
-//func prettyPrintRecord(message *sarama.ConsumerMessage) {
 func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	fmtOffset := color.New(color.FgCyan).SprintFunc()
 	fmtValue := color.New(color.FgGreen).SprintFunc()

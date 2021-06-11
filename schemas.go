@@ -30,7 +30,7 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 
 	// Load the schema data
 	pathToSchemaFile := normalizeSchemaPath(SchemaPath)
-	if pathToSchemaFile != "" {
+	if pathToSchemaFile != "" && SchemaPath != "" {
 		data, err := ioutil.ReadFile(pathToSchemaFile)
 		if err != nil {
 			log.Fatalf("Unable to create schema with Error: %s\n", err)
