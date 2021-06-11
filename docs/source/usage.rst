@@ -26,6 +26,7 @@ Producer
 gafkalo can be used as a producer to aid in testing, development and troubleshooting.
 
 gafkalo --config dev.yaml produce "SKATA1" --idempotent --separator=!  --serialize --value-schema-file data/schemas/schema.json --key-schema-file data/schemas/schema.json
+
 Consumer
 --------
 
@@ -34,4 +35,5 @@ gafkalo can be used as a consumer.
 Example 1:
 Read from SKATA1 and deserialize the value using schema registry
 .. code-block:: bash
+
    gafkalo --config dev.yaml consumer SKATA1  --deserialize-value
