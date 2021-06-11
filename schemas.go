@@ -232,6 +232,9 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		SubjectName: schema.SubjectName,
 	}
 	globalCompat, err := admin.GetCompatibilityGlobal()
+	if err != nil {
+		log.Fatal(err)
+	}
 	existingID, existingVersion, err := admin.LookupSchema(schema)
 	if err != nil {
 		log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)

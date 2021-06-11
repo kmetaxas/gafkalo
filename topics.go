@@ -114,7 +114,7 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 }
 
 // Return a list of Kafka topics and fill cache.
-func (admin KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
+func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
 	topics, err := admin.AdminClient.ListTopics()
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
@@ -162,17 +162,11 @@ func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
 // Test if a Topic's config need updating
 func topicConfigNeedsUpdate(topic Topic, existing sarama.TopicDetail) bool {
 	diff := getTopicConfigDiff(topic, existing)
-	if len(diff) > 0 {
-		return true
-	}
-	return false
+	return len(diff) > 0
 }
 
 func topicPartitionNeedUpdate(topic Topic, existing sarama.TopicDetail) bool {
-	if topic.Partitions != existing.NumPartitions {
-		return true
-	}
-	return false
+	return topic.Partitions != existing.NumPartitions
 }
 
 // Compare the topic names and give back a list of string on which topics are new and need to be created
@@ -185,18 +179,6 @@ func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[
 		}
 	}
 	return newNames
-}
-
-// Compare the topic config and give a TopicResult of what is expected to change
-func getTopicDiff(oldTopic sarama.TopicDetail, newTopic Topic) *TopicResult {
-	var topicDiff *TopicResult
-	topicDiff.NewPartitions = newTopic.Partitions
-	topicDiff.OldPartitions = oldTopic.NumPartitions
-	topicDiff.NewReplicationFactor = newTopic.ReplicationFactor
-	topicDiff.OldReplicationFactor = oldTopic.ReplicationFactor
-	topicDiff.NewConfigs = newTopic.Configs
-	topicDiff.OldConfigs = oldTopic.ConfigEntries
-	return topicDiff
 }
 
 // Changes the partition count. Automatically calculates a re-assignment plan.
@@ -217,7 +199,7 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 		oldPlan = append(oldPlan, partition.Replicas)
 	}
 	if len(oldPlan) > int(count) {
-		return nil, errors.New("Decreasing partition number is not possible in Kafka")
+		return nil, errors.New("decreasing partition number is not possible in Kafka")
 	}
 	newPlan, err := calculatePartitionPlan(int32(int(count)-len(oldPlan)), numBrokers, replicationFactor, nil)
 	if err != nil {
@@ -239,7 +221,7 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16, oldPlan [][]int32) ([][]int32, error) {
 	var newPlan [][]int32
 	if oldPlan != nil && int(count) != len(oldPlan) {
-		return newPlan, errors.New(fmt.Sprintf("Can't calculate partition plan as count %d != length of old plan (%d)", count, len(oldPlan)))
+		return newPlan, fmt.Errorf("can't calculate partition plan as count %d != length of old plan (%d)", count, len(oldPlan))
 	}
 	// Generate
 	if oldPlan == nil {
@@ -248,7 +230,7 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 			for b := 0; b < numBrokers; b++ {
 				replicas = append(replicas, int32(rand.Intn(int(numBrokers))))
 			}
-			newPlan = append(newPlan, []int32{0})
+			newPlan = append(newPlan, replicas)
 		}
 	} else {
 		for _, part := range oldPlan {
@@ -260,7 +242,7 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 				newParts = part
 			case curLen > replicationFactor:
 				{
-					var brokerIsTaken map[int32]bool
+					brokerIsTaken := make(map[int32]bool)
 					for _, taken := range part {
 						brokerIsTaken[taken] = true
 					}

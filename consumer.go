@@ -120,7 +120,7 @@ func (c *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
 	var resp string
 	if len(payload) < 5 {
-		return resp, 0, errors.New("Payload <5 bytes. Not schema registry wire format")
+		return resp, 0, errors.New("payload <5 bytes. Not schema registry wire format")
 	}
 	schemaID := binary.BigEndian.Uint32(payload[1:5])
 	schema, err := c.SRClient.GetSchema(int(schemaID))
