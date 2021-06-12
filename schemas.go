@@ -22,6 +22,7 @@ type Schema struct {
 }
 
 // Create a new Schema instance. Handles defaults etc
+// Does not register it
 func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, SchemaType srclient.SchemaType) (Schema, error) {
 	var newSchema Schema
 	newSchema.SubjectName = SubjectName
@@ -238,9 +239,6 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	existingID, existingVersion, err := admin.LookupSchema(schema)
 	if err != nil {
 		log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
-	}
-	if err != nil {
-		log.Fatal(err)
 	}
 	var mustRegister bool = false
 	if existingID != 0 {

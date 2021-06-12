@@ -43,12 +43,22 @@ type ConsumerCmd struct {
 	GroupID          string `help:"Consumer group ID to use"`
 }
 
+type CheckExistsCmd struct {
+	SchemaFile string `required help:"Schema file to checj"`
+	Subject    string `required help:"Subject to check against schema"`
+}
+
+type SchemaCmd struct {
+	CheckExists CheckExistsCmd `cmd help:"Check if provided schema is registered"`
+}
+
 var CLI struct {
 	Config   string      `required help:"configuration file"`
 	Apply    ApplyCmd    `cmd help:"Apply the changes"`
 	Plan     PlanCmd     `cmd help:"Produce a plan of changes"`
 	Consumer ConsumerCmd `cmd help:"Consume from topics"`
 	Produce  ProduceCmd  `cmd help:"Produce to a topic"`
+	Schema   SchemaCmd   `cmd help:"Manage schemas"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -77,6 +87,28 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 
 }
 
+// Check if a schema is registered in specified subject. Shows version and Id if it is
+func (cmd CheckExistsCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	_, sradmin, _ := GetAdminClients(config)
+	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
+	if err != nil {
+		log.Fatal(err)
+	}
+	schemaID, schemaVersion, err := sradmin.LookupSchema(schema)
+	if err != nil {
+		return fmt.Errorf("Failed to lookup schema [%+vs]\n", schema)
+	}
+	if schemaID == 0 {
+		fmt.Printf("Schema not found in subject %s\n", schema.SubjectName)
+		fmt.Printf("Did not find schema: %+vs\n", schema)
+	} else {
+
+		fmt.Printf("Schema is registered under %s with version %d and ID %d\n", schema.SubjectName, schemaVersion, schemaID)
+	}
+	return nil
+
+}
 func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	producer := NewProducer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Acks, cmd.Idempotent)
