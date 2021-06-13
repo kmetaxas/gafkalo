@@ -51,7 +51,7 @@ func TestResoveFilesFromPatterns(t *testing.T) {
 		t.Error(err)
 	}
 	if len(patterns) != 1 || patterns[0] != "data/sample.yaml" {
-		t.Error(fmt.Sprintf("GetInputPatterns returned %+vs", config.GetInputPatterns()))
+		t.Error(fmt.Sprintf("ResolvedPatterns %+vs", patterns))
 	}
 }
 func TestIsValidInputFile(t *testing.T) {

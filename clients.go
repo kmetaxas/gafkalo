@@ -13,9 +13,10 @@ import (
 )
 
 type ClientTopicRole struct {
-	Topic     string `yaml:"topic"`
-	IsLiteral bool   `yaml:"isLiteral"`
-	Strict    bool   `yaml:"strict"`
+	Topic      string `yaml:"topic"`
+	IsLiteral  bool   `yaml:"isLiteral"`
+	Strict     bool   `yaml:"strict"`
+	Idempotent bool   `yaml:"idempotent"` //Only used for roles allowing producer
 }
 
 type ClientGroupRole struct {
@@ -313,7 +314,7 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, isLiteral b
 	}
 	return res, nil
 }
-func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral bool, strict bool, dryRun bool) ([]ClientResult, error) {
+func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral, strict, idempotent, dryRun bool) ([]ClientResult, error) {
 	var res []ClientResult
 	var err error
 	// Default role for SR is Read but if strict=false then add Write
@@ -329,6 +330,8 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 	if !strict {
 		srRoles = append(srRoles, "DeveloperWrite")
 	}
+
+	// ADD developerWrite to Topic resource
 	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "DeveloperWrite", PatternType: getPrefixStr(isLiteral)}
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, []string{"DeveloperWrite"}, isLiteral, dryRun)
@@ -339,10 +342,28 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 	if !admin.roleExists(newRole, existingRoles) {
 		res = append(res, newRole)
 	}
+	// Add idempotent cluster role if requested
+	if idempotent {
+		newRole := ClientResult{Principal: principal, ResourceType: "Cluster", ResourceName: "kafka-cluster", Role: "DeveloperWrite", PatternType: "LITERAL"}
+		if !dryRun && !admin.roleExists(newRole, existingRoles) {
+			err = admin.SetRoleBinding(CTX_KAFKA, "Cluster", "kafka-cluster", principal, []string{"DeveloperWrite"}, true, dryRun)
+			if err != nil {
+				return res, err
+			}
+		}
+		if !admin.roleExists(newRole, existingRoles) {
+			res = append(res, newRole)
+		}
+		// Add idempotent cluster role if requested
+	}
+	// Add idempotent role if to result
+	if !admin.roleExists(newRole, existingRoles) {
+		res = append(res, newRole)
+	}
 	for _, subject := range subjects {
 		// Prepare plan/result
 		for _, sRole := range srRoles {
-			newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: getPrefixStr(isLiteral)}
+			newRole := ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: sRole, PatternType: getPrefixStr(isLiteral)}
 			if !admin.roleExists(newRole, existingRoles) {
 				res = append(res, newRole)
 			}
@@ -360,7 +381,7 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral b
 
 }
 
-func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLiteral bool, dryRun bool) ([]ClientResult, error) {
+func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLiteral, idempotent, dryRun bool) ([]ClientResult, error) {
 	var res []ClientResult
 	var err error
 	roles := []string{"ResourceOwner"}
@@ -384,6 +405,19 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 
 	if err != nil {
 		return res, err
+	}
+	if idempotent {
+		newRole := ClientResult{Principal: principal, ResourceType: "Cluster", ResourceName: "kafka-cluster", Role: "ResourceOwner", PatternType: "LITERAL"}
+		if !dryRun && !admin.roleExists(newRole, existingRoles) {
+			err = admin.SetRoleBinding(CTX_KAFKA, "Cluster", "kafka-cluster", principal, []string{"ResourceOwner"}, true, dryRun)
+			if err != nil {
+				return res, err
+			}
+		}
+		if !admin.roleExists(newRole, existingRoles) {
+			res = append(res, newRole)
+		}
+		// Add idempotent cluster role if requested
 	}
 	for _, subject := range subjects {
 		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "ResourceOwner", PatternType: getPrefixStr(isLiteral)}
@@ -413,14 +447,14 @@ func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []Clien
 			clientResults = append(clientResults, clientRes...)
 		}
 		for _, producerRole := range client.ProducerFor {
-			clientRes, err := admin.doProducerFor(producerRole.Topic, client.Principal, producerRole.IsLiteral, producerRole.Strict, dryRun)
+			clientRes, err := admin.doProducerFor(producerRole.Topic, client.Principal, producerRole.IsLiteral, producerRole.Strict, producerRole.Idempotent, dryRun)
 			if err != nil {
 				log.Fatal(err)
 			}
 			clientResults = append(clientResults, clientRes...)
 		}
 		for _, resourceOwnerRole := range client.ResourceownerFor {
-			clientRes, err := admin.doResourceOwnerFor(resourceOwnerRole.Topic, client.Principal, resourceOwnerRole.IsLiteral, dryRun)
+			clientRes, err := admin.doResourceOwnerFor(resourceOwnerRole.Topic, client.Principal, resourceOwnerRole.IsLiteral, resourceOwnerRole.Idempotent, dryRun)
 			if err != nil {
 				log.Fatal(err)
 			}
