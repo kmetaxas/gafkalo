@@ -394,8 +394,8 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 
 	}
 
+	// Add ResourceOwner on the topic
 	newRole := ClientResult{Principal: principal, ResourceType: "Topic", ResourceName: topic, Role: "ResourceOwner", PatternType: getPrefixStr(isLiteral)}
-
 	if !dryRun && !admin.roleExists(newRole, existingRoles) {
 		err = admin.SetRoleBinding(CTX_KAFKA, "Topic", topic, principal, roles, isLiteral, dryRun)
 	}
@@ -406,6 +406,7 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 	if err != nil {
 		return res, err
 	}
+	// Add IdempotentWrite
 	if idempotent {
 		newRole := ClientResult{Principal: principal, ResourceType: "Cluster", ResourceName: "kafka-cluster", Role: "ResourceOwner", PatternType: "LITERAL"}
 		if !dryRun && !admin.roleExists(newRole, existingRoles) {
@@ -419,6 +420,7 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 		}
 		// Add idempotent cluster role if requested
 	}
+	// Add Schemaregistry rolebindings
 	for _, subject := range subjects {
 		newRole = ClientResult{Principal: principal, ResourceType: "Subject", ResourceName: subject, Role: "ResourceOwner", PatternType: getPrefixStr(isLiteral)}
 

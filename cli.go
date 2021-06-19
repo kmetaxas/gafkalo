@@ -22,6 +22,8 @@ type PlanCmd struct {
 type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
 }
+type LintCmd struct {
+}
 
 type ProduceCmd struct {
 	Topic           string              `required arg help:"Topic to read from"`
@@ -47,9 +49,15 @@ type CheckExistsCmd struct {
 	SchemaFile string `required help:"Schema file to checj"`
 	Subject    string `required help:"Subject to check against schema"`
 }
+type SchemaDiffCmd struct {
+	SchemaFile string `required help:"Schema file to checj"`
+	Subject    string `required help:"Subject to check against schema"`
+	Version    int    `required help:"Version to check against"`
+}
 
 type SchemaCmd struct {
 	CheckExists CheckExistsCmd `cmd help:"Check if provided schema is registered"`
+	SchemaDiff  SchemaDiffCmd  `cmd help:"Get the diff between a schema file and a registered schema"`
 }
 
 var CLI struct {
@@ -59,6 +67,7 @@ var CLI struct {
 	Consumer ConsumerCmd `cmd help:"Consume from topics"`
 	Produce  ProduceCmd  `cmd help:"Produce to a topic"`
 	Schema   SchemaCmd   `cmd help:"Manage schemas"`
+	Lint     LintCmd     `cmd help:"Run a linter against topic definitions"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -88,7 +97,7 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 }
 
 // Check if a schema is registered in specified subject. Shows version and Id if it is
-func (cmd CheckExistsCmd) Run(ctx *CLIContext) error {
+func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	_, sradmin, _ := GetAdminClients(config)
 	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
@@ -106,6 +115,24 @@ func (cmd CheckExistsCmd) Run(ctx *CLIContext) error {
 
 		fmt.Printf("Schema is registered under %s with version %d and ID %d\n", schema.SubjectName, schemaVersion, schemaID)
 	}
+	return nil
+
+}
+
+// compared specified schema file against specified subject/version and produce a diff
+// usefull to identify schemas that differ only in newlines or comments and schemaregistry considers it a new schema
+func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	_, sradmin, _ := GetAdminClients(config)
+	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
+	if err != nil {
+		return err
+	}
+	existingSchema, err := sradmin.Client.GetSchemaByVersionWithArbitrarySubject(cmd.Subject, cmd.Version)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("File schema %+vs \nExisting schema:  %+vs\n", schema, existingSchema)
 	return nil
 
 }
@@ -135,6 +162,17 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 	}
 	return nil
 
+}
+func (cmd *LintCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	inputData := GetInputData(config)
+	var results []LintResult
+	for _, topic := range inputData.Topics {
+		res := LintTopic(topic)
+		results = append(results, res...)
+	}
+	PrettyPrintLintResults(results)
+	return nil
 }
 func LoadConfig(config string) Configuration {
 	configuration := parseConfig(config)
