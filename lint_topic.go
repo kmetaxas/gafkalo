@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"text/template"
 )
 import _ "embed"
@@ -23,11 +24,14 @@ type LintResult struct {
 	Hint     string // Propose a solution
 }
 
-var rules [](func(topic Topic) (*LintResult, bool))
+type RuleFuncs [](func(topic Topic) (*LintResult, bool))
 
 // Will disover and load rules
-func GetRules() {
+func GetRules() RuleFuncs {
+	var rules RuleFuncs
 	rules = append(rules, LintRuleIsReplication)
+	rules = append(rules, LintRuleMinIsr)
+	return rules
 }
 
 func NewLintResult(topic Topic) *LintResult {
@@ -38,7 +42,7 @@ func NewLintResult(topic Topic) *LintResult {
 }
 func LintTopic(topic Topic) []LintResult {
 	var results []LintResult
-	GetRules()
+	rules := GetRules()
 	for _, rule := range rules {
 		res, hasRes := rule(topic)
 		if hasRes {
@@ -62,6 +66,24 @@ func LintRuleIsReplication(topic Topic) (*LintResult, bool) {
 		return res, true
 	}
 	return res, false
+}
+
+func LintRuleMinIsr(topic Topic) (*LintResult, bool) {
+	res := NewLintResult(topic)
+	if min_isr_conf, exists := topic.Configs["min.isr"]; exists {
+		min_isr, err := strconv.ParseInt(*min_isr_conf, 10, 32)
+		if err != nil {
+			log.Fatal(nil)
+		}
+		log.Printf("min.isr=%d\n", min_isr)
+		return res, true
+	} else {
+		res.Message = "min.insync.replicas not defined"
+		res.Severity = LINT_WARN
+		res.Hint = "Setting min.insync.replicas to 2 or higher will reduce chances of data-loss"
+		return res, true
+	}
+
 }
 
 type LintTemplateContext struct {
