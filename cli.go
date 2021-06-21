@@ -43,6 +43,7 @@ type ConsumerCmd struct {
 	DeserializeKey   bool   `default:"false" help:"Deserialize message key"`
 	DeserializeValue bool   `default:"false" help:"Deserialize message value"`
 	GroupID          string `help:"Consumer group ID to use"`
+	FromBeginning    bool   `default:"false" help:"Start reading from the beginning of the topic"`
 }
 
 type CheckExistsCmd struct {
@@ -87,7 +88,7 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 
 func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.GroupID, cmd.DeserializeKey, cmd.DeserializeValue)
+	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.GroupID, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning)
 	err := consumer.Consume(cmd.Topic, cmd.Offset, cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)

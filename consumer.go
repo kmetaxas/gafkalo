@@ -41,7 +41,7 @@ func RandomString(n int) string {
 	return string(s)
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializeKey, deserializeValue bool) *Consumer {
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializeKey, deserializeValue bool, fromBeginning bool) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -54,6 +54,9 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializ
 	if groupID == "" {
 		randGroupPart := RandomString(5)
 		groupID = fmt.Sprintf("gafkalo-consumer-%s", randGroupPart)
+	}
+	if fromBeginning {
+		kafkaConf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
 	client, err := sarama.NewConsumerGroup(kConf.Brokers, groupID, kafkaConf)
 	if err != nil {
