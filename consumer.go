@@ -18,16 +18,19 @@ import (
 )
 
 type Consumer struct {
-	Client           sarama.ConsumerGroup
-	SRClient         *srclient.SchemaRegistryClient
-	ConsumerGroup    sarama.ConsumerGroup
-	ready            chan bool
-	msgCount         int             // consumed messages count
-	maxRecords       int             //  max records to read
-	ctx              context.Context // tell the consumer to stop
-	cancel           context.CancelFunc
-	deserializeKey   bool
-	deserializeValue bool
+	Client              sarama.ConsumerGroup
+	SRClient            *srclient.SchemaRegistryClient
+	ConsumerGroup       sarama.ConsumerGroup
+	Topics              []string
+	PartitionOffsets    map[int32]int64 // map of partion number, offset to start fro
+	UsePartitionOffsets bool
+	ready               chan bool
+	msgCount            int             // consumed messages count
+	maxRecords          int             //  max records to read
+	ctx                 context.Context // tell the consumer to stop
+	cancel              context.CancelFunc
+	deserializeKey      bool
+	deserializeValue    bool
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
@@ -41,7 +44,7 @@ func RandomString(n int) string {
 	return string(s)
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializeKey, deserializeValue bool, fromBeginning bool) *Consumer {
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -64,12 +67,15 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, groupID string, deserializ
 	}
 
 	consumer.Client = client
+	consumer.Topics = topics
+	consumer.PartitionOffsets = partitionOffsets
+	consumer.UsePartitionOffsets = useOffsets
 	consumer.deserializeKey = deserializeKey
 	consumer.deserializeValue = deserializeValue
 	return &consumer
 }
 
-func (c *Consumer) Consume(topic string, fromOffet int, maxRecords int) error {
+func (c *Consumer) Consume(maxRecords int) error {
 	// wait for ready
 	c.ready = make(chan bool)
 	c.maxRecords = maxRecords // I hate this ...
@@ -81,7 +87,7 @@ func (c *Consumer) Consume(topic string, fromOffet int, maxRecords int) error {
 	go func() {
 		defer wg.Done()
 		for {
-			if err := c.Client.Consume(ctx, []string{topic}, c); err != nil {
+			if err := c.Client.Consume(ctx, c.Topics, c); err != nil {
 				log.Panicf("Error from consumer: %v", err)
 			}
 			// check if context was cancelled, signaling that the consumer should stop
@@ -109,12 +115,16 @@ func (c *Consumer) Consume(topic string, fromOffet int, maxRecords int) error {
 	return nil
 }
 
-func (c *Consumer) Setup(sarama.ConsumerGroupSession) error {
+func (c *Consumer) Setup(session sarama.ConsumerGroupSession) error {
 	close(c.ready)
+	for partition, offset := range c.PartitionOffsets {
+		// TODO support multiple topics. For now only onet topic is supported by offset reset
+		session.ResetOffset(c.Topics[0], partition, offset, "Gafkalo CLI offset rest")
+	}
 	return nil
 }
 
-func (c *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
+func (c *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 

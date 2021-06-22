@@ -6,6 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -36,14 +37,13 @@ type ProduceCmd struct {
 }
 
 type ConsumerCmd struct {
-	Topic            string `required arg help:"Topic to read from"`
-	Offset           int    `default:"-1" help:"Offset to read from"` // -1 means latest
-	Partition        int16  `default:"0" help:"Partition to read from (used with --offset)"`
-	MaxRecords       int    `default:"0" help:"Max reacords to read. default to no limit"` // 0 means no limit
-	DeserializeKey   bool   `default:"false" help:"Deserialize message key"`
-	DeserializeValue bool   `default:"false" help:"Deserialize message value"`
-	GroupID          string `help:"Consumer group ID to use"`
-	FromBeginning    bool   `default:"false" help:"Start reading from the beginning of the topic"`
+	Topics           []string `required arg help:"Topic to read from"`
+	MaxRecords       int      `default:"0" help:"Max reacords to read. default to no limit"` // 0 means no limit
+	DeserializeKey   bool     `default:"false" help:"Deserialize message key"`
+	DeserializeValue bool     `default:"false" help:"Deserialize message value"`
+	GroupID          string   `help:"Consumer group ID to use"`
+	FromBeginning    bool     `default:"false" help:"Start reading from the beginning of the topic"`
+	SetOffsets       string   `help:"Set offsets for partition on topic. Syntax is: TOPICNAME=partition:offset,partition:offset,.."`
 }
 
 type CheckExistsCmd struct {
@@ -85,11 +85,51 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, true)
 	return nil
 }
+func parseOffsetsArg(arg *string) (map[int32]int64, error) {
+	offsets := make(map[int32]int64)
+	splitStrings := strings.Split(*arg, "=")
+	if len(splitStrings) != 2 {
+		return offsets, fmt.Errorf("= not found in SetOffsets param. Expected TOPIC=partition:offset..\n")
+	}
+	// topic not used so assign to blank var
+	_, offsetStr := splitStrings[0], splitStrings[1]
+	partOffsetPairs := strings.Split(offsetStr, ",")
+	for _, partOffsetPair := range partOffsetPairs {
+		// Split into partition and offset and merge into offsets map
+		splitStrings = strings.Split(partOffsetPair, ":")
+		if len(splitStrings) != 2 {
+			return offsets, fmt.Errorf("Expected format partition:offset. Found: %s\n", partOffsetPair)
+		}
+		partition, err := strconv.ParseInt(splitStrings[0], 10, 32)
+		if err != nil {
+			return offsets, err
+		}
+		offset, err := strconv.ParseInt(splitStrings[1], 10, 64)
+		if err != nil {
+			return offsets, err
+		}
+		offsets[int32(partition)] = offset
+	}
+	return offsets, nil
 
+}
 func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.GroupID, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning)
-	err := consumer.Consume(cmd.Topic, cmd.Offset, cmd.MaxRecords)
+	var offsets map[int32]int64
+	var err error
+	var useOffsets bool = false
+	if cmd.SetOffsets != "" {
+		useOffsets = true
+		offsets, err = parseOffsetsArg(&cmd.SetOffsets)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		offsets = make(map[int32]int64)
+	}
+
+	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning)
+	err = consumer.Consume(cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)
 	}
