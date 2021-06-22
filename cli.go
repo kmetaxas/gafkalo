@@ -89,7 +89,7 @@ func parseOffsetsArg(arg *string) (map[int32]int64, error) {
 	offsets := make(map[int32]int64)
 	splitStrings := strings.Split(*arg, "=")
 	if len(splitStrings) != 2 {
-		return offsets, fmt.Errorf("= not found in SetOffsets param. Expected TOPIC=partition:offset..\n")
+		return offsets, fmt.Errorf("= not found in SetOffsets param. Expected TOPIC=partition:offset")
 	}
 	// topic not used so assign to blank var
 	_, offsetStr := splitStrings[0], splitStrings[1]
@@ -98,7 +98,7 @@ func parseOffsetsArg(arg *string) (map[int32]int64, error) {
 		// Split into partition and offset and merge into offsets map
 		splitStrings = strings.Split(partOffsetPair, ":")
 		if len(splitStrings) != 2 {
-			return offsets, fmt.Errorf("Expected format partition:offset. Found: %s\n", partOffsetPair)
+			return offsets, fmt.Errorf("expected format partition:offset. Found: %s", partOffsetPair)
 		}
 		partition, err := strconv.ParseInt(splitStrings[0], 10, 32)
 		if err != nil {
@@ -147,7 +147,7 @@ func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
 	}
 	schemaID, schemaVersion, err := sradmin.LookupSchema(schema)
 	if err != nil {
-		return fmt.Errorf("Failed to lookup schema [%+vs]\n", schema)
+		return fmt.Errorf("failed to lookup schema [%+vs]", schema)
 	}
 	if schemaID == 0 {
 		fmt.Printf("Schema not found in subject %s\n", schema.SubjectName)

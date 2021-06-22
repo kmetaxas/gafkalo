@@ -172,7 +172,7 @@ func topicPartitionNeedUpdate(topic Topic, existing sarama.TopicDetail) bool {
 // Compare the topic names and give back a list of string on which topics are new and need to be created
 func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[string]Topic) []string {
 	var newNames []string
-	for name, _ := range *newTopics {
+	for name := range *newTopics {
 		_, exists := (*oldTopics)[name]
 		if !exists {
 			newNames = append(newNames, name)
