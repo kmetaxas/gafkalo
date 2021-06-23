@@ -37,3 +37,9 @@ Read from SKATA1 and deserialize the value using schema registry
 .. code-block:: bash
 
    gafkalo --config dev.yaml consumer SKATA1  --deserialize-value
+
+
+It is possible to define a user provided Golang template to format records as they come in. using the `--record-template` parameter.
+
+The template will be passed the `CustomRecordTemplateContext` context and all fields will be made available to the user to format as needed
+

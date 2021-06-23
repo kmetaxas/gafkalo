@@ -8,29 +8,43 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/fatih/color"
 	"github.com/riferrei/srclient"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"text/template"
 	"time"
 )
 
 type Consumer struct {
-	Client              sarama.ConsumerGroup
-	SRClient            *srclient.SchemaRegistryClient
-	ConsumerGroup       sarama.ConsumerGroup
-	Topics              []string
-	PartitionOffsets    map[int32]int64 // map of partion number, offset to start fro
-	UsePartitionOffsets bool
-	ready               chan bool
-	msgCount            int             // consumed messages count
-	maxRecords          int             //  max records to read
-	ctx                 context.Context // tell the consumer to stop
-	cancel              context.CancelFunc
-	deserializeKey      bool
-	deserializeValue    bool
+	Client               sarama.ConsumerGroup
+	SRClient             *srclient.SchemaRegistryClient
+	ConsumerGroup        sarama.ConsumerGroup
+	Topics               []string
+	PartitionOffsets     map[int32]int64 // map of partion number, offset to start fro
+	UsePartitionOffsets  bool
+	ready                chan bool
+	msgCount             int             // consumed messages count
+	maxRecords           int             //  max records to read
+	ctx                  context.Context // tell the consumer to stop
+	cancel               context.CancelFunc
+	deserializeKey       bool
+	deserializeValue     bool
+	customRecordTemplate *template.Template
+}
+
+type CustomRecordTemplateContext struct {
+	Topic       string
+	Key         string
+	Value       string
+	Timestamp   time.Time
+	Partition   int32
+	Offset      int64
+	KeySchemaID int
+	ValSchemaID int
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
@@ -44,7 +58,17 @@ func RandomString(n int) string {
 	return string(s)
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool) *Consumer {
+func loadTemplate(path string) *template.Template {
+	tplData, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tmpl := template.Must(template.New("kafkarecord").Parse(string(tplData)))
+	return tmpl
+
+}
+
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -72,6 +96,9 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	consumer.UsePartitionOffsets = useOffsets
 	consumer.deserializeKey = deserializeKey
 	consumer.deserializeValue = deserializeValue
+	if customTemplateFile != "" {
+		consumer.customRecordTemplate = loadTemplate(customTemplateFile)
+	}
 	return &consumer
 }
 
@@ -170,7 +197,12 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 		} else {
 			val = string(message.Value)
 		}
-		prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+		// Print the record. Either with a user provided template or our own "prettyprint" function
+		if c.customRecordTemplate != nil {
+			c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+		} else {
+			prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+		}
 		session.MarkMessage(message, "")
 		// Do we need to call Commit()?
 		c.msgCount += 1
@@ -180,7 +212,13 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	}
 	return nil
 }
-
+func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
+	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID}
+	err := c.customRecordTemplate.Execute(os.Stdout, context)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	fmtOffset := color.New(color.FgCyan).SprintFunc()
 	fmtValue := color.New(color.FgGreen).SprintFunc()

@@ -1,0 +1,1 @@
+CUSTOMRECORD: {{ .Value }} {{.Key }} {{ .Offset }}

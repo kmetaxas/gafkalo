@@ -44,6 +44,7 @@ type ConsumerCmd struct {
 	GroupID          string   `help:"Consumer group ID to use"`
 	FromBeginning    bool     `default:"false" help:"Start reading from the beginning of the topic"`
 	SetOffsets       string   `help:"Set offsets for partition on topic. Syntax is: TOPICNAME=partition:offset,partition:offset,.."`
+	RecordTemplate   string   `help:"Path to a golan template to format records"`
 }
 
 type CheckExistsCmd struct {
@@ -128,7 +129,7 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 		offsets = make(map[int32]int64)
 	}
 
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning)
+	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate)
 	err = consumer.Consume(cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)
