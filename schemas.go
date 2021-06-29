@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/nsf/jsondiff"
 	"github.com/riferrei/srclient"
 	"io"
 	"io/ioutil"
@@ -19,6 +20,20 @@ type Schema struct {
 	Compatibility string `yaml:"compatibility"`
 	SchemaData    string
 	SchemaType    srclient.SchemaType `yaml:"schema_type"`
+}
+
+// Compare the schema text of the two objects and return a tuple.
+// with a boolean if they are equal and a string with changes
+// Assumes JSON.
+func (s *Schema) SchemaDiff(other string) (bool, string) {
+	var isEqual bool
+	var diffString string
+	var cmpRes jsondiff.Difference
+	opts := jsondiff.DefaultConsoleOptions()
+	cmpRes, diffString = jsondiff.Compare([]byte(s.SchemaData), []byte(other), &opts)
+	isEqual = (cmpRes == jsondiff.FullMatch)
+
+	return isEqual, diffString
 }
 
 // Create a new Schema instance. Handles defaults etc

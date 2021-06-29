@@ -174,7 +174,13 @@ func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("File schema %+vs \nExisting schema:  %+vs\n", schema, existingSchema)
+	isEqual, diffString := schema.SchemaDiff(existingSchema.Schema())
+	if isEqual {
+		fmt.Printf("Schemas are equal\n")
+	} else {
+		fmt.Printf("Schemas are NOT equal. Below is a diff:\n")
+		fmt.Printf("%s\n", diffString)
+	}
 	return nil
 
 }

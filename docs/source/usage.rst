@@ -43,3 +43,12 @@ It is possible to define a user provided Golang template to format records as th
 
 The template will be passed the `CustomRecordTemplateContext` context and all fields will be made available to the user to format as needed
 
+
+Schemas
+-------
+
+gafkalo has some schema related CLI functions. 
+
+`schema schema-diff` can get compare a subject+version on the schema registry against a JSON file on disk, and tell if they match or give you a visual diff. Useful to identify why schema is detected as changed etc
+
+`schema  check-exists` can check if a provided schema on disk, is already registered on the provided subject name. If it is, it will return under which version and what is the ID of the schema. 
