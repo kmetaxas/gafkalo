@@ -38,9 +38,10 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 		}
 		newSchema.SchemaData = string(data)
 		if SchemaType == "" {
-			SchemaType = "AVRO"
+			newSchema.SchemaType = "AVRO"
+		} else {
+			newSchema.SchemaType = SchemaType
 		}
-		newSchema.SchemaType = SchemaType
 	}
 	return newSchema, nil
 }
@@ -138,11 +139,20 @@ func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
 		Schema  string `json:"schema"`
 	}
 	type Request struct {
-		Schema     string `json:"schema"`
+		Schema string `json:"schema"`
+	}
+	type RequestNonAvro struct {
+		Request
 		SchemaType string `json:"schemaType"`
 	}
-
-	request, err := json.Marshal(Request{Schema: string(schema.SchemaData), SchemaType: string(schema.SchemaType)})
+	var request []byte
+	var err error
+	// field schemaType was introduced in confluent 5.5 along with protobuf/jsonschema support. Even though its in the docs, it raises an HTTP 422. So only pass it when schema type is not AVRO
+	if schema.SchemaType != "AVRO" {
+		request, err = json.Marshal(RequestNonAvro{Request: Request{Schema: string(schema.SchemaData)}, SchemaType: string(schema.SchemaType)})
+	} else {
+		request, err = json.Marshal(Request{Schema: string(schema.SchemaData)})
+	}
 	if err != nil {
 		log.Fatalf("Failed to construct request for LookupSchema call: %s\n", err)
 	}
