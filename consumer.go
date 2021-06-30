@@ -43,12 +43,13 @@ type CustomRecordTemplateContext struct {
 	Timestamp   time.Time
 	Partition   int32
 	Offset      int64
-	KeySchemaID int
-	ValSchemaID int
+	KeySchemaID int // The schema registry ID of the Key schema
+	ValSchemaID int // The Schema registry ID of the Value schema
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
+	rand.Seed(time.Now().UTC().UnixNano())
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	s := make([]rune, n)
@@ -82,9 +83,11 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 		randGroupPart := RandomString(5)
 		groupID = fmt.Sprintf("gafkalo-consumer-%s", randGroupPart)
 	}
+	// Note, even though we set that, it only works if there are no offsets recorded for the consumer group
 	if fromBeginning {
 		kafkaConf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
+
 	client, err := sarama.NewConsumerGroup(kConf.Brokers, groupID, kafkaConf)
 	if err != nil {
 		log.Fatal(err)
@@ -144,9 +147,11 @@ func (c *Consumer) Consume(maxRecords int) error {
 
 func (c *Consumer) Setup(session sarama.ConsumerGroupSession) error {
 	close(c.ready)
-	for partition, offset := range c.PartitionOffsets {
-		// TODO support multiple topics. For now only onet topic is supported by offset reset
-		session.ResetOffset(c.Topics[0], partition, offset, "Gafkalo CLI offset rest")
+	if c.UsePartitionOffsets {
+		for partition, offset := range c.PartitionOffsets {
+			// TODO support multiple topics. For now only onet topic is supported by offset reset
+			session.ResetOffset(c.Topics[0], partition, offset, "Gafkalo CLI offset rest")
+		}
 	}
 	return nil
 }
