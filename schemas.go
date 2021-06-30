@@ -261,31 +261,34 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	if err != nil {
 		log.Fatal(err)
 	}
-	existingID, existingVersion, err := admin.LookupSchema(schema)
-	if err != nil {
-		log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
-	}
+	// Only go through the whole schema check/update thing if SchemaData is not empty
 	var mustRegister bool = false
-	if existingID != 0 {
-		// Schema already registered, but is this the latest version?
-		versions, err := admin.Client.GetSchemaVersionsWithArbitrarySubject(schema.SubjectName)
+	if schema.SchemaData != "" {
+		existingID, existingVersion, err := admin.LookupSchema(schema)
 		if err != nil {
-			log.Fatalf("Failed to fetch versions for %s: %s\n", schema.SubjectName, err)
+			log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
 		}
-		if existingVersion != versions[len(versions)-1] {
-			mustRegister = true
-		}
-
-	} else {
-		mustRegister = true // Must register new schema
-	}
-	if mustRegister {
-		if !dryRun {
-			newVersion, err := admin.RegisterSubject(schema)
+		if existingID != 0 {
+			// Schema already registered, but is this the latest version?
+			versions, err := admin.Client.GetSchemaVersionsWithArbitrarySubject(schema.SubjectName)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Failed to fetch versions for %s: %s\n", schema.SubjectName, err)
 			}
-			result.NewVersion = newVersion
+			if existingVersion != versions[len(versions)-1] {
+				mustRegister = true
+			}
+
+		} else {
+			mustRegister = true // Must register new schema
+		}
+		if mustRegister {
+			if !dryRun {
+				newVersion, err := admin.RegisterSubject(schema)
+				if err != nil {
+					log.Fatal(err)
+				}
+				result.NewVersion = newVersion
+			}
 		}
 	}
 	// --- compat
