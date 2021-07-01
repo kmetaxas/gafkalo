@@ -212,7 +212,9 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 		// Do we need to call Commit()?
 		c.msgCount += 1
 		if c.maxRecords == c.msgCount {
+			fmt.Printf("Reached user defined message limit of %d. Stoppping.\n", c.maxRecords)
 			c.cancel()
+			break
 		}
 	}
 	return nil
