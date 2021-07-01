@@ -17,7 +17,7 @@ Once you are satisfied with the plan you can let `gafkalo` apply:
 
   gafkalo apply --config myconfig.yaml
 
-This command will read all the yaml files specified in the config , merge them and apply them.
+This command will read all the yaml files specified in the config , merge them and apply them. It will produce a report at the end.
 
 
 Producer
@@ -26,6 +26,35 @@ Producer
 gafkalo can be used as a producer to aid in testing, development and troubleshooting.
 
 gafkalo --config dev.yaml produce "SKATA1" --idempotent --separator=!  --serialize --value-schema-file data/schemas/schema.json --key-schema-file data/schemas/schema.json
+
+
+Available options:
+
+--idempotent
+   
+   Enable idempotence in the producer.
+   In an RBAC enabled cluster this requires DeveloperWrite in the `Cluster` resource
+
+--acks
+
+   acks to require from brokers. Defaults to -1 (all).
+
+--separator
+
+  a character the producer will use to separate the key part from the value part of the user supplied input
+
+--serialize
+  
+  serialize the input. The latest schema in the schema registry will be used. 
+  Provide `--user-schema` and/or `--key-schema` if you want to produce according to a new schema (will be registered)
+
+--key-schema
+
+  the key schema to use (avsc file)
+
+--value-schema
+
+  the value schema to use (avsc file)
 
 Consumer
 --------
@@ -106,3 +135,29 @@ gafkalo has some schema related CLI functions.
 `schema schema-diff` can get compare a subject+version on the schema registry against a JSON file on disk, and tell if they match or give you a visual diff. Useful to identify why schema is detected as changed etc
 
 `schema  check-exists` can check if a provided schema on disk, is already registered on the provided subject name. If it is, it will return under which version and what is the ID of the schema. 
+
+
+Topic linter
+------------
+
+There is minimal support for a topic linter
+
+The idea is to parse the topic configs and give you errors or warnings for them. For example you may have replication settings not indicated for production setup,
+or a tombstone retention setting with a topic that does not use compacion (and is therefore meaningless and indicative of a possible mistake).
+
+Can be run with:
+
+
+.. code-block:: bash
+
+   gafkalo plan --config myconfig.yaml lint
+
+and will produce a report like this:
+
+.. code-block:: console
+   
+   SKATA.VROMIA.LIGO has WARNING: min.insync.replicas not defined (Hint: Setting min.insync.replicas to 2 or higher will reduce chances of data-loss)
+   SKATA3 has ERROR: Replication factor < 2. Possible downtime (Hint: Increase replication factor to 3)
+
+Ideally the user should be able to define custom rules in a future version..
+
