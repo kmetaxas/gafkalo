@@ -4,7 +4,7 @@ type: kubernetes
 name: default
 
 steps:
-- name: backend
+- name: build_docs
   image: sphinxdoc/sphinx
   commands:
   - cd docs
