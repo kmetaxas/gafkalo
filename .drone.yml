@@ -19,3 +19,4 @@ steps:
       from_secret: dockerpassword
     debug: true
     tags: "${DRONE_COMMIT:0:7}"
+    insecure: true
