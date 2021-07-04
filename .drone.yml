@@ -13,6 +13,7 @@ steps:
   image: plugins/docker
   settings:
     repo: registry.kill9.bacon/arcanum/gafkalodocs
+    registry: registry.kill9.bacon
     username:
       from_secret: dockeruser
     password:
