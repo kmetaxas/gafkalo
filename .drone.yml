@@ -1,0 +1,11 @@
+---
+kind: pipeline
+type: kubernetes
+name: default
+
+steps:
+- name: backend
+  image: sphinxdoc/sphinx
+  commands:
+  - cd docs
+  - make html
