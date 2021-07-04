@@ -21,4 +21,4 @@ steps:
     debug: true
     tags: "${DRONE_COMMIT:0:7}"
     insecure: true
-    dockerfile: docs/Dockerfile
+    dockerfile: Dockerfile.docs
