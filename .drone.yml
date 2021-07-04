@@ -9,3 +9,11 @@ steps:
   commands:
   - cd docs
   - make html
+- name: build_and_publish
+  image: plugins/docker
+  settings:
+    repo: registry.kill9.bacon/arcanum/gafkalodocs
+    username:
+      from_secret: dockeruser
+    password:
+      from_secret: dockerpassword
