@@ -11,6 +11,11 @@ It has minor differences from `kafkalo` (in its own configuration) but it is ind
 
 It uses Sarama with a goal of producing a Go binary with no external dependencies. Sarama does not use the client properties of Confluent libraries.
 
+Documentation
+-------------
+
+The documentation is available at https://gafkalo.kill9.eu
+
 Features
 --------
 
