@@ -1,1 +1,1 @@
-CUSTOMRECORD: {{ .Value }} {{.Key }} {{ .Offset }}
+CUSTOMRECORD: {{ .Value }} The key is : {{.Key }} with Offset:{{ .Offset }}

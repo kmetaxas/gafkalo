@@ -62,6 +62,17 @@ type SchemaCmd struct {
 	SchemaDiff  SchemaDiffCmd  `cmd help:"Get the diff between a schema file and a registered schema"`
 }
 
+type ConnectCmd struct {
+	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
+	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
+}
+
+type ListConnectorsCmd struct {
+}
+type DescribeConnectorCmd struct {
+	Connector string `cmd help:"Connector name"`
+}
+
 var CLI struct {
 	Config   string      `required help:"configuration file"`
 	Apply    ApplyCmd    `cmd help:"Apply the changes"`
@@ -70,6 +81,7 @@ var CLI struct {
 	Produce  ProduceCmd  `cmd help:"Produce to a topic"`
 	Schema   SchemaCmd   `cmd help:"Manage schemas"`
 	Lint     LintCmd     `cmd help:"Run a linter against topic definitions"`
+	Connect  ConnectCmd  `cmd help:"manage connectors"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -136,6 +148,38 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	}
 	return nil
 
+}
+func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tasks, err := admin.ListTasksForConnector("CsvSpoolDir")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, task := range tasks {
+		prettyPrintTaskStatus(task)
+
+	}
+	return nil
+}
+
+func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	if err != nil {
+		log.Fatal(err)
+	}
+	connectors, err := admin.ListConnectors()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO format nicely
+	fmt.Printf("%s\n", connectors)
+	return nil
 }
 
 // Check if a schema is registered in specified subject. Shows version and Id if it is

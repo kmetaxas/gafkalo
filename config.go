@@ -38,6 +38,13 @@ type MDSConfig struct {
 	SkipVerify              bool   `yaml:"skipVerify"`
 }
 
+type ConnectConfig struct {
+	Url        string `yaml:"url"`
+	User       string `yaml:"username"`
+	Password   string `yaml:"password"`
+	CAPath     string `yaml:"caPath"` // Add a trusted CA
+	SkipVerify bool   `yaml:"skipVerify"`
+}
 type SRConfig struct {
 	Url        string `yaml:"url"`
 	Username   string `yaml:"username"`
@@ -47,9 +54,10 @@ type SRConfig struct {
 }
 type Configuration struct {
 	Connections struct {
-		Kafka          KafkaConfig `yaml:"kafka"`
-		Schemaregistry SRConfig    `yaml:"schemaregistry"`
-		Mds            MDSConfig   `yaml:"mds"`
+		Kafka          KafkaConfig   `yaml:"kafka"`
+		Schemaregistry SRConfig      `yaml:"schemaregistry"`
+		Mds            MDSConfig     `yaml:"mds"`
+		Connect        ConnectConfig `yaml:"connect"`
 	} `yaml:"connections"`
 	Kafkalo struct {
 		InputDirs []string `yaml:"input_dirs"`
