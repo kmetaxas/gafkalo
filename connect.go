@@ -38,6 +38,16 @@ type TaskStatus struct {
 	isRunning bool
 }
 
+type ConnectorInfo struct {
+	Name   string            `json:"name"`
+	Config map[string]string `json:"config"`
+	// Lots of information in the response that we ignore here
+	Tasks []struct {
+		Connector string `json:"connector"`
+		Task      int    `json:"task"`
+	} `json:"tasks"`
+}
+
 // Perform REST call on Connect
 // method is POST,GET,PUT etc.
 // `api` is the part param after the host so the /connectors/myconnector/config for eample
@@ -79,29 +89,36 @@ func (admin *ConnectAdmin) ListConnectors() ([]string, error) {
 	}
 	return connectors, nil
 }
-func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
-	var connectors map[int]*TaskStatus
+
+// Get information about the connector. corresponds to  GET /connectors/(string: name)
+func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, error) {
+	var resp ConnectorInfo
 	type Task struct {
 		Connector string `json:"connector"`
 		Task      int    `json:"task"`
 	}
-	type TasksResp struct {
-		// Lots of information in the response that we ignore here
-		Tasks []Task `json:"tasks"`
-	}
-	connectors = make(map[int]*TaskStatus)
 	uri := fmt.Sprintf("/connectors/%s", connector)
-	var taskList *TasksResp
 	respBody, _, err := admin.doREST("GET", uri, nil)
 	if err != nil {
-		return connectors, err
+		return &resp, err
 	}
-	err = json.Unmarshal(respBody, &taskList)
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		return &resp, err
+	}
+	return &resp, nil
+
+}
+func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
+	var connectors map[int]*TaskStatus
+	connectors = make(map[int]*TaskStatus)
+
+	// Get the status of each task using REST calls
+	connectorInfo, err := admin.GetConnectorInfo(connector)
 	if err != nil {
 		return connectors, err
 	}
-	// Get the status of each task using REST calls
-	for _, task := range taskList.Tasks {
+	for _, task := range connectorInfo.Tasks {
 		taskStatus, err := admin.GetTaskStatus(connector, task.Task)
 		if err != nil {
 			return connectors, err
@@ -110,6 +127,8 @@ func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*Tas
 	}
 	return connectors, nil
 }
+
+// Query the API for the status of a task
 func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatus, error) {
 	uri := fmt.Sprintf("/connectors/%s/tasks/%d/status", connector, task)
 	respBody, _, err := admin.doREST("GET", uri, nil)
