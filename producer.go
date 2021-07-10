@@ -107,28 +107,38 @@ func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format s
 }
 
 // Takes care of generating a ProduceMessage.
-func (c *Producer) makeProduceMsg(topic string, key string, value string, serialize bool, valSchemaPath string, keySchemaPath string) *sarama.ProducerMessage {
+func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bool, valSchemaPath string, keySchemaPath string) *sarama.ProducerMessage {
 	msg := &sarama.ProducerMessage{}
 	msg.Topic = topic
+	var err error
+	var valuePayload []byte
 	if serialize {
 		// Value
-		valuePayload, err := c.GetSerializedPayload(topic, string(value), valSchemaPath, "AVRO", false)
-		if err != nil {
-			log.Fatal(err)
+		if value != nil {
+			valuePayload, err = c.GetSerializedPayload(topic, string(*value), valSchemaPath, "AVRO", false)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			valuePayload = sarama.ByteEncoder(nil)
 		}
 		msg.Value = sarama.ByteEncoder(valuePayload)
-		keyPayload, err := c.GetSerializedPayload(topic, string(key), valSchemaPath, "AVRO", true)
+		keyPayload, err := c.GetSerializedPayload(topic, string(*key), valSchemaPath, "AVRO", true)
 		if err != nil {
 			log.Fatal(err)
 		}
 		msg.Key = sarama.ByteEncoder(keyPayload)
 	} else {
-		msg.Value = sarama.StringEncoder(value)
-		msg.Key = sarama.StringEncoder(key)
+		if value == nil {
+			valuePayload = sarama.ByteEncoder(nil)
+		} else {
+			msg.Value = sarama.StringEncoder(*value)
+		}
+		msg.Key = sarama.StringEncoder(*key)
 	}
 	return msg
 }
-func (c *Producer) Produce(topic, key, value string, serialize bool, valSchemaPath, keySchemaPath string) error {
+func (c *Producer) Produce(topic string, key, value *string, serialize bool, valSchemaPath, keySchemaPath string) error {
 	msg := c.makeProduceMsg(topic, key, value, serialize, valSchemaPath, keySchemaPath)
 	_, offset, err := c.Client.SendMessage(msg)
 	if err != nil {
