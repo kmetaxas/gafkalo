@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/Shopify/sarama"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -24,54 +21,6 @@ type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
 }
 type LintCmd struct {
-}
-
-type ProduceCmd struct {
-	Topic           string              `required arg help:"Topic to read from"`
-	Idempotent      bool                `help:"Make producer idempotent"`
-	Acks            sarama.RequiredAcks `help:"Required acks (0,1,-1) defaults to WaitForAll" default:"-1"`
-	Separator       string              `help:"character to separate Key from Value. If set, alows sending keys from user input"`
-	Tombstone       bool                `help:"Produce a tombstone. Input will be used as key and value will be null"`
-	Serialize       bool                `help:"Serialize the record"`
-	ValueSchemaFile string              `help:"Path to schema file for Value. If empty, the latest version will be pulled from the SchemaRegistry"`
-	KeySchemaFile   string              `help:"Path to schema file for Key. If empty, the latest version will be pulled from the SchemaRegistry"`
-}
-
-type ConsumerCmd struct {
-	Topics           []string `required arg help:"Topic to read from"`
-	MaxRecords       int      `default:"0" help:"Max reacords to read. default to no limit"` // 0 means no limit
-	DeserializeKey   bool     `default:"false" help:"Deserialize message key"`
-	DeserializeValue bool     `default:"false" help:"Deserialize message value"`
-	GroupID          string   `help:"Consumer group ID to use"`
-	FromBeginning    bool     `default:"false" help:"Start reading from the beginning of the topic"`
-	SetOffsets       string   `help:"Set offsets for partition on topic. Syntax is: TOPICNAME=partition:offset,partition:offset,.."`
-	RecordTemplate   string   `help:"Path to a golan template to format records"`
-}
-
-type CheckExistsCmd struct {
-	SchemaFile string `required help:"Schema file to checj"`
-	Subject    string `required help:"Subject to check against schema"`
-}
-type SchemaDiffCmd struct {
-	SchemaFile string `required help:"Schema file to checj"`
-	Subject    string `required help:"Subject to check against schema"`
-	Version    int    `required help:"Version to check against"`
-}
-
-type SchemaCmd struct {
-	CheckExists CheckExistsCmd `cmd help:"Check if provided schema is registered"`
-	SchemaDiff  SchemaDiffCmd  `cmd help:"Get the diff between a schema file and a registered schema"`
-}
-
-type ConnectCmd struct {
-	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
-	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
-}
-
-type ListConnectorsCmd struct {
-}
-type DescribeConnectorCmd struct {
-	Connector string `cmd help:"Connector name"`
 }
 
 var CLI struct {
@@ -127,155 +76,7 @@ func parseOffsetsArg(arg *string) (map[int32]int64, error) {
 	return offsets, nil
 
 }
-func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
-	config := LoadConfig(ctx.Config)
-	var offsets map[int32]int64
-	var err error
-	var useOffsets bool = false
-	if cmd.SetOffsets != "" {
-		useOffsets = true
-		offsets, err = parseOffsetsArg(&cmd.SetOffsets)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		offsets = make(map[int32]int64)
-	}
 
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate)
-	err = consumer.Consume(cmd.MaxRecords)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return nil
-
-}
-
-// Describe a connector.
-func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
-	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
-	if err != nil {
-		log.Fatal(err)
-	}
-	connectorInfo, _ := admin.GetConnectorInfo(cmd.Connector)
-	fmt.Printf("Connector Info\n")
-	fmt.Printf("Name: %s\n", connectorInfo.Name)
-	fmt.Println("Configs:")
-	for key, value := range connectorInfo.Config {
-		fmt.Printf("   %s = %s\n", key, value)
-	}
-	fmt.Printf("Tasks: %d\n", len(connectorInfo.Tasks))
-	tasks, err := admin.ListTasksForConnector(cmd.Connector)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, task := range tasks {
-		prettyPrintTaskStatus(task)
-
-	}
-	return nil
-}
-
-func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
-	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
-	if err != nil {
-		log.Fatal(err)
-	}
-	connectors, err := admin.ListConnectors()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// TODO format nicely
-	fmt.Printf("%s\n", connectors)
-	return nil
-}
-
-// Check if a schema is registered in specified subject. Shows version and Id if it is
-func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
-	config := LoadConfig(ctx.Config)
-	_, sradmin, _ := GetAdminClients(config)
-	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
-	if err != nil {
-		log.Fatal(err)
-	}
-	schemaID, schemaVersion, err := sradmin.LookupSchema(schema)
-	if err != nil {
-		return fmt.Errorf("failed to lookup schema [%+vs]", schema)
-	}
-	if schemaID == 0 {
-		fmt.Printf("Schema not found in subject %s\n", schema.SubjectName)
-		fmt.Printf("Did not find schema: %+vs\n", schema)
-	} else {
-
-		fmt.Printf("Schema is registered under %s with version %d and ID %d\n", schema.SubjectName, schemaVersion, schemaID)
-	}
-	return nil
-
-}
-
-// compared specified schema file against specified subject/version and produce a diff
-// usefull to identify schemas that differ only in newlines or comments and schemaregistry considers it a new schema
-func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
-	config := LoadConfig(ctx.Config)
-	_, sradmin, _ := GetAdminClients(config)
-	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
-	if err != nil {
-		return err
-	}
-	existingSchema, err := sradmin.Client.GetSchemaByVersionWithArbitrarySubject(cmd.Subject, cmd.Version)
-	if err != nil {
-		return err
-	}
-	isEqual, diffString := schema.SchemaDiff(existingSchema.Schema())
-	if isEqual {
-		fmt.Printf("Schemas are equal\n")
-	} else {
-		fmt.Printf("Schemas are NOT equal. Below is a diff:\n")
-		fmt.Printf("%s\n", diffString)
-	}
-	return nil
-
-}
-func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
-	// Tombstone and separator don't mix
-	if cmd.Tombstone && (cmd.Separator != "") {
-		log.Fatal("tombstone can't be used with separator because value will always be null")
-	}
-	config := LoadConfig(ctx.Config)
-	producer := NewProducer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Acks, cmd.Idempotent)
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Printf(">")
-	for scanner.Scan() {
-		line := scanner.Text()
-		var key, value *string
-		if cmd.Separator != "" {
-			splitStrings := strings.Split(line, cmd.Separator)
-			if len(splitStrings) != 2 {
-				log.Fatal("Can't split input string in key/value pair")
-			}
-			key, value = new(string), new(string)
-			*key, *value = splitStrings[0], splitStrings[1]
-		} else {
-			value = &line
-			key = new(string) // TODO maybe generate a sequence here?
-		}
-		if cmd.Tombstone {
-			// Well if the user specified that they want a tombtstone message, take what they types and make it a key, and set the value to nil
-			key = value
-			value = nil
-		}
-		err := producer.Produce(cmd.Topic, key, value, cmd.Serialize, cmd.ValueSchemaFile, cmd.KeySchemaFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf(">")
-	}
-	return nil
-
-}
 func (cmd *LintCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
