@@ -93,10 +93,6 @@ func (admin *ConnectAdmin) ListConnectors() ([]string, error) {
 // Get information about the connector. corresponds to  GET /connectors/(string: name)
 func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, error) {
 	var resp ConnectorInfo
-	type Task struct {
-		Connector string `json:"connector"`
-		Task      int    `json:"task"`
-	}
 	uri := fmt.Sprintf("/connectors/%s", connector)
 	respBody, _, err := admin.doREST("GET", uri, nil)
 	if err != nil {
@@ -110,8 +106,7 @@ func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, e
 
 }
 func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
-	var connectors map[int]*TaskStatus
-	connectors = make(map[int]*TaskStatus)
+	connectors := make(map[int]*TaskStatus)
 
 	// Get the status of each task using REST calls
 	connectorInfo, err := admin.GetConnectorInfo(connector)
@@ -153,6 +148,6 @@ func prettyPrintTaskStatus(task *TaskStatus) {
 		stateFmt = color.New(color.FgGreen).SprintFunc()
 	}
 	msg := fmt.Sprintf("Task [%d] has status %s on worker '%s' (running: %v)\n", task.ID, stateFmt(task.Status), task.WorkerID, stateFmt(task.isRunning))
-	fmt.Printf(msg)
+	fmt.Print(msg)
 
 }
