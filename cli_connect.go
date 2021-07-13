@@ -26,22 +26,28 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 		log.Fatal(err)
 	}
 	connectorInfo, _ := admin.GetConnectorInfo(cmd.Connector)
-	fmt.Printf("Connector Info\n")
-	fmt.Printf("Name: %s\n", connectorInfo.Name)
-	fmt.Println("Configs:")
+	fmt.Printf("Connector: %s\n", connectorInfo.Name)
+	tb := table.NewWriter()
+	tb.SetStyle(table.StyleLight)
+	tb.SetOutputMirror(os.Stdout)
+	tb.AppendHeader(table.Row{"Config name", "Config value"})
 	for key, value := range connectorInfo.Config {
-		fmt.Printf("   %s = %s\n", key, value)
+		tb.AppendRow(table.Row{key, value})
 	}
-	fmt.Printf("Tasks: %d\n", len(connectorInfo.Tasks))
+	tb.Render()
 	tasks, err := admin.ListTasksForConnector(cmd.Connector)
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	tasktb := table.NewWriter()
+	tasktb.SetStyle(table.StyleLight)
+	tasktb.SetOutputMirror(os.Stdout)
+	tasktb.AppendHeader(table.Row{"ID", "STATUS", "WORKER", "Is running"})
 	for _, task := range tasks {
-		prettyPrintTaskStatus(task)
+		tasktb.AppendRow(table.Row{task.ID, task.Status, task.WorkerID, task.isRunning})
 
 	}
+	tasktb.Render()
 	return nil
 }
 
