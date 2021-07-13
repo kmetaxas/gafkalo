@@ -24,7 +24,8 @@ func TestParseConfig(t *testing.T) {
 	expectedConf.Connections.Kafka = expKafkaConf
 	expectedConf.Connections.Mds = expMDSConf
 	expectedConf.Connections.Schemaregistry = expSRConf
-	expectedConf.Kafkalo.InputDirs = []string{"data/*", "data/team2.yaml"}
+	expectedConf.Kafkalo.InputDirs = []string{"testdata/files/data/*", "testdata/files/data/team2.yaml"}
+	expectedConf.Kafkalo.SchemaDir = "testdata/files/data/"
 
 	config := parseConfig("testdata/files/config.sample.yaml")
 	if config.Connections.Kafka.Brokers[0] != "localhost:9093" {
@@ -50,7 +51,7 @@ func TestResoveFilesFromPatterns(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(patterns) != 1 || patterns[0] != "data/sample.yaml" {
+	if len(patterns) != 1 || patterns[0] != "testdata/files/data/sample.yaml" {
 		t.Error(fmt.Sprintf("ResolvedPatterns %+vs", patterns))
 	}
 }

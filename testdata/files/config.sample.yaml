@@ -30,6 +30,7 @@ connections:
 # App specific configs
 kafkalo:
   input_dirs:
-    - "data/*"
-    - "data/team2.yaml"
+    - "testdata/files/data/*"
+    - "testdata/files/data/team2.yaml"
+  schema_dir: "testdata/files/data/"
 
