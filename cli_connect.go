@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"log"
+	"os"
 )
 
 type ConnectCmd struct {
@@ -13,7 +15,7 @@ type ConnectCmd struct {
 type ListConnectorsCmd struct {
 }
 type DescribeConnectorCmd struct {
-	Connector string `cmd help:"Connector name"`
+	Connector string `cmd required help:"Connector name"`
 }
 
 // Describe a connector.
@@ -53,7 +55,14 @@ func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO format nicely
-	fmt.Printf("%s\n", connectors)
+	tb := table.NewWriter()
+	tb.SetStyle(table.StyleLight)
+	tb.SetOutputMirror(os.Stdout)
+	tb.AppendHeader(table.Row{"#", "Connector name"})
+	for i, name := range connectors {
+		tb.AppendRow(table.Row{i, name})
+	}
+	tb.Render()
+
 	return nil
 }

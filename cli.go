@@ -24,14 +24,15 @@ type LintCmd struct {
 }
 
 var CLI struct {
-	Config   string      `required help:"configuration file"`
-	Apply    ApplyCmd    `cmd help:"Apply the changes"`
-	Plan     PlanCmd     `cmd help:"Produce a plan of changes"`
-	Consumer ConsumerCmd `cmd help:"Consume from topics"`
-	Produce  ProduceCmd  `cmd help:"Produce to a topic"`
-	Schema   SchemaCmd   `cmd help:"Manage schemas"`
-	Lint     LintCmd     `cmd help:"Run a linter against topic definitions"`
-	Connect  ConnectCmd  `cmd help:"manage connectors"`
+	Config        string           `required help:"configuration file"`
+	Apply         ApplyCmd         `cmd help:"Apply the changes"`
+	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
+	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
+	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
+	Schema        SchemaCmd        `cmd help:"Manage schemas"`
+	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
+	Connect       ConnectCmd       `cmd help:"manage connectors"`
+	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
