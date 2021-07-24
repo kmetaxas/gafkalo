@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"strings"
 )
 
 type Topic struct {
