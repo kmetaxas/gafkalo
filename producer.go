@@ -149,3 +149,17 @@ func (c *Producer) Produce(topic string, key, value *string, serialize bool, val
 	return nil
 
 }
+
+// Send a kafka message as bytes. No serializes or schema registry actions are performed. USer is responsible for the payload
+func (c *Producer) SendByteMsg(topic string, key, value []byte) error {
+	msg := &sarama.ProducerMessage{}
+	msg.Key = sarama.ByteEncoder(key)
+	msg.Value = sarama.ByteEncoder(value)
+	msg.Topic = topic
+	_, offset, err := c.Client.SendMessage(msg)
+	if err != nil {
+		return err
+	}
+	log.Printf("Sent record with offset %d\n", offset)
+	return nil
+}

@@ -26,6 +26,10 @@ type KafkaConfig struct {
 		Password           string `yaml:"password"`
 		KerberosConfigPath string `yaml:"krb5Path"`
 	} `yaml:"kerberos"`
+	Producer struct {
+		MaxMessageBytes int    `yaml:"maxMessageBytes"`
+		Compression     string `yaml:"compression"`
+	} `yaml:"producer"`
 }
 type MDSConfig struct {
 	Url                     string `yaml:"url"`
