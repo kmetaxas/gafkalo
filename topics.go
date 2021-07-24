@@ -328,30 +328,29 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 
 // Return an array of Topics with the Schemas
 // IT can be used in a DesiredState struct to be serialized as YAML
-func (admin *KafkaAdmin) Export(includeInternal bool) []Topic {
+func (admin *KafkaAdmin) Export(includeInternal bool, includeDefaults bool) []Topic {
 	var topicsRes []Topic
 	topics := admin.ListTopics()
 	// Get the default topic configs so we can filter them out later
-	defaultConfigReq := sarama.ConfigResource{Name: "_schemas", Type: sarama.TopicResource, ConfigNames: []string{}}
-	default_configs, err := admin.AdminClient.DescribeConfig(defaultConfigReq)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Default configs: (len:%d): %v \n", len(default_configs), default_configs)
-
 	for topicName, topicDetails := range topics {
 		if !strings.HasPrefix(topicName, "_") || includeInternal {
+			/*  It looks like like Sarama should be filtering the defaults when using ListTopics.
+			Nevertheless it does not work on my setup. Either the brokers don't properly reply which are the defaults or Sarama doesn't
+			properly get that.
+			For now, we give all ConfigEntries in the reponse even though some are actually defaults.
+			*/
 			newTopic := Topic{
 				Name:              topicName,
 				Partitions:        topicDetails.NumPartitions,
 				ReplicationFactor: topicDetails.ReplicationFactor,
 				Configs:           topicDetails.ConfigEntries,
 			}
+
 			//TODO fetch schema for key and value
 			fmt.Printf("Exporting %s\n", newTopic.Name)
 			topicsRes = append(topicsRes, newTopic)
-		}
 
+		}
 	}
 	return topicsRes
 }

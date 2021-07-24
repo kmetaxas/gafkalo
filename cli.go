@@ -24,6 +24,7 @@ type ApplyCmd struct {
 type ExportCmd struct {
 	OutputFile      bool `default:""`
 	IncludeInternal bool `help:"Include internal topics (starting with _)"`
+	IncludeDefaults bool `help:"Include kafka topic options that match broker defaults"`
 }
 type LintCmd struct {
 }
@@ -58,7 +59,7 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 func (cmd *ExportCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	kafkadmin, _, _ := GetAdminClients(config)
-	topics := kafkadmin.Export(cmd.IncludeInternal)
+	topics := kafkadmin.Export(cmd.IncludeInternal, cmd.IncludeDefaults)
 	var state InputYaml
 	state.Topics = topics
 	output, _ := yaml.Marshal(state)
