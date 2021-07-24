@@ -13,6 +13,10 @@ connections:
       realm: "EXAMPLE.COM"
       username: "userame"
       password: "password"
+    # Override producer configs
+    producer:
+      compression: "snappy"
+      maxMessageBytes: 4000000
   schemaregistry:
     url: "http://localhost:8081"
     username: "user"

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -18,6 +19,7 @@ type ProduceCmd struct {
 	Serialize       bool                `help:"Serialize the record"`
 	ValueSchemaFile string              `help:"Path to schema file for Value. If empty, the latest version will be pulled from the SchemaRegistry"`
 	KeySchemaFile   string              `help:"Path to schema file for Key. If empty, the latest version will be pulled from the SchemaRegistry"`
+	WholeFile       string              `help:"Read whole file as value payload. (for example to test max size). No schema will be used"`
 }
 
 func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
@@ -27,6 +29,20 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 	}
 	config := LoadConfig(ctx.Config)
 	producer := NewProducer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Acks, cmd.Idempotent)
+	// If WholeFile is provided, read the file and produce it.
+	if cmd.WholeFile != "" {
+		data, err := ioutil.ReadFile(cmd.WholeFile)
+		if err != nil {
+			log.Printf("unable to read %s with error %s\n", cmd.WholeFile, err)
+		}
+
+		err = producer.SendByteMsg(cmd.Topic, nil, data)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return nil
+	}
+	// Read messages from console input
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Printf(">")
 	for scanner.Scan() {
