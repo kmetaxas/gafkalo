@@ -15,11 +15,11 @@ import (
 
 // Schema object to keep track of desired/requested state
 type Schema struct {
-	SubjectName   string
-	SchemaPath    string `yaml:"schema"`
-	Compatibility string `yaml:"compatibility"`
-	SchemaData    string
+	SchemaPath    string              `yaml:"schema"`
+	Compatibility string              `yaml:"compatibility"`
 	SchemaType    srclient.SchemaType `yaml:"schema_type"`
+	schemaData    string
+	subjectName   string
 }
 
 // Compare the schema text of the two objects and return a tuple.
@@ -30,7 +30,7 @@ func (s *Schema) SchemaDiff(other string) (bool, string) {
 	var diffString string
 	var cmpRes jsondiff.Difference
 	opts := jsondiff.DefaultConsoleOptions()
-	cmpRes, diffString = jsondiff.Compare([]byte(s.SchemaData), []byte(other), &opts)
+	cmpRes, diffString = jsondiff.Compare([]byte(s.schemaData), []byte(other), &opts)
 	isEqual = (cmpRes == jsondiff.FullMatch)
 
 	return isEqual, diffString
@@ -40,7 +40,7 @@ func (s *Schema) SchemaDiff(other string) (bool, string) {
 // Does not register it
 func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, SchemaType srclient.SchemaType) (Schema, error) {
 	var newSchema Schema
-	newSchema.SubjectName = SubjectName
+	newSchema.subjectName = SubjectName
 	newSchema.SchemaPath = SchemaPath
 	newSchema.Compatibility = Compatibility
 
@@ -51,7 +51,7 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 		if err != nil {
 			log.Fatalf("Unable to create schema with Error: %s\n", err)
 		}
-		newSchema.SchemaData = string(data)
+		newSchema.schemaData = string(data)
 		if SchemaType == "" {
 			newSchema.SchemaType = "AVRO"
 		} else {
@@ -68,7 +68,7 @@ func (s *Schema) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	var err error
-	*s, err = CreateSchema(raw.SubjectName, raw.SchemaPath, raw.Compatibility, raw.SchemaType)
+	*s, err = CreateSchema(raw.subjectName, raw.SchemaPath, raw.Compatibility, raw.SchemaType)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func NewSRAdmin(config *SRConfig) SRAdmin {
 func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
 
 	// Create a value subject (isKey = false)
-	newSchema, err := admin.Client.CreateSchemaWithArbitrarySubject(schema.SubjectName, schema.SchemaData, schema.SchemaType)
+	newSchema, err := admin.Client.CreateSchemaWithArbitrarySubject(schema.subjectName, schema.schemaData, schema.SchemaType)
 	if err != nil {
 		return 0, err
 	}
@@ -164,14 +164,14 @@ func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
 	var err error
 	// field schemaType was introduced in confluent 5.5 along with protobuf/jsonschema support. Even though its in the docs, it raises an HTTP 422. So only pass it when schema type is not AVRO
 	if schema.SchemaType != "AVRO" {
-		request, err = json.Marshal(RequestNonAvro{Request: Request{Schema: string(schema.SchemaData)}, SchemaType: string(schema.SchemaType)})
+		request, err = json.Marshal(RequestNonAvro{Request: Request{Schema: string(schema.schemaData)}, SchemaType: string(schema.SchemaType)})
 	} else {
-		request, err = json.Marshal(Request{Schema: string(schema.SchemaData)})
+		request, err = json.Marshal(Request{Schema: string(schema.schemaData)})
 	}
 	if err != nil {
 		log.Fatalf("Failed to construct request for LookupSchema call: %s\n", err)
 	}
-	respBody, err := admin.makeRestCall("POST", fmt.Sprintf("%s/subjects/%s", admin.url, schema.SubjectName), bytes.NewBuffer(request))
+	respBody, err := admin.makeRestCall("POST", fmt.Sprintf("%s/subjects/%s", admin.url, schema.subjectName), bytes.NewBuffer(request))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -196,10 +196,10 @@ func (admin *SRAdmin) SetCompatibility(schema Schema, compatibility string) erro
 	if err != nil {
 		log.Fatal(err)
 	}
-	respBody, err := admin.makeRestCall("PUT", fmt.Sprintf("%s/config/%s", admin.url, schema.SubjectName), bytes.NewBuffer(request))
+	respBody, err := admin.makeRestCall("PUT", fmt.Sprintf("%s/config/%s", admin.url, schema.subjectName), bytes.NewBuffer(request))
 
 	if err != nil {
-		log.Fatalf("Failed alter compatibility for schema %s with error: %s", schema.SubjectName, err)
+		log.Fatalf("Failed alter compatibility for schema %s with error: %s", schema.subjectName, err)
 	}
 	var respObj RequestResponse
 	err = json.Unmarshal(respBody, &respObj)
@@ -216,7 +216,7 @@ func (admin *SRAdmin) GetCompatibility(schema Schema) (string, error) {
 		// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
 		Compatibility string `json:"compatibilityLevel"`
 	}
-	respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config/%s", admin.url, schema.SubjectName), bytes.NewBuffer(nil))
+	respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config/%s", admin.url, schema.subjectName), bytes.NewBuffer(nil))
 	if err != nil {
 		log.Printf("Failed to get compat:%s\n", err)
 		return "", err
@@ -255,24 +255,24 @@ func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
 // Reconcile actual with desired schema for a single schema
 func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult {
 	result := SchemaResult{
-		SubjectName: schema.SubjectName,
+		SubjectName: schema.subjectName,
 	}
 	globalCompat, err := admin.GetCompatibilityGlobal()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Only go through the whole schema check/update thing if SchemaData is not empty
+	// Only go through the whole schema check/update thing if schemaData is not empty
 	var mustRegister bool = false
-	if schema.SchemaData != "" {
+	if schema.schemaData != "" {
 		existingID, existingVersion, err := admin.LookupSchema(schema)
 		if err != nil {
-			log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
+			log.Printf("Reconcile Failed to lookup %s with %s\n", schema.subjectName, err)
 		}
 		if existingID != 0 {
 			// Schema already registered, but is this the latest version?
-			versions, err := admin.Client.GetSchemaVersionsWithArbitrarySubject(schema.SubjectName)
+			versions, err := admin.Client.GetSchemaVersionsWithArbitrarySubject(schema.subjectName)
 			if err != nil {
-				log.Fatalf("Failed to fetch versions for %s: %s\n", schema.SubjectName, err)
+				log.Fatalf("Failed to fetch versions for %s: %s\n", schema.subjectName, err)
 			}
 			if existingVersion != versions[len(versions)-1] {
 				mustRegister = true

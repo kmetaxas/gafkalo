@@ -134,12 +134,12 @@ func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Set key subject name
 	if (Schema{} == raw.Key) {
 	} else {
-		raw.Key.SubjectName = raw.Name + "-key"
+		raw.Key.subjectName = raw.Name + "-key"
 	}
 	// Set Value subject name
 	if (Schema{} == raw.Value) {
 	} else {
-		raw.Value.SubjectName = raw.Name + "-value"
+		raw.Value.subjectName = raw.Name + "-value"
 	}
 
 	*s = Topic(raw)
@@ -323,4 +323,34 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	}
 	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
+}
+
+// Return an array of Topics with the Schemas
+// IT can be used in a DesiredState struct to be serialized as YAML
+func (admin *KafkaAdmin) Export(includeInternal bool) []Topic {
+	var topicsRes []Topic
+	topics := admin.ListTopics()
+	// Get the default topic configs so we can filter them out later
+	defaultConfigReq := sarama.ConfigResource{Name: "_schemas", Type: sarama.TopicResource, ConfigNames: []string{}}
+	default_configs, err := admin.AdminClient.DescribeConfig(defaultConfigReq)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Default configs: (len:%d): %v \n", len(default_configs), default_configs)
+
+	for topicName, topicDetails := range topics {
+		if !strings.HasPrefix(topicName, "_") || includeInternal {
+			newTopic := Topic{
+				Name:              topicName,
+				Partitions:        topicDetails.NumPartitions,
+				ReplicationFactor: topicDetails.ReplicationFactor,
+				Configs:           topicDetails.ConfigEntries,
+			}
+			//TODO fetch schema for key and value
+			fmt.Printf("Exporting %s\n", newTopic.Name)
+			topicsRes = append(topicsRes, newTopic)
+		}
+
+	}
+	return topicsRes
 }

@@ -33,11 +33,11 @@ func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
 		return fmt.Errorf("failed to lookup schema [%+vs]", schema)
 	}
 	if schemaID == 0 {
-		fmt.Printf("Schema not found in subject %s\n", schema.SubjectName)
+		fmt.Printf("Schema not found in subject %s\n", schema.subjectName)
 		fmt.Printf("Did not find schema: %+vs\n", schema)
 	} else {
 
-		fmt.Printf("Schema is registered under %s with version %d and ID %d\n", schema.SubjectName, schemaVersion, schemaID)
+		fmt.Printf("Schema is registered under %s with version %d and ID %d\n", schema.subjectName, schemaVersion, schemaID)
 	}
 	return nil
 

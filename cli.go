@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"log"
 	"strconv"
 	"strings"
@@ -20,12 +21,17 @@ type PlanCmd struct {
 type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
 }
+type ExportCmd struct {
+	OutputFile      bool `default:""`
+	IncludeInternal bool `help:"Include internal topics (starting with _)"`
+}
 type LintCmd struct {
 }
 
 var CLI struct {
 	Config        string           `required help:"configuration file"`
 	Apply         ApplyCmd         `cmd help:"Apply the changes"`
+	Export        ExportCmd        `cmd help:"Export a clusters state into YAML suitable for gafkalo"`
 	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
 	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
 	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
@@ -47,6 +53,17 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
 	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, true)
+	return nil
+}
+func (cmd *ExportCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	kafkadmin, _, _ := GetAdminClients(config)
+	topics := kafkadmin.Export(cmd.IncludeInternal)
+	var state InputYaml
+	state.Topics = topics
+	output, _ := yaml.Marshal(state)
+	fmt.Printf("Result: %s\n", string(output))
+
 	return nil
 }
 func parseOffsetsArg(arg *string) (map[int32]int64, error) {
