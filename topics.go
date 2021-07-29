@@ -97,6 +97,26 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
 		config.Net.TLS.Config = tlsConfig
 	}
+	if conf.Producer.MaxMessageBytes != 0 {
+		config.Producer.MaxMessageBytes = conf.Producer.MaxMessageBytes
+	}
+	if conf.Producer.Compression != "" {
+		switch conf.Producer.Compression {
+		case "snappy":
+			config.Producer.Compression = sarama.CompressionSnappy
+		case "gzip":
+			config.Producer.Compression = sarama.CompressionGZIP
+		case "lz4":
+			config.Producer.Compression = sarama.CompressionLZ4
+		case "zstd":
+			config.Producer.Compression = sarama.CompressionZSTD
+		case "none":
+			config.Producer.Compression = sarama.CompressionNone
+		}
+	} else {
+		// Use snappy as default if none other is specified
+		config.Producer.Compression = sarama.CompressionSnappy
+	}
 	return config
 
 }
