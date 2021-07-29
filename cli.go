@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
@@ -22,9 +23,10 @@ type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
 }
 type ExportCmd struct {
-	OutputFile      bool `default:""`
-	IncludeInternal bool `help:"Include internal topics (starting with _)"`
-	IncludeDefaults bool `help:"Include kafka topic options that match broker defaults"`
+	OutputFile      bool   `default:""`
+	IncludeInternal bool   `help:"Include internal topics (starting with _)"`
+	IncludeDefaults bool   `help:"Include kafka topic options that match broker defaults"`
+	OutputDir       string `required help:"Output directory. Should exist and be empty"`
 }
 type LintCmd struct {
 }
@@ -58,12 +60,25 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 }
 func (cmd *ExportCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	kafkadmin, _, _ := GetAdminClients(config)
-	topics := kafkadmin.Export(cmd.IncludeInternal, cmd.IncludeDefaults)
+	kafkadmin, sradmin, _ := GetAdminClients(config)
+	topics := kafkadmin.Export(&sradmin, cmd.IncludeInternal, cmd.IncludeDefaults)
 	var state InputYaml
 	state.Topics = topics
 	output, _ := yaml.Marshal(state)
-	fmt.Printf("Result: %s\n", string(output))
+	// TODO save YAML to OutputDir
+	//fmt.Printf("Result: %s\n", string(output))
+	ioutil.WriteFile(fmt.Sprintf("%s/topics.yaml", cmd.OutputDir), output, 0644)
+	// Save schemas to requested location
+	for _, topic := range topics {
+		if topic.Key.SchemaPath != "" && topic.Key.schemaData != "" {
+			outPath := fmt.Sprintf("%s/%s", cmd.OutputDir, topic.Key.SchemaPath)
+			ioutil.WriteFile(outPath, []byte(topic.Key.schemaData), 0644)
+		}
+		if topic.Value.SchemaPath != "" && topic.Value.schemaData != "" {
+			outPath := fmt.Sprintf("%s/%s", cmd.OutputDir, topic.Value.SchemaPath)
+			ioutil.WriteFile(outPath, []byte(topic.Value.schemaData), 0644)
+		}
+	}
 
 	return nil
 }

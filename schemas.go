@@ -322,3 +322,34 @@ func (admin *SRAdmin) Reconcile(topics map[string]Topic, dryRun bool) []SchemaRe
 	return schemaResults
 
 }
+
+// Wrapper around srclient.GetLatestSchema that returns a gafkalo.Schema object
+func (admin *SRAdmin) ExportSchema(topic string, isKey bool, schemaPath string) (*Schema, error) {
+	var schema *Schema
+	var err error
+	var subjectName string
+
+	if isKey {
+		subjectName = fmt.Sprintf("%s-key", topic)
+	} else {
+		subjectName = fmt.Sprintf("%s-value", topic)
+	}
+	srSchema, err := admin.Client.GetLatestSchema(topic, isKey)
+	if err != nil {
+		return schema, err
+	}
+	schema = &Schema{
+		SchemaPath:  schemaPath,
+		subjectName: subjectName,
+		schemaData:  srSchema.Schema(),
+	}
+	// Get the compatibility level
+	schema.Compatibility, err = admin.GetCompatibility(*schema)
+	if err != nil {
+		return schema, err
+	}
+	// srclient doesn't retrieve the schemaType yet, so ... AVRO it is :)
+	schema.SchemaType = "AVRO"
+	return schema, err
+
+}

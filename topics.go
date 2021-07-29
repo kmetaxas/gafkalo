@@ -348,7 +348,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 
 // Return an array of Topics with the Schemas
 // IT can be used in a DesiredState struct to be serialized as YAML
-func (admin *KafkaAdmin) Export(includeInternal bool, includeDefaults bool) []Topic {
+func (admin *KafkaAdmin) Export(sradmin *SRAdmin, includeInternal bool, includeDefaults bool) []Topic {
 	var topicsRes []Topic
 	topics := admin.ListTopics()
 	// Get the default topic configs so we can filter them out later
@@ -366,7 +366,21 @@ func (admin *KafkaAdmin) Export(includeInternal bool, includeDefaults bool) []To
 				Configs:           topicDetails.ConfigEntries,
 			}
 
-			//TODO fetch schema for key and value
+			// Get value schema, if any
+			valueSchema, err := sradmin.ExportSchema(topicName, false, fmt.Sprintf("%s-value.avsc", topicName))
+			if err == nil {
+				newTopic.Value = *valueSchema
+			} else {
+				log.Printf("ERROR getting schema for [%s]: %s", topicName, err)
+			}
+			// Get key schema, if any
+			keySchema, err := sradmin.ExportSchema(topicName, true, fmt.Sprintf("%s-key.avsc", topicName))
+			if err == nil {
+				newTopic.Key = *keySchema
+			} else {
+				log.Printf("ERROR getting schema for [%s]: %s", topicName, err)
+			}
+
 			fmt.Printf("Exporting %s\n", newTopic.Name)
 			topicsRes = append(topicsRes, newTopic)
 
