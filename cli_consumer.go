@@ -30,7 +30,7 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 		offsets = make(map[int32]int64)
 	}
 
-	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate)
+	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate, nil)
 	err = consumer.Consume(cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)
