@@ -161,3 +161,25 @@ and will produce a report like this:
 
 Ideally the user should be able to define custom rules in a future version..
 
+
+Replicator
+----------
+
+Gafkalo can be used to replicate a topic into another topic.
+A usage scenario would be to copy topic A into topic B (since renaming is not supported by Kafka)
+
+Example usage:
+
+.. code-block:: console
+   ./gafkalo --config dev.yaml replicator --source-topic SKATA1 --dest-topic SKATA2
+
+
+It can also do from between two clusters. In that case the `--config` will be the source cluster and the `--dest-config=` will be the destination's cluster YAML connecton config.
+
+.. code-block:: console
+   ./gafkalo --config dev.yaml replicator --source-topic SKATA1 --dest-topic SKATA2
+
+
+The replicator will default to the group ID `gafkalo-replicator`. This is in contrast to the `consumer` command (that generates random suffixes). This is done to easily support resuming the replicator process and it will use the recoded offsets to resume where it left off. 
+
+Additionaly the replicator defaults to Idempotemt mode, so the required permissions need to be set.
