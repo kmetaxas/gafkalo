@@ -34,6 +34,10 @@ type Consumer struct {
 	deserializeKey       bool
 	deserializeValue     bool
 	customRecordTemplate *template.Template
+	// The consumerHandler to use for Setup/ConsumeClaim() etc.
+	// The NewConsumerGroup will default to itself since Consumer implements this interface by default,
+	// But we want users of Consumer to be able to implement their own handlers
+	consumerGroupHandler sarama.ConsumerGroupHandler
 }
 
 type CustomRecordTemplateContext struct {
@@ -69,7 +73,7 @@ func loadTemplate(path string) *template.Template {
 
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string) *Consumer {
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string, consumerGroupHandler *sarama.ConsumerGroupHandler) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -101,6 +105,11 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	consumer.deserializeValue = deserializeValue
 	if customTemplateFile != "" {
 		consumer.customRecordTemplate = loadTemplate(customTemplateFile)
+	}
+	if consumerGroupHandler != nil {
+		consumer.consumerGroupHandler = *consumerGroupHandler
+	} else {
+		consumer.consumerGroupHandler = &consumer
 	}
 	return &consumer
 }
