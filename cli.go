@@ -33,6 +33,7 @@ var CLI struct {
 	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
 	Connect       ConnectCmd       `cmd help:"manage connectors"`
 	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
+	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
