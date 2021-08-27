@@ -42,4 +42,7 @@ Incompatible changes
 1. Configuration for kafka itself and howto connect to componets has changed. We use sarama and it does not accept confluent/kakfa style string properties.
 2. `prefixed` field renamed to `isLiteral` and logic inverted to match how Go treats default bool fields. Topics without this field keep the same behavior (defaults to PREFIXED) but topics that had it disabled now need to have `isLiteral: true`
 
+License
+-------
 
+GPL3. Full license text in LICENSE file
