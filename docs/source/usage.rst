@@ -2,8 +2,17 @@
 Usage
 =====
 
+Maintain topics, schemas and RBAC
+---------------------------------
 
-To generate a plan
+`gafkalo` can maintain the topics, schemas and RBAC rolebindings for a cluster.
+
+In the configuration file you point it to the YAML definitions and it will attempt to create or update any resources needed.
+
+It will investigate the cluster's state in order to decide if something needs creating or updating (or no action needed). 
+
+
+To generate a plan (a list of changes that it will perform, without actually performing them)
 
 .. code-block:: bash
 
@@ -11,7 +20,7 @@ To generate a plan
 
 This will produce a plan output with the changes that `gafkalo` will make.
 
-Once you are satisfied with the plan you can let `gafkalo` apply:
+Once you are satisfied with the plan you can let `gafkalo` apply the changes:
 
 .. code-block:: bash
 
@@ -55,6 +64,14 @@ Available options:
 --value-schema
 
   the value schema to use (avsc file)
+
+--tombstone
+
+  Produce a tombstone message. The input will be used as record `key` and the value will be automatically `null`.
+
+--whole-file
+
+  Point to a file and produce the whole file as a single kafka record. (for example, to test big messages, etc)
 
 Consumer
 --------
@@ -170,13 +187,16 @@ A usage scenario would be to copy topic A into topic B (since renaming is not su
 
 Example usage:
 
+
 .. code-block:: console
+
    ./gafkalo --config dev.yaml replicator --source-topic SKATA1 --dest-topic SKATA2
 
 
 It can also do from between two clusters. In that case the `--config` will be the source cluster and the `--dest-config=` will be the destination's cluster YAML connecton config.
 
 .. code-block:: console
+
    ./gafkalo --config dev.yaml replicator --source-topic SKATA1 --dest-topic SKATA2
 
 
