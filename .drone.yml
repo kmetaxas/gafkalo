@@ -33,6 +33,8 @@ steps:
   values: "image.tag=${DRONE_COMMIT:0:7}"
   api_server:
     from_secret: api_server
+  kube_api_server:
+    from_secret: api_server
   kube_certificate:
     from_secret: k8s_cert
 
