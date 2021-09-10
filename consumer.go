@@ -73,7 +73,7 @@ func loadTemplate(path string) *template.Template {
 
 }
 
-func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string, consumerGroupHandler *sarama.ConsumerGroupHandler) *Consumer {
+func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string, consumerGroupHandler sarama.ConsumerGroupHandler) *Consumer {
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
@@ -107,7 +107,7 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 		consumer.customRecordTemplate = loadTemplate(customTemplateFile)
 	}
 	if consumerGroupHandler != nil {
-		consumer.consumerGroupHandler = *consumerGroupHandler
+		consumer.consumerGroupHandler = consumerGroupHandler
 	} else {
 		consumer.consumerGroupHandler = &consumer
 	}
