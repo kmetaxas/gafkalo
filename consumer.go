@@ -126,7 +126,7 @@ func (c *Consumer) Consume(maxRecords int) error {
 	go func() {
 		defer wg.Done()
 		for {
-			if err := c.Client.Consume(ctx, c.Topics, c); err != nil {
+			if err := c.Client.Consume(ctx, c.Topics, c.consumerGroupHandler); err != nil {
 				log.Panicf("Error from consumer: %v", err)
 			}
 			// check if context was cancelled, signaling that the consumer should stop
