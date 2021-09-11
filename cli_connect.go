@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"io/ioutil"
 	"log"
 	"os"
 )
@@ -10,12 +11,17 @@ import (
 type ConnectCmd struct {
 	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
 	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
+	Create   CreateConnectorCmd   `cmd help:"Create connector"`
 }
 
 type ListConnectorsCmd struct {
 }
 type DescribeConnectorCmd struct {
 	Connector string `cmd required help:"Connector name"`
+}
+type CreateConnectorCmd struct {
+	Name     string `cmd required help:"Connector name"`
+	JsonFile string `required help:"path to JSON definition for connector"`
 }
 
 // Describe a connector.
@@ -70,5 +76,22 @@ func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 	}
 	tb.Render()
 
+	return nil
+}
+
+func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	if err != nil {
+		log.Fatal(err)
+	}
+	data, err := ioutil.ReadFile(cmd.JsonFile)
+	if err != nil {
+		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
+	}
+	err = admin.CreateConnector(cmd.Name, string(data))
+	if err != nil {
+		return err
+	}
 	return nil
 }

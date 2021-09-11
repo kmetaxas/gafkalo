@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -38,14 +39,15 @@ type TaskStatus struct {
 	isRunning bool
 }
 
+type Task struct {
+	Connector string `json:"connector"`
+	Task      int    `json:"task"`
+}
 type ConnectorInfo struct {
 	Name   string            `json:"name"`
 	Config map[string]string `json:"config"`
 	// Lots of information in the response that we ignore here
-	Tasks []struct {
-		Connector string `json:"connector"`
-		Task      int    `json:"task"`
-	} `json:"tasks"`
+	Tasks []Task `json:"tasks"`
 }
 
 // Perform REST call on Connect
@@ -56,7 +58,7 @@ func (admin *ConnectAdmin) doREST(method, api string, payload io.Reader) ([]byte
 	var httpStatus int = 0
 	hClient := http.Client{}
 	uri := fmt.Sprintf("%s%s", admin.Url, api)
-	req, err := http.NewRequest(method, uri, nil)
+	req, err := http.NewRequest(method, uri, payload)
 	if err != nil {
 		return nil, httpStatus, err
 	}
@@ -139,6 +141,42 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 		taskStatus.isRunning = true
 	}
 	return taskStatus, nil
+
+}
+
+func (admin *ConnectAdmin) CreateConnector(connector string, jsonDefinition string) error {
+	type createConnectorRequest struct {
+		Name   string                 `json:"name"`
+		Config map[string]interface{} `json:"config"`
+	}
+	type createConnectorResponse struct {
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
+		Tasks  []Task            `json:"tasks"`
+	}
+	var request createConnectorRequest
+	err := json.Unmarshal([]byte(jsonDefinition), &request)
+	if err != nil {
+		return err
+	}
+	var response createConnectorResponse
+	uri := "/connectors"
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	respBody, statusCode, err := admin.doREST("POST", uri, bytes.NewBuffer(reqBody))
+	if statusCode < 200 || statusCode > 300 {
+		return fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+	}
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(respBody, &response)
+	if err != nil {
+		return err
+	}
+	return nil
 
 }
 
