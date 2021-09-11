@@ -203,3 +203,107 @@ It can also do from between two clusters. In that case the `--config` will be th
 The replicator will default to the group ID `gafkalo-replicator`. This is in contrast to the `consumer` command (that generates random suffixes). This is done to easily support resuming the replicator process and it will use the recoded offsets to resume where it left off. 
 
 Additionaly the replicator defaults to Idempotemt mode, so the required permissions need to be set.
+
+
+Connnect CLI
+------------
+
+Gafkalo can also provide some a CLI interface to manage the Connect_ framework.
+
+The configuration YAML needs the relevant snippet to know how to reach and authenticate to connect.
+
+An full example with authentication and custom TLS CA
+
+.. code-block:: YAML
+
+  connect:
+    url: "http://localhost:8083"
+    username: "username"
+    password: "password""
+    caPath: /path/to/ca.pem
+    skipVerify: false
+
+
+Creating a connector:
+=====================
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect create  /path/to/connector_definition.json
+
+
+Listing connectors:
+===================
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect list
+   ┌───┬────────────────────┐
+   │ # │ CONNECTOR NAME     │
+   ├───┼────────────────────┤
+   │ 0 │ replicator1jschema │
+   └───┴────────────────────┘
+
+Delete a connector
+==================
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect delete replicator1jschema
+   Deleted connector replicator1jschema
+
+Describe a connector: 
+=====================
+
+In this example we see a Confluent replicator connector in a simple configuration. There are no tasks running for this connector yet
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect describe replicator1jschema
+   
+   Connector: replicator1jschema
+   ┌─────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+   │ CONFIG NAME                             │ CONFIG VALUE                                                              │
+   ├─────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+   │ connector.class                         │ io.confluent.connect.replicator.ReplicatorSourceConnector                 │
+   │ errors.log.include.messages             │ true                                                                      │
+   │ tasks.max                               │ 1                                                                         │
+   │ topic.rename.format                     │ ${topic}.mirror                                                           │
+   │ dest.kafka.security.protocol            │ PLAINTEXT                                                                 │
+   │ src.consumer.interceptor.classes        │ io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor │
+   │ src.kafka.client.id                     │ connector1-noschema                                                       │
+   │ topic.auto.create                       │ true                                                                      │
+   │ src.value.converter.schema.registry.url │ http://localhost:8081                                                     │
+   │ dest.kafka.client.id                    │ connector1-noschema                                                       │
+   │ errors.log.enable                       │ true                                                                      │
+   │ topic.regex                             │ raw.*                                                                     │
+   │ src.value.converter.schemas.enable      │ false                                                                     │
+   │ value.converter.schema.registry.url     │ http://localhost:8081                                                     │
+   │ src.kafka.security.protocol             │ PLAINTEXT                                                                 │
+   │ dest.kafka.bootstrap.servers            │ localhost:9092                                                            │
+   │ src.value.converter                     │ io.confluent.connect.json.JsonSchemaConverter                             │
+   │ schema.registry.url                     │ http://localhost:8081                                                     │
+   │ name                                    │ replicator1jschema                                                        │
+   │ topic.preserve.partitions               │ true                                                                      │
+   │ value.converter                         │ io.confluent.connect.avro.AvroConverter                                   │
+   │ key.converter                           │ org.apache.kafka.connect.converters.ByteArrayConverter                    │
+   │ src.kafka.bootstrap.servers             │ localhost:9095                                                            │
+   └─────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+   ┌────┬────────┬────────┬────────────┐
+   │ ID │ STATUS │ WORKER │ IS RUNNING │
+   ├────┼────────┼────────┼────────────┤
+   └────┴────────┴────────┴────────────┘
+
+
+Heal a failed connector
+=======================
+
+The tool can check a connector's status and restart the connector itself and any failed tasks it discovers.
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect heal replicator1jschema
+
+This will do a REST call to restart any task that does not have a status of RUNNING.
+
+.. _Connect: https://docs.confluent.io/platform/current/connect/index.html
