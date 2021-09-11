@@ -52,6 +52,12 @@ type ConnectorInfo struct {
 	Tasks []Task `json:"tasks"`
 }
 
+type ConnectorStatus struct {
+	Name      string                 `json:"name"`
+	Connector map[string]interface{} `json:"connector"`
+	Tasks     []TaskStatus           `json:"tasks"`
+}
+
 // Perform REST call on Connect
 // method is POST,GET,PUT etc.
 // `api` is the part param after the host so the /connectors/myconnector/config for eample
@@ -109,6 +115,20 @@ func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, e
 	}
 	return &resp, nil
 
+}
+
+// Get connector status
+func (admin *ConnectAdmin) GetConnectorStatus(connector string) (*ConnectorStatus, error) {
+	var status ConnectorStatus
+	var err error
+	uri := fmt.Sprintf("/connectors/%s/status", connector)
+	respBody, _, err := admin.doREST("GET", uri, nil)
+	if err != nil {
+		return &status, err
+	}
+	err = json.Unmarshal(respBody, &status)
+
+	return &status, nil
 }
 func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
 	connectors := make(map[int]*TaskStatus)
@@ -200,6 +220,34 @@ func (admin *ConnectAdmin) DeleteConnector(connector string) error {
 
 }
 
+// Restart task number for connector
+func (admin *ConnectAdmin) RestartTask(connector string, taskID int) error {
+	uri := fmt.Sprintf("/connectors/%s/tasks/%d/restart", connector, taskID)
+	respBody, statusCode, err := admin.doREST("POST", uri, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode > 400 {
+
+		return fmt.Errorf("Failed to restart task %d with status %d (response:%s)", taskID, statusCode, respBody)
+	}
+	return nil
+
+}
+
+// Restart connector
+func (admin *ConnectAdmin) RestartConnector(connector string) error {
+	uri := fmt.Sprintf("/connectors/%s/restart", connector)
+	respBody, statusCode, err := admin.doREST("POST", uri, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode > 400 {
+
+		return fmt.Errorf("Failed to restart connector %s (http: %d)(response:%s)", connector, statusCode, respBody)
+	}
+	return nil
+}
 func prettyPrintTaskStatus(task *TaskStatus) {
 	stateFmt := color.New(color.FgGreen).SprintFunc()
 	if !task.isRunning {
@@ -208,4 +256,17 @@ func prettyPrintTaskStatus(task *TaskStatus) {
 	msg := fmt.Sprintf("Task [%d] has status %s on worker '%s' (running: %v)\n", task.ID, stateFmt(task.Status), task.WorkerID, stateFmt(task.isRunning))
 	fmt.Print(msg)
 
+}
+
+// Get if the connector if healthy. This means that the connector itself reports healthy *and* all the tasks report healthy
+func (status *ConnectorStatus) isHealthy() bool {
+	if status.Connector["state"] != "RUNNING" {
+		return false
+	}
+	for _, task := range status.Tasks {
+		if task.Status != "RUNNING" {
+			return false
+		}
+	}
+	return true
 }

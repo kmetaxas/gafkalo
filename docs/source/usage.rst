@@ -225,6 +225,7 @@ An full example with authentication and custom TLS CA
 
 
 Creating a connector:
+=====================
 
 .. code-block:: console
 
@@ -232,6 +233,7 @@ Creating a connector:
 
 
 Listing connectors:
+===================
 
 .. code-block:: console
 
@@ -243,7 +245,7 @@ Listing connectors:
    └───┴────────────────────┘
 
 Delete a connector
-
+==================
 
 .. code-block:: console
 
@@ -251,6 +253,7 @@ Delete a connector
    Deleted connector replicator1jschema
 
 Describe a connector: 
+=====================
 
 In this example we see a Confluent replicator connector in a simple configuration. There are no tasks running for this connector yet
 
@@ -292,6 +295,15 @@ In this example we see a Confluent replicator connector in a simple configuratio
    └────┴────────┴────────┴────────────┘
 
 
+Heal a failed connector
+=======================
 
+The tool can check a connector's status and restart the connector itself and any failed tasks it discovers.
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect heal replicator1jschema
+
+This will do a REST call to restart any task that does not have a status of RUNNING.
 
 .. _Connect: https://docs.confluent.io/platform/current/connect/index.html
