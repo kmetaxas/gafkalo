@@ -212,7 +212,7 @@ Gafkalo can also provide some a CLI interface to manage the Connect_ framework.
 
 The configuration YAML needs the relevant snippet to know how to reach and authenticate to connect.
 
-An example with authentication:
+An full example with authentication and custom TLS CA
 
 .. code-block:: YAML
 
@@ -220,6 +220,8 @@ An example with authentication:
     url: "http://localhost:8083"
     username: "username"
     password: "password""
+    caPath: /path/to/ca.pem
+    skipVerify: false
 
 
 Creating a connector:

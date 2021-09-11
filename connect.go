@@ -26,7 +26,9 @@ func NewConnectAdin(config *ConnectConfig) (*ConnectAdmin, error) {
 	admin.Url = config.Url
 	admin.Username = config.User
 	admin.Password = config.Password
-	// TODO construct TLSconfig
+	if config.CAPath != "" {
+		admin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+	}
 	return &admin, nil
 }
 
@@ -56,7 +58,8 @@ type ConnectorInfo struct {
 // payload is the optional payload to send (or nil)
 func (admin *ConnectAdmin) doREST(method, api string, payload io.Reader) ([]byte, int, error) {
 	var httpStatus int = 0
-	hClient := http.Client{}
+	transport := &http.Transport{TLSClientConfig: admin.TlsConfig}
+	hClient := http.Client{Transport: transport}
 	uri := fmt.Sprintf("%s%s", admin.Url, api)
 	req, err := http.NewRequest(method, uri, payload)
 	if err != nil {
