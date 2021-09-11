@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -25,7 +26,9 @@ func NewConnectAdin(config *ConnectConfig) (*ConnectAdmin, error) {
 	admin.Url = config.Url
 	admin.Username = config.User
 	admin.Password = config.Password
-	// TODO construct TLSconfig
+	if config.CAPath != "" {
+		admin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+	}
 	return &admin, nil
 }
 
@@ -38,14 +41,21 @@ type TaskStatus struct {
 	isRunning bool
 }
 
+type Task struct {
+	Connector string `json:"connector"`
+	Task      int    `json:"task"`
+}
 type ConnectorInfo struct {
 	Name   string            `json:"name"`
 	Config map[string]string `json:"config"`
 	// Lots of information in the response that we ignore here
-	Tasks []struct {
-		Connector string `json:"connector"`
-		Task      int    `json:"task"`
-	} `json:"tasks"`
+	Tasks []Task `json:"tasks"`
+}
+
+type ConnectorStatus struct {
+	Name      string                 `json:"name"`
+	Connector map[string]interface{} `json:"connector"`
+	Tasks     []TaskStatus           `json:"tasks"`
 }
 
 // Perform REST call on Connect
@@ -54,9 +64,10 @@ type ConnectorInfo struct {
 // payload is the optional payload to send (or nil)
 func (admin *ConnectAdmin) doREST(method, api string, payload io.Reader) ([]byte, int, error) {
 	var httpStatus int = 0
-	hClient := http.Client{}
+	transport := &http.Transport{TLSClientConfig: admin.TlsConfig}
+	hClient := http.Client{Transport: transport}
 	uri := fmt.Sprintf("%s%s", admin.Url, api)
-	req, err := http.NewRequest(method, uri, nil)
+	req, err := http.NewRequest(method, uri, payload)
 	if err != nil {
 		return nil, httpStatus, err
 	}
@@ -105,6 +116,20 @@ func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, e
 	return &resp, nil
 
 }
+
+// Get connector status
+func (admin *ConnectAdmin) GetConnectorStatus(connector string) (*ConnectorStatus, error) {
+	var status ConnectorStatus
+	var err error
+	uri := fmt.Sprintf("/connectors/%s/status", connector)
+	respBody, _, err := admin.doREST("GET", uri, nil)
+	if err != nil {
+		return &status, err
+	}
+	err = json.Unmarshal(respBody, &status)
+
+	return &status, nil
+}
 func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
 	connectors := make(map[int]*TaskStatus)
 
@@ -142,6 +167,87 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 
 }
 
+func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error) {
+	var name string
+	type createConnectorRequest struct {
+		Name   string                 `json:"name"`
+		Config map[string]interface{} `json:"config"`
+	}
+	type createConnectorResponse struct {
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
+		Tasks  []Task            `json:"tasks"`
+	}
+	var request createConnectorRequest
+	err := json.Unmarshal([]byte(jsonDefinition), &request)
+	if err != nil {
+		return name, err
+	}
+	var response createConnectorResponse
+	uri := "/connectors"
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return name, err
+	}
+	respBody, statusCode, err := admin.doREST("POST", uri, bytes.NewBuffer(reqBody))
+	if statusCode < 200 || statusCode > 400 {
+		return name, fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+	}
+	if err != nil {
+		return name, err
+	}
+	err = json.Unmarshal(respBody, &response)
+	if err != nil {
+		return name, err
+	}
+	name = response.Name
+	return name, nil
+
+}
+func (admin *ConnectAdmin) DeleteConnector(connector string) error {
+	uri := fmt.Sprintf("/connectors/%s", connector)
+	respBody, statusCode, err := admin.doREST("DELETE", uri, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode == 409 {
+		return fmt.Errorf("Rebalance in progress.. Check status and try again later")
+	}
+	if statusCode < 200 || statusCode > 400 {
+		return fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+	}
+	return nil
+
+}
+
+// Restart task number for connector
+func (admin *ConnectAdmin) RestartTask(connector string, taskID int) error {
+	uri := fmt.Sprintf("/connectors/%s/tasks/%d/restart", connector, taskID)
+	respBody, statusCode, err := admin.doREST("POST", uri, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode > 400 {
+
+		return fmt.Errorf("Failed to restart task %d with status %d (response:%s)", taskID, statusCode, respBody)
+	}
+	return nil
+
+}
+
+// Restart connector
+func (admin *ConnectAdmin) RestartConnector(connector string) error {
+	uri := fmt.Sprintf("/connectors/%s/restart", connector)
+	respBody, statusCode, err := admin.doREST("POST", uri, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode > 400 {
+
+		return fmt.Errorf("Failed to restart connector %s (http: %d)(response:%s)", connector, statusCode, respBody)
+	}
+	return nil
+}
 func prettyPrintTaskStatus(task *TaskStatus) {
 	stateFmt := color.New(color.FgGreen).SprintFunc()
 	if !task.isRunning {
@@ -150,4 +256,17 @@ func prettyPrintTaskStatus(task *TaskStatus) {
 	msg := fmt.Sprintf("Task [%d] has status %s on worker '%s' (running: %v)\n", task.ID, stateFmt(task.Status), task.WorkerID, stateFmt(task.isRunning))
 	fmt.Print(msg)
 
+}
+
+// Get if the connector if healthy. This means that the connector itself reports healthy *and* all the tasks report healthy
+func (status *ConnectorStatus) isHealthy() bool {
+	if status.Connector["state"] != "RUNNING" {
+		return false
+	}
+	for _, task := range status.Tasks {
+		if task.Status != "RUNNING" {
+			return false
+		}
+	}
+	return true
 }
