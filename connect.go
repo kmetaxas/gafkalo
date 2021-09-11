@@ -144,7 +144,8 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 
 }
 
-func (admin *ConnectAdmin) CreateConnector(connector string, jsonDefinition string) error {
+func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error) {
+	var name string
 	type createConnectorRequest struct {
 		Name   string                 `json:"name"`
 		Config map[string]interface{} `json:"config"`
@@ -157,24 +158,40 @@ func (admin *ConnectAdmin) CreateConnector(connector string, jsonDefinition stri
 	var request createConnectorRequest
 	err := json.Unmarshal([]byte(jsonDefinition), &request)
 	if err != nil {
-		return err
+		return name, err
 	}
 	var response createConnectorResponse
 	uri := "/connectors"
 	reqBody, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return name, err
 	}
 	respBody, statusCode, err := admin.doREST("POST", uri, bytes.NewBuffer(reqBody))
-	if statusCode < 200 || statusCode > 300 {
-		return fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+	if statusCode < 200 || statusCode > 400 {
+		return name, fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
 	}
 	if err != nil {
-		return err
+		return name, err
 	}
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
+		return name, err
+	}
+	name = response.Name
+	return name, nil
+
+}
+func (admin *ConnectAdmin) DeleteConnector(connector string) error {
+	uri := fmt.Sprintf("/connectors/%s", connector)
+	respBody, statusCode, err := admin.doREST("DELETE", uri, nil)
+	if err != nil {
 		return err
+	}
+	if statusCode == 409 {
+		return fmt.Errorf("Rebalance in progress.. Check status and try again later")
+	}
+	if statusCode < 200 || statusCode > 400 {
+		return fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
 	}
 	return nil
 

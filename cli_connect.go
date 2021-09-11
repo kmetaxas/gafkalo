@@ -12,16 +12,20 @@ type ConnectCmd struct {
 	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
 	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
 	Create   CreateConnectorCmd   `cmd help:"Create connector"`
+	Delete   DeleteConnectorCmd   `cmd help:"Delete connector"`
 }
 
 type ListConnectorsCmd struct {
 }
 type DescribeConnectorCmd struct {
-	Connector string `cmd required help:"Connector name"`
+	Name string `arg required help:"Connector name"`
 }
 type CreateConnectorCmd struct {
-	Name     string `cmd required help:"Connector name"`
-	JsonFile string `required help:"path to JSON definition for connector"`
+	JsonFile string `arg required help:"path to JSON definition for connector"`
+}
+
+type DeleteConnectorCmd struct {
+	Name string `arg  help:"Connector name"`
 }
 
 // Describe a connector.
@@ -31,7 +35,7 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	connectorInfo, _ := admin.GetConnectorInfo(cmd.Connector)
+	connectorInfo, _ := admin.GetConnectorInfo(cmd.Name)
 	fmt.Printf("Connector: %s\n", connectorInfo.Name)
 	tb := table.NewWriter()
 	tb.SetStyle(table.StyleLight)
@@ -41,7 +45,7 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 		tb.AppendRow(table.Row{key, value})
 	}
 	tb.Render()
-	tasks, err := admin.ListTasksForConnector(cmd.Connector)
+	tasks, err := admin.ListTasksForConnector(cmd.Name)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,9 +93,24 @@ func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
 	}
-	err = admin.CreateConnector(cmd.Name, string(data))
+	name, err := admin.CreateConnector(string(data))
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Created conector%s\n", name)
+	return nil
+}
+
+func (cmd *DeleteConnectorCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	if err != nil {
+		return err
+	}
+	err = admin.DeleteConnector(cmd.Name)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Deleted connector %s\n", cmd.Name)
 	return nil
 }
