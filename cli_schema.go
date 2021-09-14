@@ -52,7 +52,7 @@ func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		return err
 	}
-	existingSchema, err := sradmin.Client.GetSchemaByVersionWithArbitrarySubject(cmd.Subject, cmd.Version)
+	existingSchema, err := sradmin.Client.GetSchemaByVersion(cmd.Subject, cmd.Version)
 	if err != nil {
 		return err
 	}

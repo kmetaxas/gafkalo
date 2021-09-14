@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/Shopify/sarama"
 	//"github.com/fatih/color"
-	"github.com/riferrei/srclient"
+	"github.com/kmetaxas/srclient"
 	"io/ioutil"
 	"log"
 )
@@ -64,14 +64,15 @@ func (c *Producer) GetOrCreateSchema(topic, schemaData string, format srclient.S
 	var schema *srclient.Schema
 	// TODO, it would be better to do a schema Lookup because this schema may not be the Latest but one of the older versions
 	// However srclient does not offer this api yet
-	schema, err := c.SRClient.GetLatestSchema(topic, false)
+	subject := getSubjectForTopic(topic, isKey)
+	schema, err := c.SRClient.GetLatestSchema(subject)
 	if err != nil || schema == nil {
 		return schema, err
 	}
 	if format == "" {
 		format = "AVRO"
 	}
-	schema, err = c.SRClient.CreateSchema(topic, schemaData, format, isKey)
+	schema, err = c.SRClient.CreateSchema(subject, schemaData, format)
 	if err != nil {
 		return schema, err
 	}
@@ -81,6 +82,7 @@ func (c *Producer) GetOrCreateSchema(topic, schemaData string, format srclient.S
 
 func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format srclient.SchemaType, isKey bool) ([]byte, error) {
 	var resp []byte
+	subject := getSubjectForTopic(topic, isKey)
 	if schemaPath != "" {
 		schemaData, err := ioutil.ReadFile(schemaPath)
 		if err != nil {
@@ -92,7 +94,7 @@ func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format s
 		}
 		resp = makeBinaryRecordUsingSchema(data, schema)
 	} else {
-		schema, err := c.SRClient.GetLatestSchema(topic, false)
+		schema, err := c.SRClient.GetLatestSchema(subject)
 		if err != nil {
 			return resp, err
 		}
