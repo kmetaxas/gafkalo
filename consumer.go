@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/fatih/color"
-	"github.com/riferrei/srclient"
+	"github.com/kmetaxas/srclient"
 	"io/ioutil"
 	"log"
 	"math/rand"
