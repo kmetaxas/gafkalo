@@ -92,10 +92,12 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 		kafkaConf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
 
+	fmt.Printf("Before NewConsumerGroup..to Brokers: %s, groupID: %s, kafkaConf:%v", kConf.Brokers, groupID, kafkaConf)
 	client, err := sarama.NewConsumerGroup(kConf.Brokers, groupID, kafkaConf)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Print("After NewConsumerGroup..")
 
 	consumer.Client = client
 	consumer.Topics = topics
@@ -111,6 +113,7 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	} else {
 		consumer.consumerGroupHandler = &consumer
 	}
+	fmt.Print("Returning new consumer")
 	return &consumer
 }
 
