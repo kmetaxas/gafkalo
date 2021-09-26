@@ -127,6 +127,9 @@ func (admin *ConnectAdmin) GetConnectorStatus(connector string) (*ConnectorStatu
 		return &status, err
 	}
 	err = json.Unmarshal(respBody, &status)
+	if err != nil {
+		return &status, err
+	}
 
 	return &status, nil
 }
@@ -191,7 +194,7 @@ func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error
 	}
 	respBody, statusCode, err := admin.doREST("POST", uri, bytes.NewBuffer(reqBody))
 	if statusCode < 200 || statusCode > 400 {
-		return name, fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+		return name, fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
 	}
 	if err != nil {
 		return name, err
@@ -211,10 +214,10 @@ func (admin *ConnectAdmin) DeleteConnector(connector string) error {
 		return err
 	}
 	if statusCode == 409 {
-		return fmt.Errorf("Rebalance in progress.. Check status and try again later")
+		return fmt.Errorf("rebalance in progress.. Check status and try again later")
 	}
 	if statusCode < 200 || statusCode > 400 {
-		return fmt.Errorf("Request failed with status code %d\nResponse body: %s\n", statusCode, respBody)
+		return fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
 	}
 	return nil
 
@@ -229,7 +232,7 @@ func (admin *ConnectAdmin) RestartTask(connector string, taskID int) error {
 	}
 	if statusCode < 200 || statusCode > 400 {
 
-		return fmt.Errorf("Failed to restart task %d with status %d (response:%s)", taskID, statusCode, respBody)
+		return fmt.Errorf("railed to restart task %d with status %d (response:%s)", taskID, statusCode, respBody)
 	}
 	return nil
 
@@ -244,10 +247,11 @@ func (admin *ConnectAdmin) RestartConnector(connector string) error {
 	}
 	if statusCode < 200 || statusCode > 400 {
 
-		return fmt.Errorf("Failed to restart connector %s (http: %d)(response:%s)", connector, statusCode, respBody)
+		return fmt.Errorf("railed to restart connector %s (http: %d)(response:%s)", connector, statusCode, respBody)
 	}
 	return nil
 }
+
 func prettyPrintTaskStatus(task *TaskStatus) {
 	stateFmt := color.New(color.FgGreen).SprintFunc()
 	if !task.isRunning {

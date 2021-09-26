@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/kmetaxas/srclient"
 	"github.com/nsf/jsondiff"
-	"github.com/riferrei/srclient"
 	"io"
 	"io/ioutil"
 	"log"
@@ -109,7 +109,7 @@ func NewSRAdmin(config *SRConfig) SRAdmin {
 func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
 
 	// Create a value subject (isKey = false)
-	newSchema, err := admin.Client.CreateSchemaWithArbitrarySubject(schema.SubjectName, schema.SchemaData, schema.SchemaType)
+	newSchema, err := admin.Client.CreateSchema(schema.SubjectName, schema.SchemaData, schema.SchemaType)
 	if err != nil {
 		return 0, err
 	}
@@ -270,7 +270,7 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		}
 		if existingID != 0 {
 			// Schema already registered, but is this the latest version?
-			versions, err := admin.Client.GetSchemaVersionsWithArbitrarySubject(schema.SubjectName)
+			versions, err := admin.Client.GetSchemaVersions(schema.SubjectName)
 			if err != nil {
 				log.Fatalf("Failed to fetch versions for %s: %s\n", schema.SubjectName, err)
 			}
@@ -321,4 +321,14 @@ func (admin *SRAdmin) Reconcile(topics map[string]Topic, dryRun bool) []SchemaRe
 
 	return schemaResults
 
+}
+
+func getSubjectForTopic(topic string, isKey bool) string {
+	var subject_suffix string
+	if isKey {
+		subject_suffix = "-key"
+	} else {
+		subject_suffix = "-value"
+	}
+	return fmt.Sprintf("%s-%s", topic, subject_suffix)
 }

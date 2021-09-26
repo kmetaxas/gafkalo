@@ -77,6 +77,19 @@ Config yaml structure:
 You can add input dirs with glob patterns to let kafkalo know where to find your YAML definitions. 
 Kafkalo will read all the input YAMLs, merge then into a single internal data structure and try to sync them.
 
+
+encryption
+~~~~~~~~~~
+
+`gafkalo` will automatically try to decrypt the config file with sops_. If there no sops metadata in the yaml it will read it as plaintext, otherwise it will attempt to decrypt.
+
+Refer to sops_ for further configuration.
+
+sops_ is bundled as a library and there is no need to have the sops binary in the path.
+
+
+.. _sops: https://github.com/mozilla/sops
+
 input yaml
 ----------
 
@@ -186,4 +199,5 @@ A client meant to be a consumer will have `consumer_for` defined and the topics 
 
 For producers the `producer_for` section works the same way as the consumer
 You can define a role as `strict: true` if you want to disable writing new schemas in the schema registry. Useful for production systems 
+
 
