@@ -24,13 +24,14 @@ steps:
     dockerfile: Dockerfile.docs
 - name: deploy_with_helm
   image: pelotech/drone-helm3
-  skip_tls_verify: true
-  helm_command: upgrade
-  chart: ./docs/helm
-  release: gafkalodocs
-  values_files:
-    from_secret: helm_values
-  values: "image.tag=${DRONE_COMMIT:0:7}"
+  settings:
+    skip_tls_verify: true
+    mode: upgrade
+    chart: ./docs/helm
+    release: gafkalodocs
+    values_files:
+      from_secret: helm_values
+    values: "image.tag=${DRONE_COMMIT:0:7}"
   environment:
     KUBE_API_SERVER:
       from_secret: api_server
