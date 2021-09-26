@@ -179,7 +179,7 @@ func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
 	schemaID := binary.BigEndian.Uint32(payload[1:5])
 	schema, err := c.SRClient.GetSchema(int(schemaID))
 	if err != nil {
-		return resp, 0, fmt.Errorf("Failed to deserialize schema ID [%d] with error: %s", schemaID, err)
+		return resp, 0, fmt.Errorf("failed to deserialize schema ID [%d] with error: %s", schemaID, err)
 	}
 	native, _, _ := schema.Codec().NativeFromBinary(payload[5:])
 	deserialized, _ := schema.Codec().TextualFromNative(nil, native)
