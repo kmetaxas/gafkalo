@@ -36,5 +36,7 @@ steps:
       from_secret: api_server
     KUBE_CERTIFICATE:
       from_secret: k8s_cert
+    KUBE_TOKEN:
+      from_secret: k8s_token
 
 
