@@ -84,6 +84,8 @@ func parseConfig(configFile string) Configuration {
 	*/
 	if err != nil && err != sops.MetadataNotFound {
 		log.Fatalf("Failed to read config: %s", err)
+	} else if err == sops.MetadataNotFound {
+		configData = data
 	}
 
 	var Config Configuration
