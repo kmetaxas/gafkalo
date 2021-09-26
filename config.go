@@ -1,6 +1,8 @@
 package main
 
 import (
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -70,13 +72,22 @@ type Configuration struct {
 }
 
 func parseConfig(configFile string) Configuration {
-	data, err := ioutil.ReadFile(configFile)
+	var configData, data []byte
+	var err error
+	data, err = ioutil.ReadFile(configFile)
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", configFile, err)
 	}
+	configData, err = decrypt.Data(data, "yaml")
+	/* try to decrypt using sops.
+	If we have an error MetadataNotFound, then we consider the file plaintext and ignore this error
+	*/
+	if err != nil && err != sops.MetadataNotFound {
+		log.Fatalf("Failed to read config: %s", err)
+	}
 
 	var Config Configuration
-	err = yaml.Unmarshal(data, &Config)
+	err = yaml.Unmarshal(configData, &Config)
 	if err != nil {
 		log.Fatalf("Failed to read kafkalo config: %s\n", err)
 	}
