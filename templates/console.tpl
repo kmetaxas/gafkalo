@@ -23,7 +23,8 @@
 {{ range .Schemas -}}
 {{ if .Changed -}} 
 -{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
-{{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}{{ end}}
+{{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}
+{{ end}}
 {{- end }}
 {{- end }}
 {{- end }}
