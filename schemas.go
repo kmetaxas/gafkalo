@@ -262,15 +262,15 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		log.Fatal(err)
 	}
 	// Only go through the whole schema check/update thing if SchemaData is not empty
-	var mustRegister bool = true
+	var mustRegister bool = false
 	if schema.SchemaData != "" {
 		existingID, _, err := admin.LookupSchema(schema)
 		if err != nil {
 			log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
 		}
-		// if there is an existing ID then don't register this schema
-		if existingID != 0 {
-			mustRegister = false
+		// No schemaID, so we must register
+		if existingID == 0 {
+			mustRegister = true
 		}
 		if mustRegister {
 			if !dryRun {
