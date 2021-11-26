@@ -245,9 +245,12 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 	}
 	// Generate
 	if oldPlan == nil {
+		if int(replicationFactor) > numBrokers {
+			return newPlan, fmt.Errorf("Can't have replication factor %d with only %d brokers", replicationFactor, numBrokers)
+		}
 		for i := 0; i < (int(count) - len(oldPlan)); i++ {
 			var replicas []int32
-			for b := 0; b < numBrokers; b++ {
+			for b := 0; b < int(replicationFactor); b++ {
 				replicas = append(replicas, int32(rand.Intn(int(numBrokers))))
 			}
 			newPlan = append(newPlan, replicas)
