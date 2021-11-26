@@ -251,7 +251,7 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 		for i := 0; i < (int(count) - len(oldPlan)); i++ {
 			var replicas []int32
 			for b := 0; b < int(replicationFactor); b++ {
-				replicas = append(replicas, int32(rand.Intn(int(numBrokers))))
+				replicas = append(replicas, int32(rand.Intn(int(numBrokers))+1))
 			}
 			newPlan = append(newPlan, replicas)
 		}

@@ -18,6 +18,11 @@ func TestCalculatePartitionPlan(t *testing.T) {
 		if len(partition) != 4 {
 			t.Errorf("Partition: %v does not have replication factor 3", partition)
 		}
+		for _, num := range partition {
+			if num < 1 || num > 6 {
+				t.Error("Broker IDs can't be less than 1 or more than 6 in a cluster of 6 brokers")
+			}
+		}
 	}
 	// 12 partitions of replication factor 6, with a 3 broker cluster
 	// this represents an impossible combination
