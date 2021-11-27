@@ -221,7 +221,7 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 	if len(oldPlan) > int(count) {
 		return nil, errors.New("decreasing partition number is not possible in Kafka")
 	}
-	newPlan, err := calculatePartitionPlan(int32(int(count)-len(oldPlan)), numBrokers, replicationFactor, nil)
+	newPlan, err := calculatePartitionPlan(int32(count), numBrokers, replicationFactor, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@
   - Config {{ .Name }} changed from {{ .OldVal }} to {{ .NewVal }}
   {{- end }} 
 {{ if .PartitionsChanged -}} 
-{{ if $.IsPlan }}[PLAN] Partitions will be changed{{else}} Partitions changed{{end}} to {{.NewPartitions}} from {{.OldPartitions}} New plan is 
+Partitions {{ if $.IsPlan }}will be {{end}}changed to {{.NewPartitions}} from {{.OldPartitions}} New plan is 
   | Partition | Brokers |
 {{- range $partition, $brokers:=  .ReplicaPlan }}
   | {{ $partition }} | {{range $broker := $brokers}}{{$broker}},{{end}} |
