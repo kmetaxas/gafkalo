@@ -9,14 +9,18 @@ import (
 )
 
 type ConnectCmd struct {
-	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
-	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
-	Create   CreateConnectorCmd   `cmd help:"Create connector"`
-	Delete   DeleteConnectorCmd   `cmd help:"Delete connector"`
-	Heal     HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
+	List        ListConnectorsCmd    `cmd help:"List configured connectors"`
+	Describe    DescribeConnectorCmd `cmd help:"Describe connector"`
+	Create      CreateConnectorCmd   `cmd help:"Create connector"`
+	Delete      DeleteConnectorCmd   `cmd help:"Delete connector"`
+	Heal        HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
+	HealthCheck HealthCheckCmd       `cmd help:"Health Check on connector(s)"`
 }
 
 type ListConnectorsCmd struct {
+}
+
+type HealthCheckCmd struct {
 }
 type DescribeConnectorCmd struct {
 	Name string `arg required help:"Connector name"`
@@ -130,6 +134,35 @@ func (cmd *DeleteConnectorCmd) Run(ctx *CLIContext) error {
 		return err
 	}
 	fmt.Printf("Deleted connector %s\n", cmd.Name)
+	return nil
+}
+
+func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	var faultyConnectors int = 0
+	if err != nil {
+		return err
+	}
+	connectors, err := admin.ListConnectors()
+	if err != nil {
+		return err
+	}
+	for _, connectorName := range connectors {
+		status, err := admin.GetConnectorStatus(connectorName)
+		if err != nil {
+			return err
+		}
+		if !status.isHealthy() {
+			fmt.Printf("Connector %s is not healthy\n", connectorName)
+			faultyConnectors += 1
+		}
+	}
+	if faultyConnectors == 0 {
+		fmt.Printf("All connectors are healthy (%d connectors checked)\n", len(connectors))
+	} else {
+		fmt.Printf("%d FAILED connectors (out of %d total)\n", faultyConnectors, len(connectors))
+	}
 	return nil
 }
 
