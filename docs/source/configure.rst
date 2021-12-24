@@ -41,6 +41,9 @@ Config yaml structure:
      schemaregistry:
        # The URL of the schema registry
        url: "http://localhost:8081"
+       # Timeout for REST calls made to schema registry in seconds
+       # Defaults to 5. If you have many subjects you may want to increase this
+       timeout: 10
        # Username to use to authenticate
        username: "username"
        # Password to use to authenticate
