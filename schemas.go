@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Schema object to keep track of desired/requested state
@@ -88,11 +89,17 @@ type SRAdmin struct {
 
 // Create a new SRAdmin
 func NewSRAdmin(config *SRConfig) SRAdmin {
+	var timeout time.Duration = 5
 	srclient := srclient.CreateSchemaRegistryClient(config.Url)
+	// Set a default for Timeouts or use config provided one
+	if config.Timeout != 0 {
+		timeout = config.Timeout
+	}
+	srclient.SetTimeout(timeout * time.Second)
+
 	if config.Username != "" && config.Password != "" {
 		srclient.SetCredentials(config.Username, config.Password)
 	}
-
 	sradmin := SRAdmin{Client: *srclient, user: config.Username, pass: config.Password}
 	sradmin.url = config.Url
 	if config.CAPath != "" {
