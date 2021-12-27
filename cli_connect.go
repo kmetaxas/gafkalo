@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"io/ioutil"
 	"log"
@@ -141,6 +142,8 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	admin, err := NewConnectAdin(&config.Connections.Connect)
 	var faultyConnectors int = 0
+	healthyColor := color.New(color.FgGreen).SprintFunc()
+	errorColor := color.New(color.FgRed).SprintFunc()
 	if err != nil {
 		return err
 	}
@@ -154,14 +157,14 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 			return err
 		}
 		if !status.isHealthy() {
-			fmt.Printf("Connector %s is not healthy\n", connectorName)
+			fmt.Fprintf(os.Stderr, "Connector %s is not healthy\n", errorColor(connectorName))
 			faultyConnectors += 1
 		}
 	}
 	if faultyConnectors == 0 {
-		fmt.Printf("All connectors are healthy (%d connectors checked)\n", len(connectors))
+		fmt.Printf("All connectors are %s (%d connectors checked)\n", healthyColor("healthy"), len(connectors))
 	} else {
-		fmt.Printf("%d FAILED connectors (out of %d total)\n", faultyConnectors, len(connectors))
+		fmt.Fprintf(os.Stderr, "%s connectors (out of %d total)\n", errorColor(faultyConnectors, " ERROR"), len(connectors))
 	}
 	return nil
 }
