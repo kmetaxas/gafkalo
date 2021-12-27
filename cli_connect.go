@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"io/ioutil"
 	"log"
@@ -9,14 +10,18 @@ import (
 )
 
 type ConnectCmd struct {
-	List     ListConnectorsCmd    `cmd help:"List configured connectors"`
-	Describe DescribeConnectorCmd `cmd help:"Describe connector"`
-	Create   CreateConnectorCmd   `cmd help:"Create connector"`
-	Delete   DeleteConnectorCmd   `cmd help:"Delete connector"`
-	Heal     HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
+	List        ListConnectorsCmd    `cmd help:"List configured connectors"`
+	Describe    DescribeConnectorCmd `cmd help:"Describe connector"`
+	Create      CreateConnectorCmd   `cmd help:"Create connector"`
+	Delete      DeleteConnectorCmd   `cmd help:"Delete connector"`
+	Heal        HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
+	HealthCheck HealthCheckCmd       `cmd help:"Health Check on connector(s)"`
 }
 
 type ListConnectorsCmd struct {
+}
+
+type HealthCheckCmd struct {
 }
 type DescribeConnectorCmd struct {
 	Name string `arg required help:"Connector name"`
@@ -130,6 +135,37 @@ func (cmd *DeleteConnectorCmd) Run(ctx *CLIContext) error {
 		return err
 	}
 	fmt.Printf("Deleted connector %s\n", cmd.Name)
+	return nil
+}
+
+func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	var faultyConnectors int = 0
+	healthyColor := color.New(color.FgGreen).SprintFunc()
+	errorColor := color.New(color.FgRed).SprintFunc()
+	if err != nil {
+		return err
+	}
+	connectors, err := admin.ListConnectors()
+	if err != nil {
+		return err
+	}
+	for _, connectorName := range connectors {
+		status, err := admin.GetConnectorStatus(connectorName)
+		if err != nil {
+			return err
+		}
+		if !status.isHealthy() {
+			fmt.Fprintf(os.Stderr, "Connector %s is not healthy\n", errorColor(connectorName))
+			faultyConnectors += 1
+		}
+	}
+	if faultyConnectors == 0 {
+		fmt.Printf("All connectors are %s (%d connectors checked)\n", healthyColor("healthy"), len(connectors))
+	} else {
+		fmt.Fprintf(os.Stderr, "%s connectors (out of %d total)\n", errorColor(faultyConnectors, " ERROR"), len(connectors))
+	}
 	return nil
 }
 
