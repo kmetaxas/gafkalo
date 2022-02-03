@@ -106,3 +106,11 @@ func (tr *TopicResult) PartitionsChanged() bool {
 	}
 	return false
 }
+
+// Check if result has new compatibility set
+func (res *SchemaResult) HasNewCompatibility() bool {
+	if res.NewCompat != "" {
+		return true
+	}
+	return false
+}
