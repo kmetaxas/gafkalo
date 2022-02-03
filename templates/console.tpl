@@ -21,9 +21,9 @@ Partitions {{ if $.IsPlan }}will be {{end}}changed to {{.NewPartitions}} from {{
 {{- end }}
 ## Schemas
 {{ range .Schemas -}}
-{{ if .Changed -}} 
--{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
-{{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}
+{{ if or .Changed .HasNewCompatibility -}} 
+-{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version. {{ if .HasNewCompatibility }} Compatibility will be set to {{ .NewCompat }}{{- end }}
+{{ else }}Subject {{ .SubjectName }}: {{ if .Changed }}Registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}.{{- end }}{{if .HasNewCompatibility }} Changed Compatibility to {{ .NewCompat }}.{{- end}}
 {{ end}}
 {{- end }}
 {{- end }}

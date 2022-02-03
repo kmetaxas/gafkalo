@@ -293,8 +293,11 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
 	if (schema.Compatibility != "") && ((schema.Compatibility != curCompat) && (schema.Compatibility != globalCompat)) {
-		admin.SetCompatibility(schema, schema.Compatibility)
 		newCompat = schema.Compatibility
+		if !dryRun {
+			admin.SetCompatibility(schema, schema.Compatibility)
+			newCompat = schema.Compatibility
+		}
 	}
 	result.NewCompat = newCompat
 	result.Changed = mustRegister
