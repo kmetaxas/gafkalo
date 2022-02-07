@@ -289,14 +289,27 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 			}
 		}
 	}
-	// --- compat
+	// ---- Compatibility settings
+	/*
+		- If current compatibility is NOT SET then:
+		  - If requested compatibility matches global compat, do nothing
+		  - Otherwise, set per subject compat
+		- If current compatibility is SET then:
+		  - If If requested compat matches set compat do nothing
+		  - Otherwise, set compat
+	*/
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
-	if (schema.Compatibility != "") && ((schema.Compatibility != curCompat) && (schema.Compatibility != globalCompat)) {
-		newCompat = schema.Compatibility
+	if schema.Compatibility != "" {
+		if (curCompat == "") && (schema.Compatibility != globalCompat) {
+			newCompat = schema.Compatibility
+		}
+		if (curCompat != "") && (schema.Compatibility != curCompat) {
+			newCompat = schema.Compatibility
+		}
 		if !dryRun {
 			admin.SetCompatibility(schema, schema.Compatibility)
-			newCompat = schema.Compatibility
+
 		}
 	}
 	result.NewCompat = newCompat
