@@ -250,7 +250,7 @@ func randNonRepeatingIntSet(brokerIDs []int32, size int) ([]int32, error) {
 	var err error
 	var result []int32
 	if size > len(brokerIDs) {
-		return result, fmt.Errorf("Requested set size (%d) bigger than available cluster size of %d", size, len(brokerIDs))
+		return result, fmt.Errorf("requested set size (%d) bigger than available cluster size of %d", size, len(brokerIDs))
 	}
 	//for i := from; i < to+1; i++ {
 	rand.Shuffle(len(brokerIDs), func(i, j int) {
@@ -274,7 +274,7 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 	// Generate
 	if oldPlan == nil {
 		if int(replicationFactor) > numBrokers {
-			return newPlan, fmt.Errorf("Can't have replication factor %d with only %d brokers", replicationFactor, numBrokers)
+			return newPlan, fmt.Errorf("can't have replication factor %d with only %d brokers", replicationFactor, numBrokers)
 		}
 		for i := 0; i < (int(count) - len(oldPlan)); i++ {
 			var replicas []int32
