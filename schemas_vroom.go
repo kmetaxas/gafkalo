@@ -64,6 +64,7 @@ func NewSchemaRegistryCache(config *Configuration) (*SchemaRegistryCache, error)
 	srCache.schemas = make(map[int]string)
 	srCache.subjects = make(map[string]map[int]int)
 	srCache.compatPerSubject = make(map[string]string)
+	srCache.globalCompat = "BACKWARD" //default is BACKWARD.
 	return &srCache, err
 }
 
@@ -99,6 +100,34 @@ func (c *SchemaRegistryCache) GetSchemaForSubjectVersion(name string, version in
 	schemaText := c.schemas[schemaID]
 	schema = Schema{SubjectName: name, SchemaData: schemaText}
 	return &schema, err
+}
+
+// Fetch the compatibility setting for given Subject.
+func (c *SchemaRegistryCache) GetCompatibilityForSubject(subject string) string {
+	return c.compatPerSubject[subject]
+}
+
+// Retrieve the global compatibility setting
+func (c *SchemaRegistryCache) GetGlobalCompatibility() string {
+	return c.globalCompat
+}
+
+// Lookup schema text under a subject. Return version and ID if found. Zeros if not.
+func (c *SchemaRegistryCache) LookupShemaForSubject(subject, schema string) (int, int, error) {
+	// Compare all schema versions registered
+	for version, schema_id := range c.subjects[subject] {
+		log.Printf("Comparing version %d of subject %s", version, subject)
+		schema := c.schemas[schema_id]
+		schemaObj := Schema{SubjectName: subject, SchemaData: schema}
+		equals, diff := schemaObj.SchemaDiff(schema)
+		if equals {
+			return schema_id, version, nil
+		} else {
+			log.Printf("Schemas differ: %s", diff)
+		}
+
+	}
+	return 0, 0, nil
 }
 
 // Implement sarama consumer ConsumerGroupHandler interface
@@ -139,6 +168,7 @@ func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, 
 func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error {
 	var value SRValueConfig
 	subject := key.Subject
+	// If subject == nil this must be a global compatibility config
 	if data == nil {
 		// Tombstone. Deleting compatibility only supported in CP 7.0 schemaregistry
 		delete(r.compatPerSubject, subject)
@@ -148,7 +178,13 @@ func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error 
 	if err != nil {
 		return err
 	}
-	r.compatPerSubject[subject] = value.CompatibilityLevel
+	if subject == "" {
+		log.Printf("Global compatibility update seen (%s)", value.CompatibilityLevel)
+		r.globalCompat = value.CompatibilityLevel
+	} else {
+
+		r.compatPerSubject[subject] = value.CompatibilityLevel
+	}
 
 	return nil
 }
