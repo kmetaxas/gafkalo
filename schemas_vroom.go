@@ -19,24 +19,6 @@ All lookups, and checks will then be completely performed on in-memory structure
 This *can* require a lot of RAM in the case of huge amount of subjects and big schemas but in most cases it should be completely manageable for modern machines
 */
 
-/*
-Subject cache is a Subject entry.
-*/
-type SubjectCacheEntry struct {
-	schema Schema
-	id     int
-}
-
-// Get the Schema from the SubjectCacheEntry
-func (c *SubjectCacheEntry) GetSchema() Schema {
-	return c.schema
-}
-
-// Get the ID from the SubjectCacheEntry
-func (c *SubjectCacheEntry) GetID() int {
-	return c.id
-}
-
 type SchemaRegistryCache struct {
 	// Schema IDs
 	schemas      map[int]string
