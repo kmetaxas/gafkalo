@@ -66,7 +66,7 @@ func (r *Replicator) Copy() {
 	go func() {
 		defer wg.Done()
 		for {
-			if err := r.consumer.Client.Consume(ctx, []string{r.fromTopic}, r); err != nil {
+			if err := r.consumer.ConsumerGroup.Consume(ctx, []string{r.fromTopic}, r); err != nil {
 				log.Panicf("Error from consumer: %v", err)
 			}
 			// check if context was cancelled, signaling that the consumer should stop
@@ -88,7 +88,7 @@ func (r *Replicator) Copy() {
 	}
 	cancel()
 	wg.Wait()
-	if err := r.consumer.Client.Close(); err != nil {
+	if err := r.consumer.ConsumerGroup.Close(); err != nil {
 		log.Panicf("Error closing client: %v", err)
 	}
 }

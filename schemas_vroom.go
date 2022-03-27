@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	//	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
@@ -19,6 +19,24 @@ All lookups, and checks will then be completely performed on in-memory structure
 This *can* require a lot of RAM in the case of huge amount of subjects and big schemas but in most cases it should be completely manageable for modern machines
 */
 
+/*
+Subject cache is a Subject entry.
+*/
+type SubjectCacheEntry struct {
+	schema Schema
+	id     int
+}
+
+// Get the Schema from the SubjectCacheEntry
+func (c *SubjectCacheEntry) GetSchema() Schema {
+	return c.schema
+}
+
+// Get the ID from the SubjectCacheEntry
+func (c *SubjectCacheEntry) GetID() int {
+	return c.id
+}
+
 type SchemaRegistryCache struct {
 	// Schema IDs
 	schemas      map[int]string
@@ -26,8 +44,9 @@ type SchemaRegistryCache struct {
 	globalCompat string
 	consumer     *Consumer
 	//ready        chan bool
-	ctx    context.Context // tell the consumer to stop
-	cancel context.CancelFunc
+	//ctx                context.Context // tell the consumer to stop
+	//cancel             context.CancelFunc
+	lastKnownOffsetEnd int64 // Last end of topic offset that we know of
 }
 
 // keytype SCHEMA in _schemas topic Key
@@ -64,11 +83,20 @@ func NewSchemaRegistryCache(config *Configuration) (*SchemaRegistryCache, error)
 }
 
 func (c *SchemaRegistryCache) readSchemaTopic(topic string) {
-	// TODO read until the end and stop.
-	err := c.consumer.Consume(10)
+	// Find current end offset and out it in lastKnownOffsetEnd so that
+	// ConsumeClaim will stop consuming at that point
+	last_offset, err := c.consumer.Client.GetOffset("_schemas", 0, sarama.OffsetNewest)
+	c.lastKnownOffsetEnd = last_offset - 1 // -1 because last offset is the "next" offset
+	if err != nil {
+		log.Fatalf("Failed to fetch latest offset for _schemas with: %s", err)
+	}
+
+	//err = c.consumer.Consume(int(last_offset - 2))
+	err = c.consumer.Consume(-1)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Print("Reading _schemas topic complete")
 }
 
 // Update the schema cache ith the provided schema object
@@ -79,9 +107,12 @@ func (c *SchemaRegistryCache) updateOrCreateSchema(schema Schema) error {
 }
 
 // Get the schema for the provided subject
-func (c *SchemaRegistryCache) GetSchemaForSubject(name string) (*Schema, error) {
+func (c *SchemaRegistryCache) GetSchemaForSubjectVersion(name string, version int) (*Schema, error) {
 	var schema Schema
 	var err error
+	schemaID := c.subjects[name][version]
+	schemaText := c.schemas[schemaID]
+	schema = Schema{SubjectName: name, SchemaData: schemaText}
 	return &schema, err
 }
 
@@ -97,6 +128,11 @@ func (r *SchemaRegistryCache) Cleanup(session sarama.ConsumerGroupSession) error
 
 func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
+		if message.Offset == r.lastKnownOffsetEnd {
+			log.Printf("Stopping at end of topic %v", message.Offset)
+			r.consumer.cancel()
+			break
+		}
 		log.Printf("SR_KEY=%+v\n", string(message.Key))
 		var recordKey SRKey
 		err := json.Unmarshal(message.Key, &recordKey)
@@ -147,4 +183,15 @@ func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error 
 	r.schemas[value.Id] = value.Schema
 	r.addSubject(value.Subject, value.Version, value.Id)
 	return nil
+}
+
+func (c *SchemaRegistryCache) ListSubjects() {
+
+	for key, value := range c.subjects {
+		log.Printf("Subject %s:", key)
+		for version, schemaID := range value {
+			log.Printf("Version %d -> ID: %d", version, schemaID)
+		}
+	}
+
 }

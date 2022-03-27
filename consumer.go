@@ -20,7 +20,7 @@ import (
 )
 
 type Consumer struct {
-	Client               sarama.ConsumerGroup
+	Client               sarama.Client
 	SRClient             *srclient.SchemaRegistryClient
 	ConsumerGroup        sarama.ConsumerGroup
 	Topics               []string
@@ -92,13 +92,15 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 		kafkaConf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
 
-	client, err := sarama.NewConsumerGroup(kConf.Brokers, groupID, kafkaConf)
+	client, err := sarama.NewClient(kConf.Brokers, kafkaConf)
+	cGroup, err := sarama.NewConsumerGroupFromClient(groupID, client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	consumer.Client = client
 	consumer.Topics = topics
+	consumer.ConsumerGroup = cGroup
 	consumer.PartitionOffsets = partitionOffsets
 	consumer.UsePartitionOffsets = useOffsets
 	consumer.deserializeKey = deserializeKey
@@ -126,7 +128,7 @@ func (c *Consumer) Consume(maxRecords int) error {
 	go func() {
 		defer wg.Done()
 		for {
-			if err := c.Client.Consume(ctx, c.Topics, c.consumerGroupHandler); err != nil {
+			if err := c.ConsumerGroup.Consume(ctx, c.Topics, c.consumerGroupHandler); err != nil {
 				log.Panicf("Error from consumer: %v", err)
 			}
 			// check if context was cancelled, signaling that the consumer should stop
@@ -142,7 +144,7 @@ func (c *Consumer) Consume(maxRecords int) error {
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
 	select {
 	case <-ctx.Done():
-		log.Println("terminating..")
+		log.Println("terminating consumer..")
 	case <-sigterm:
 		log.Println("terminating (received signal)")
 	}
