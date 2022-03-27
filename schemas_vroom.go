@@ -24,7 +24,9 @@ type SchemaRegistryCache struct {
 	schemas      map[int]string
 	subjects     map[string]map[int]int
 	globalCompat string
-	consumer     *Consumer
+	// Compatibility level per subject. Since this can be set using a CONFIG and does not exist at Subject create time, we set a separate field here for fast lookups/updates
+	compatPerSubject map[string]string
+	consumer         *Consumer
 	//ready        chan bool
 	//ctx                context.Context // tell the consumer to stop
 	//cancel             context.CancelFunc
@@ -61,6 +63,7 @@ func NewSchemaRegistryCache(config *Configuration) (*SchemaRegistryCache, error)
 	srCache.consumer = consumer
 	srCache.schemas = make(map[int]string)
 	srCache.subjects = make(map[string]map[int]int)
+	srCache.compatPerSubject = make(map[string]string)
 	return &srCache, err
 }
 
@@ -68,7 +71,7 @@ func (c *SchemaRegistryCache) readSchemaTopic(topic string) {
 	// Find current end offset and out it in lastKnownOffsetEnd so that
 	// ConsumeClaim will stop consuming at that point
 	last_offset, err := c.consumer.Client.GetOffset("_schemas", 0, sarama.OffsetNewest)
-	c.lastKnownOffsetEnd = last_offset - 1 // -1 because last offset is the "next" offset
+	c.lastKnownOffsetEnd = last_offset - 1
 	if err != nil {
 		log.Fatalf("Failed to fetch latest offset for _schemas with: %s", err)
 	}
@@ -110,12 +113,6 @@ func (r *SchemaRegistryCache) Cleanup(session sarama.ConsumerGroupSession) error
 
 func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		if message.Offset == r.lastKnownOffsetEnd {
-			log.Printf("Stopping at end of topic %v", message.Offset)
-			r.consumer.cancel()
-			break
-		}
-		log.Printf("SR_KEY=%+v\n", string(message.Key))
 		var recordKey SRKey
 		err := json.Unmarshal(message.Key, &recordKey)
 		if err != nil {
@@ -129,17 +126,30 @@ func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, 
 		}
 		//log.Printf("SR_Value=%+vs\n", string(message.Value))
 		session.MarkMessage(message, "")
+		// If that was the last message we should read, stop consuming
+		if message.Offset == r.lastKnownOffsetEnd {
+			log.Printf("Stopping at end of topic %v", message.Offset)
+			r.consumer.cancel()
+			break
+		}
 	}
 	return nil
 }
 
 func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error {
 	var value SRValueConfig
+	subject := key.Subject
+	if data == nil {
+		// Tombstone. Deleting compatibility only supported in CP 7.0 schemaregistry
+		delete(r.compatPerSubject, subject)
+		return nil
+	}
 	err := json.Unmarshal(data, &value)
 	if err != nil {
 		return err
 	}
-	log.Printf("VALUE_CONFIG=%+v\n", value)
+	r.compatPerSubject[subject] = value.CompatibilityLevel
+
 	return nil
 }
 
@@ -155,13 +165,30 @@ func (r *SchemaRegistryCache) addSubject(name string, version, id int) {
 // Process the Kafka record with a keytype=SCHEMA. ACcepts the binary value and needs to be unmarshalled and processed
 func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error {
 	var value SRValueSchema
+	subject := key.Subject
+	if data == nil {
+		// Tombstone. Deleting compatibility only supported in CP 7.0 schemaregistry
+		if data == nil {
+			log.Printf("Tombstone. Dropping version %d of subject %s", key.Version, subject)
+		}
+
+		delete(r.subjects[subject], key.Version)
+		return nil
+	}
 	err := json.Unmarshal(data, &value)
 	if err != nil {
 		return err
 	}
+	// Also check for soft deleted subject versions (delete flag has been set)
+	if value.Deleted {
+		if value.Deleted {
+			log.Printf("Delete flag seen. Dropping version %d of subject %s", key.Version, subject)
+		}
+		delete(r.subjects[subject], key.Version)
+		return nil
+	}
 	// We don't check if it exists already as any event replaces the previous one.
 	// Since this is a compacted topic, if a key exists then we create a map entry.
-	// TODO handle tombstones!
 	r.schemas[value.Id] = value.Schema
 	r.addSubject(value.Subject, value.Version, value.Id)
 	return nil
@@ -171,8 +198,9 @@ func (c *SchemaRegistryCache) ListSubjects() {
 
 	for key, value := range c.subjects {
 		log.Printf("Subject %s:", key)
+		custom_compat := c.compatPerSubject[key]
 		for version, schemaID := range value {
-			log.Printf("Version %d -> ID: %d", version, schemaID)
+			log.Printf("Version %d -> ID: %d (custom compatibility: %s", version, schemaID, custom_compat)
 		}
 	}
 

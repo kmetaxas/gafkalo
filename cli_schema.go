@@ -83,5 +83,6 @@ func (cmd *SchemasCache) Run(ctx *CLIContext) error {
 	}
 	log.Printf("Schema for SKATA6-key is %v", schema)
 	cache.ListSubjects()
+
 	return nil
 }
