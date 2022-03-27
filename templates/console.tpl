@@ -11,7 +11,7 @@
   - Config {{ .Name }} changed from {{ .OldVal }} to {{ .NewVal }}
   {{- end }} 
 {{ if .PartitionsChanged -}} 
-{{ if $.IsPlan }}[PLAN] Partitions will be changed{{else}} Partitions changed{{end}} to {{.NewPartitions}} from {{.OldPartitions}} New plan is 
+Partitions {{ if $.IsPlan }}will be {{end}}changed to {{.NewPartitions}} from {{.OldPartitions}} New partitions:
   | Partition | Brokers |
 {{- range $partition, $brokers:=  .ReplicaPlan }}
   | {{ $partition }} | {{range $broker := $brokers}}{{$broker}},{{end}} |
@@ -21,9 +21,10 @@
 {{- end }}
 ## Schemas
 {{ range .Schemas -}}
-{{ if .Changed -}} 
--{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} will be registered with a new version.
-{{ else }} Subject {{ .SubjectName }} changed ({{ .Changed }})registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}{{ end}}
+{{ if or .Changed .HasNewCompatibility -}} 
+-{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} {{ if .Changed }}will be registered with a new version.{{- end }} {{ if .HasNewCompatibility }} Compatibility will be set to {{ .NewCompat }}{{- end }}
+{{ else }}Subject {{ .SubjectName }}: {{ if .Changed }}Registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}.{{- end }}{{if .HasNewCompatibility }} Changed Compatibility to {{ .NewCompat }}.{{end}}
+{{ end}}
 {{- end }}
 {{- end }}
 {{- end }}

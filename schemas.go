@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Schema object to keep track of desired/requested state
@@ -89,7 +90,13 @@ type SRAdmin struct {
 
 // Create a new SRAdmin
 func NewSRAdmin(config *Configuration) SRAdmin {
+	var timeout time.Duration = 5
 	srclient := srclient.CreateSchemaRegistryClient(config.Connections.Schemaregistry.Url)
+	// Set a default for Timeouts or use config provided one
+	if config.Connections.Schemaregistry.Timeout != 0 {
+		timeout = config.Connections.Schemaregistry.Timeout
+	}
+	srclient.SetTimeout(timeout * time.Second)
 	if config.Connections.Schemaregistry.Username != "" && config.Connections.Schemaregistry.Password != "" {
 		srclient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
 	}
@@ -282,22 +289,13 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	// Only go through the whole schema check/update thing if SchemaData is not empty
 	var mustRegister bool = false
 	if schema.SchemaData != "" {
-		existingID, existingVersion, err := admin.LookupSchema(schema)
+		existingID, _, err := admin.LookupSchema(schema)
 		if err != nil {
 			log.Printf("Reconcile Failed to lookup %s with %s\n", schema.SubjectName, err)
 		}
-		if existingID != 0 {
-			// Schema already registered, but is this the latest version?
-			versions, err := admin.Client.GetSchemaVersions(schema.SubjectName)
-			if err != nil {
-				log.Fatalf("Failed to fetch versions for %s: %s\n", schema.SubjectName, err)
-			}
-			if existingVersion != versions[len(versions)-1] {
-				mustRegister = true
-			}
-
-		} else {
-			mustRegister = true // Must register new schema
+		// No schemaID, so we must register
+		if existingID == 0 {
+			mustRegister = true
 		}
 		if mustRegister {
 			if !dryRun {
@@ -309,12 +307,28 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 			}
 		}
 	}
-	// --- compat
+	// ---- Compatibility settings
+	/*
+		- If current compatibility is NOT SET then:
+		  - If requested compatibility matches global compat, do nothing
+		  - Otherwise, set per subject compat
+		- If current compatibility is SET then:
+		  - If If requested compat matches set compat do nothing
+		  - Otherwise, set compat
+	*/
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
-	if (schema.Compatibility != "") && ((schema.Compatibility != curCompat) && (schema.Compatibility != globalCompat)) {
-		admin.SetCompatibility(schema, schema.Compatibility)
-		newCompat = schema.Compatibility
+	if schema.Compatibility != "" {
+		if (curCompat == "") && (schema.Compatibility != globalCompat) {
+			newCompat = schema.Compatibility
+		}
+		if (curCompat != "") && (schema.Compatibility != curCompat) {
+			newCompat = schema.Compatibility
+		}
+		if !dryRun {
+			admin.SetCompatibility(schema, schema.Compatibility)
+
+		}
 	}
 	result.NewCompat = newCompat
 	result.Changed = mustRegister

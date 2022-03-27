@@ -307,3 +307,17 @@ The tool can check a connector's status and restart the connector itself and any
 This will do a REST call to restart any task that does not have a status of RUNNING.
 
 .. _Connect: https://docs.confluent.io/platform/current/connect/index.html
+
+
+Do a quick health check
+=======================
+
+`gafkalo` can quickly check all connectors for health and report back any errors.
+This is will provide a usefuly, brief information when all you want to know if if everything is OK
+
+.. code-block:: console
+
+   $ ./gafkalo --config conf.yaml connect health-check
+
+
+.. _Connect: https://docs.confluent.io/platform/current/connect/index.html

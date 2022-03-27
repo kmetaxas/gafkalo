@@ -438,6 +438,37 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 	return res, nil
 
 }
+
+/*
+Create any Consumer Group permission
+If dry_run, only return a ClientResult so that a Plan can be created.
+*/
+func (admin *MDSAdmin) doGroupRoleFor(groupName, principal string, roles []string, isLiteral bool, dryRun bool) ([]ClientResult, error) {
+	var res []ClientResult
+	var err error
+	var actualRoles []string
+	existingRoles := admin.getRoleBindingsForPrincipal(principal)
+	if len(roles) > 0 {
+		actualRoles = roles
+	} else {
+		actualRoles = []string{"DeveloperRead"}
+	}
+	for _, roleName := range actualRoles {
+		newRole := ClientResult{Principal: principal, ResourceType: "Group", ResourceName: groupName, Role: roleName, PatternType: getPrefixStr(isLiteral)}
+		if !admin.roleExists(newRole, existingRoles) {
+			res = append(res, newRole)
+		}
+		if !dryRun && !admin.roleExists(newRole, existingRoles) {
+			err = admin.SetRoleBinding(CTX_KAFKA, "Group", groupName, principal, []string{roleName}, isLiteral, dryRun)
+			if err != nil {
+				return res, err
+			}
+		}
+	}
+
+	return res, err
+}
+
 func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []ClientResult {
 	var clientResults []ClientResult
 	for _, client := range clients {
@@ -457,6 +488,14 @@ func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []Clien
 		}
 		for _, resourceOwnerRole := range client.ResourceownerFor {
 			clientRes, err := admin.doResourceOwnerFor(resourceOwnerRole.Topic, client.Principal, resourceOwnerRole.IsLiteral, resourceOwnerRole.Idempotent, dryRun)
+			if err != nil {
+				log.Fatal(err)
+			}
+			clientResults = append(clientResults, clientRes...)
+		}
+		// Add any Consumer Group permissions defined
+		for _, groupRole := range client.Groups {
+			clientRes, err := admin.doGroupRoleFor(groupRole.Name, client.Principal, groupRole.Roles, groupRole.IsLiteral, dryRun)
 			if err != nil {
 				log.Fatal(err)
 			}

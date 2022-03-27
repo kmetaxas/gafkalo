@@ -205,15 +205,17 @@ func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[
 // Returns the new plan
 func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replicationFactor int16, dry_run bool) ([][]int32, error) {
 	var numBrokers int
+	var brokerIDs []int32
+
 	topicMetadata, err := admin.AdminClient.DescribeTopics([]string{topic})
 	if err != nil {
 		return nil, err
 	}
 	brokers, _, err := admin.AdminClient.DescribeCluster()
-	numBrokers = len(brokers)
 	if err != nil {
 		return nil, err
 	}
+	numBrokers = len(brokers)
 	var oldPlan [][]int32
 	for _, partition := range topicMetadata[0].Partitions {
 		oldPlan = append(oldPlan, partition.Replicas)
@@ -221,7 +223,13 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 	if len(oldPlan) > int(count) {
 		return nil, errors.New("decreasing partition number is not possible in Kafka")
 	}
-	newPlan, err := calculatePartitionPlan(int32(int(count)-len(oldPlan)), numBrokers, replicationFactor, nil)
+	// Create a list of broker IDs for calculatePartitionPlan
+	for _, brokerId := range brokers {
+		brokerIDs = append(brokerIDs, brokerId.ID())
+	}
+	// Note, We subtract the existing partitions because we call CreatePartitions() to increase the partition count and we
+	// only care about the *new* partitions, not the whole partitioning scheme of the topic
+	newPlan, err := calculatePartitionPlan(int32(count-int32(len(oldPlan))), numBrokers, replicationFactor, brokerIDs, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -234,21 +242,48 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 	return newPlan, nil
 }
 
+/*
+Generate a random set of integers of size `size` between `from` and `to` arguments (included)
+that is non-repeating. Meaning it will not include a number twice. Obviously, `size` can't be larger than to-from
+*/
+func randNonRepeatingIntSet(brokerIDs []int32, size int) ([]int32, error) {
+	var err error
+	var result []int32
+	if size > len(brokerIDs) {
+		return result, fmt.Errorf("requested set size (%d) bigger than available cluster size of %d", size, len(brokerIDs))
+	}
+	//for i := from; i < to+1; i++ {
+	rand.Shuffle(len(brokerIDs), func(i, j int) {
+		brokerIDs[i], brokerIDs[j] = brokerIDs[j], brokerIDs[i]
+	})
+	result = brokerIDs[:size]
+	//log.Printf("randNonRepeatingIntSet returning %v from a larger set of %v", result, numSet)
+	return result, err
+
+}
+
 /// Generate a new partitioning plan. If oldPlan is provided then respect that.
 // if oldPlan is nil then it creates a plan for the requested count.
 // if count == len(oldPlan) then a new plan is created (respecting oldPlan if possible). This is typicaly to modify replication factor
 // If count != len(oldPlan) That is an error
-func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16, oldPlan [][]int32) ([][]int32, error) {
+func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16, brokerIDs []int32, oldPlan [][]int32) ([][]int32, error) {
 	var newPlan [][]int32
 	if oldPlan != nil && int(count) != len(oldPlan) {
 		return newPlan, fmt.Errorf("can't calculate partition plan as count %d != length of old plan (%d)", count, len(oldPlan))
 	}
 	// Generate
 	if oldPlan == nil {
+		if int(replicationFactor) > numBrokers {
+			return newPlan, fmt.Errorf("can't have replication factor %d with only %d brokers", replicationFactor, numBrokers)
+		}
 		for i := 0; i < (int(count) - len(oldPlan)); i++ {
 			var replicas []int32
-			for b := 0; b < numBrokers; b++ {
-				replicas = append(replicas, int32(rand.Intn(int(numBrokers))))
+			randomBrokerIDs, err := randNonRepeatingIntSet(brokerIDs, int(replicationFactor))
+			if err != nil {
+				return newPlan, err
+			}
+			for b := 0; b < int(replicationFactor); b++ {
+				replicas = append(replicas, int32(randomBrokerIDs[b]))
 			}
 			newPlan = append(newPlan, replicas)
 		}

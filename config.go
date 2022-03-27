@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type KafkaConfig struct {
@@ -52,11 +53,12 @@ type ConnectConfig struct {
 	SkipVerify bool   `yaml:"skipVerify"`
 }
 type SRConfig struct {
-	Url        string `yaml:"url"`
-	Username   string `yaml:"username"`
-	Password   string `yaml:"password"`
-	CAPath     string `yaml:"caPath"` // Add a trusted CA
-	SkipVerify bool   `yaml:"skipVerify"`
+	Url        string        `yaml:"url"`
+	Timeout    time.Duration `yaml:"timeout"` // Allow setting custom timeout for API calls
+	Username   string        `yaml:"username"`
+	Password   string        `yaml:"password"`
+	CAPath     string        `yaml:"caPath"` // Add a trusted CA
+	SkipVerify bool          `yaml:"skipVerify"`
 }
 type Configuration struct {
 	Connections struct {
