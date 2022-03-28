@@ -77,11 +77,6 @@ func (cmd *SchemasCache) Run(ctx *CLIContext) error {
 		return err
 	}
 	cache.ReadSchemaTopic("_topic")
-	schema, err := cache.GetSchemaForSubjectVersion("SKATA6-key", 1)
-	if err != nil {
-		return err
-	}
-	log.Printf("Schema for SKATA6-key is %v", schema)
 	cache.ListSubjects()
 
 	return nil

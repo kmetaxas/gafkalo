@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -106,17 +107,14 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 	if config.Connections.Schemaregistry.CAPath != "" {
 		sradmin.TlsConfig = createTlsConfig(config.Connections.Schemaregistry.CAPath, config.Connections.Schemaregistry.SkipVerify)
 	}
-	subjects, err := sradmin.Client.GetSubjects()
-	sradmin.SubjectCache = subjects
-	if err != nil {
-		log.Fatalf("Unable to get SR subjects: %s\n", err)
-	}
 	srCache, err := NewSchemaRegistryCache(config)
 	if err != nil {
 		log.Fatal(err)
 	}
 	sradmin.SRCache = srCache
 	sradmin.SRCache.ReadSchemaTopic("_schemas")
+	subjects := sradmin.SRCache.GetSubjects()
+	sradmin.SubjectCache = subjects
 	return sradmin
 }
 
@@ -320,10 +318,10 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
-		if (curCompat == "") && (schema.Compatibility != globalCompat) {
+		if (curCompat == "") && (strings.ToUpper(schema.Compatibility) != strings.ToUpper(globalCompat)) {
 			newCompat = schema.Compatibility
 		}
-		if (curCompat != "") && (schema.Compatibility != curCompat) {
+		if (curCompat != "") && (strings.ToUpper(schema.Compatibility) != strings.ToUpper(curCompat)) {
 			newCompat = schema.Compatibility
 		}
 		if !dryRun {

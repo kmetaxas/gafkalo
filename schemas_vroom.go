@@ -223,6 +223,16 @@ func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error 
 	return nil
 }
 
+// Get a list of registered subjects
+func (c *SchemaRegistryCache) GetSubjects() []string {
+	var subjectResponse []string
+	for subject, _ := range c.subjects {
+		subjectResponse = append(subjectResponse, subject)
+	}
+	return subjectResponse
+}
+
+// This is a debugging method. TODO remove when not needed
 func (c *SchemaRegistryCache) ListSubjects() {
 
 	for key, value := range c.subjects {
