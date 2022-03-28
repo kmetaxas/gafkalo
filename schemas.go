@@ -116,6 +116,7 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 		log.Fatal(err)
 	}
 	sradmin.SRCache = srCache
+	sradmin.SRCache.ReadSchemaTopic("_schemas")
 	return sradmin
 }
 
@@ -160,7 +161,7 @@ func (admin *SRAdmin) makeRestCall(method string, uri string, payload io.Reader)
 // Lookup a Schema object in the Registry.
 // If it exists it will return the ID and the version for that subject
 func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
-	existingID, existingVersion, err := admin.SRCache.LookupShemaForSubject(schema.SubjectName, schema.SchemaData)
+	existingID, existingVersion, err := admin.SRCache.LookupSchemaForSubject(schema.SubjectName, schema.SchemaData)
 
 	return existingID, existingVersion, err
 	/*

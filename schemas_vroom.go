@@ -1,13 +1,10 @@
 package main
 
 import (
-	//	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"log"
-	//"os/signal"
-	//"sync"
 )
 
 /*
@@ -25,11 +22,8 @@ type SchemaRegistryCache struct {
 	subjects     map[string]map[int]int
 	globalCompat string
 	// Compatibility level per subject. Since this can be set using a CONFIG and does not exist at Subject create time, we set a separate field here for fast lookups/updates
-	compatPerSubject map[string]string
-	consumer         *Consumer
-	//ready        chan bool
-	//ctx                context.Context // tell the consumer to stop
-	//cancel             context.CancelFunc
+	compatPerSubject   map[string]string
+	consumer           *Consumer
 	lastKnownOffsetEnd int64 // Last end of topic offset that we know of
 }
 
@@ -68,7 +62,7 @@ func NewSchemaRegistryCache(config *Configuration) (*SchemaRegistryCache, error)
 	return &srCache, err
 }
 
-func (c *SchemaRegistryCache) readSchemaTopic(topic string) {
+func (c *SchemaRegistryCache) ReadSchemaTopic(topic string) {
 	// Find current end offset and out it in lastKnownOffsetEnd so that
 	// ConsumeClaim will stop consuming at that point
 	last_offset, err := c.consumer.Client.GetOffset("_schemas", 0, sarama.OffsetNewest)
@@ -77,7 +71,6 @@ func (c *SchemaRegistryCache) readSchemaTopic(topic string) {
 		log.Fatalf("Failed to fetch latest offset for _schemas with: %s", err)
 	}
 
-	//err = c.consumer.Consume(int(last_offset - 2))
 	err = c.consumer.Consume(-1)
 	if err != nil {
 		log.Fatal(err)
@@ -113,7 +106,7 @@ func (c *SchemaRegistryCache) GetGlobalCompatibility() string {
 }
 
 // Lookup schema text under a subject. Return version and ID if found. Zeros if not.
-func (c *SchemaRegistryCache) LookupShemaForSubject(subject, schema string) (int, int, error) {
+func (c *SchemaRegistryCache) LookupSchemaForSubject(subject, schema string) (int, int, error) {
 	// Compare all schema versions registered
 	for version, schema_id := range c.subjects[subject] {
 		log.Printf("Comparing version %d of subject %s", version, subject)
