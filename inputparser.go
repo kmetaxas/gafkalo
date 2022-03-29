@@ -1,9 +1,9 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"log"
 )
 
 // This represents the desired state that the user asked for

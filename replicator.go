@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"github.com/Shopify/sarama"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"sync"

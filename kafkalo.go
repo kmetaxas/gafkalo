@@ -5,6 +5,7 @@ import (
 )
 
 func main() {
+	// Initialize logrus
 	ctx := kong.Parse(&CLI)
 	err := ctx.Run(&CLIContext{Config: CLI.Config})
 	ctx.FatalIfErrorf(err)

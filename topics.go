@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"math/rand"
 )
 
