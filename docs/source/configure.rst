@@ -50,6 +50,9 @@ Config yaml structure:
        password: "password"
        # Path a CA file to add to trust store
        caPath: "/home/user/ca.crt"
+       # When you set skipRegistryForReads to true, it will read the _schemas topic directly and build an internal representation of schemas/subjects and configs. It will then use that in-memory cache for queries that would other go to Schema registry REST API. Mutating requests still go to Schema registry REST endpoint.
+       # This can provide a huge speed benefit when there are many subjects/schemas.
+       skipRegistryForReads: false
      mds:
        # URL to Confluent Metadata Service (MDS)
        url: "http://localhost:8090"
@@ -196,7 +199,7 @@ The `configs:` sections is optional and defaults for the cluster will be used.
 clients
 ~~~~~~~~~
 
-This tools is not meant to make common tasks easy, not to make anything possible (at least, not yet)
+This tools is meant to make common tasks easy, not to make anything possible (at least, not yet)
 For this reason we define rolebindings primarily by the client's function.
 A client meant to be a consumer will have `consumer_for` defined and the topics it can consume from. This will automatically add the correct permissions for the schema registry. You will need to add a `group:` field to add the consumer group permisssion
 

@@ -86,6 +86,7 @@ type SRAdmin struct {
 	user         string
 	pass         string
 	TlsConfig    *tls.Config
+	UseSRCache   bool //Use schema registy cache for requests
 	SRCache      *SchemaRegistryCache
 }
 
@@ -107,14 +108,24 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 	if config.Connections.Schemaregistry.CAPath != "" {
 		sradmin.TlsConfig = createTlsConfig(config.Connections.Schemaregistry.CAPath, config.Connections.Schemaregistry.SkipVerify)
 	}
-	srCache, err := NewSchemaRegistryCache(config)
-	if err != nil {
-		log.Fatal(err)
+	if config.Connections.Schemaregistry.SkipRestForReads {
+		sradmin.UseSRCache = true
 	}
-	sradmin.SRCache = srCache
-	sradmin.SRCache.ReadSchemaTopic("_schemas")
-	subjects := sradmin.SRCache.GetSubjects()
-	sradmin.SubjectCache = subjects
+	if sradmin.UseSRCache {
+		srCache, err := NewSchemaRegistryCache(config)
+		if err != nil {
+			log.Fatal(err)
+		}
+		sradmin.SRCache = srCache
+		sradmin.SRCache.ReadSchemaTopic("_schemas")
+		sradmin.SubjectCache = sradmin.SRCache.GetSubjects()
+	} else {
+		subjects, err := sradmin.Client.GetSubjects()
+		if err != nil {
+			log.Fatalf("Unable to get SR subjects: %s\n", err)
+		}
+		sradmin.SubjectCache = subjects
+	}
 	return sradmin
 }
 
@@ -159,10 +170,11 @@ func (admin *SRAdmin) makeRestCall(method string, uri string, payload io.Reader)
 // Lookup a Schema object in the Registry.
 // If it exists it will return the ID and the version for that subject
 func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
-	existingID, existingVersion, err := admin.SRCache.LookupSchemaForSubject(schema.SubjectName, schema.SchemaData)
-
-	return existingID, existingVersion, err
-	/*
+	var existingID, existingVersion int
+	var err error
+	if admin.UseSRCache {
+		existingID, existingVersion, err = admin.SRCache.LookupSchemaForSubject(schema.SubjectName, schema.SchemaData)
+	} else {
 		type Response struct {
 			Subject string `json:"subject"`
 			Id      int    `json:"id"`
@@ -199,8 +211,11 @@ func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
 		}
 		// Now check if we have the *latest* for this subject
 
-		return respObj.Id, respObj.Version, nil
-	*/
+		existingID = respObj.Id
+		existingVersion = respObj.Version
+		err = nil
+	}
+	return existingID, existingVersion, err
 }
 
 // set schema Compatibility
@@ -229,51 +244,52 @@ func (admin *SRAdmin) SetCompatibility(schema Schema, compatibility string) erro
 
 // Get the compatibility setting
 func (admin *SRAdmin) GetCompatibility(schema Schema) (string, error) {
-	return admin.SRCache.GetCompatibilityForSubject(schema.SubjectName), nil
+	// If we can use the SR CAche then its quite simple. Otherwise the rest of this function deals with REST API details
+	if admin.UseSRCache {
+		return admin.SRCache.GetCompatibilityForSubject(schema.SubjectName), nil
+	}
 
-	/*
-		type RequestResponse struct {
-			// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
-			Compatibility string `json:"compatibilityLevel"`
-		}
-		respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config/%s", admin.url, schema.SubjectName), bytes.NewBuffer(nil))
-		if err != nil {
-			log.Printf("Failed to get compat:%s\n", err)
-			return "", err
-		}
+	type RequestResponse struct {
+		// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
+		Compatibility string `json:"compatibilityLevel"`
+	}
+	respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config/%s", admin.url, schema.SubjectName), bytes.NewBuffer(nil))
+	if err != nil {
+		log.Printf("Failed to get compat:%s\n", err)
+		return "", err
+	}
 
-		var respObj RequestResponse
-		err = json.Unmarshal(respBody, &respObj)
-		if err != nil {
-			log.Printf("Failed to unmarshal response: %s\n", err)
-			return "", nil
-		}
-		return respObj.Compatibility, nil
-	*/
+	var respObj RequestResponse
+	err = json.Unmarshal(respBody, &respObj)
+	if err != nil {
+		log.Printf("Failed to unmarshal response: %s\n", err)
+		return "", nil
+	}
+	return respObj.Compatibility, nil
 }
 
 // Get the GLOBAL compatibility setting
 func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
-	return admin.SRCache.GetGlobalCompatibility(), nil
-	/*
-		type RequestResponse struct {
-			// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
-			Compatibility string `json:"compatibilityLevel"`
-		}
-		respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config", admin.url), bytes.NewBuffer(nil))
-		if err != nil {
-			log.Printf("Failed to get compat:%s\n", err)
-			return "", err
-		}
+	if admin.UseSRCache {
+		return admin.SRCache.GetGlobalCompatibility(), nil
+	}
+	type RequestResponse struct {
+		// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
+		Compatibility string `json:"compatibilityLevel"`
+	}
+	respBody, err := admin.makeRestCall("GET", fmt.Sprintf("%s/config", admin.url), bytes.NewBuffer(nil))
+	if err != nil {
+		log.Printf("Failed to get compat:%s\n", err)
+		return "", err
+	}
 
-		var respObj RequestResponse
-		err = json.Unmarshal(respBody, &respObj)
-		if err != nil {
-			log.Printf("Failed to unmarshal response: %s\n", err)
-			return "", nil
-		}
-		return respObj.Compatibility, nil
-	*/
+	var respObj RequestResponse
+	err = json.Unmarshal(respBody, &respObj)
+	if err != nil {
+		log.Printf("Failed to unmarshal response: %s\n", err)
+		return "", nil
+	}
+	return respObj.Compatibility, nil
 }
 
 // Reconcile actual with desired schema for a single schema
