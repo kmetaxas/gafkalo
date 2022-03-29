@@ -13,7 +13,7 @@ It uses Sarama with a goal of producing a Go binary with no external dependencie
 Documentation
 -------------
 
-The documentation is available at https://readthedocs.org/projects/gafkalo/
+The documentation is available at https://gafkalo.readthedocs.io/
 
 Features
 --------
