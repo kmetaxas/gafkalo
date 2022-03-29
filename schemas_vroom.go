@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -109,14 +109,15 @@ func (c *SchemaRegistryCache) GetGlobalCompatibility() string {
 func (c *SchemaRegistryCache) LookupSchemaForSubject(subject, schema string) (int, int, error) {
 	// Compare all schema versions registered
 	for version, schema_id := range c.subjects[subject] {
-		log.Printf("Comparing version %d of subject %s", version, subject)
-		schema := c.schemas[schema_id]
-		schemaObj := Schema{SubjectName: subject, SchemaData: schema}
-		equals, diff := schemaObj.SchemaDiff(schema)
+		log.Debugf("Comparing version %d of subject %s", version, subject)
+		existing_schema := c.schemas[schema_id]
+		existingschemaObj := Schema{SubjectName: subject, SchemaData: existing_schema}
+		equals, diff := existingschemaObj.SchemaDiff(schema)
+		log.Debugf("Subject %s equals=%v ", subject, equals)
 		if equals {
 			return schema_id, version, nil
 		} else {
-			log.Printf("Schemas differ: %s", diff)
+			log.Debugf("Not it. Schemas differ.:: %s", diff)
 		}
 
 	}
@@ -146,11 +147,10 @@ func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, 
 		case "SCHEMA":
 			r.processSchemaValue(&recordKey, message.Value)
 		}
-		//log.Printf("SR_Value=%+vs\n", string(message.Value))
 		session.MarkMessage(message, "")
 		// If that was the last message we should read, stop consuming
 		if message.Offset == r.lastKnownOffsetEnd {
-			log.Printf("Stopping at end of topic %v", message.Offset)
+			log.Debugf("Stopping at end of topic %v", message.Offset)
 			r.consumer.cancel()
 			break
 		}
@@ -172,7 +172,7 @@ func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error 
 		return err
 	}
 	if subject == "" {
-		log.Printf("Global compatibility update seen (%s)", value.CompatibilityLevel)
+		log.Debugf("Global compatibility update seen (%s)", value.CompatibilityLevel)
 		r.globalCompat = value.CompatibilityLevel
 	} else {
 
@@ -198,7 +198,7 @@ func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error 
 	if data == nil {
 		// Tombstone. Deleting compatibility only supported in CP 7.0 schemaregistry
 		if data == nil {
-			log.Printf("Tombstone. Dropping version %d of subject %s", key.Version, subject)
+			log.Debugf("Tombstone. Dropping version %d of subject %s", key.Version, subject)
 		}
 
 		delete(r.subjects[subject], key.Version)
@@ -211,7 +211,7 @@ func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error 
 	// Also check for soft deleted subject versions (delete flag has been set)
 	if value.Deleted {
 		if value.Deleted {
-			log.Printf("Delete flag seen. Dropping version %d of subject %s", key.Version, subject)
+			log.Debugf("Delete flag seen. Dropping version %d of subject %s", key.Version, subject)
 		}
 		delete(r.subjects[subject], key.Version)
 		return nil
