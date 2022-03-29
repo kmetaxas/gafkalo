@@ -156,6 +156,7 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 		if err != nil {
 			return err
 		}
+		log.Debugf("Connector %s has status %v", connectorName, status)
 		if !status.isHealthy() {
 			fmt.Fprintf(os.Stderr, "Connector %s is not healthy\n", errorColor(connectorName))
 			faultyConnectors += 1

@@ -177,6 +177,7 @@ func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
 		return resp, 0, errors.New("payload <5 bytes. Not schema registry wire format")
 	}
 	schemaID := binary.BigEndian.Uint32(payload[1:5])
+	// TODO Cache the Schema internally
 	schema, err := c.SRClient.GetSchema(int(schemaID))
 	if err != nil {
 		return resp, 0, fmt.Errorf("failed to deserialize schema ID [%d] with error: %s", schemaID, err)

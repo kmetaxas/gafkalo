@@ -60,6 +60,7 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	}
 	config.RootCAs = rootCAs
 	config.InsecureSkipVerify = SkipVerify
+	log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
 	return config
 
 }
@@ -136,6 +137,7 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 // Return a list of Kafka topics and fill cache.
 func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
 	topics, err := admin.AdminClient.ListTopics()
+	log.Tracef("ListTopics = %v", topics)
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
 	}
@@ -346,6 +348,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 			topicRes.Errors = append(topicRes.Errors, err.Error())
 			newTopicsStatus[topicName] = false
 		}
+		log.Debugf("Create Topic %s - config %v (Dryrun %v)", topic.Name, detail, dry_run)
 		topicResults = append(topicResults, topicRes)
 		newTopicsStatus[topicName] = true
 	}

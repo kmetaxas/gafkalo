@@ -40,14 +40,15 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 func Parse(inputFiles []string) DesiredState {
 	var desiredState = DesiredState{Topics: make(map[string]Topic), Clients: make(map[string]Client, 20)}
 	for _, filename := range inputFiles {
+		log.Debugf("Processing YAML file %s", filename)
 		data, err := ioutil.ReadFile(filename)
 		if err != nil {
-			log.Printf("unable to read %s with error %s\n", filename, err)
+			log.Warnf("unable to read %s with error %s\n", filename, err)
 		}
 		var inputdata InputYaml
 		err = yaml.Unmarshal(data, &inputdata)
 		if err != nil {
-			log.Printf("unable to unmarshal yaml with error %s\n", err)
+			log.Fatalf("unable to unmarshal yaml with error %s\n", err)
 		}
 		err = desiredState.mergeInput(&inputdata)
 		if err != nil {
