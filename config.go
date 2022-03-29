@@ -59,6 +59,9 @@ type SRConfig struct {
 	Password   string        `yaml:"password"`
 	CAPath     string        `yaml:"caPath"` // Add a trusted CA
 	SkipVerify bool          `yaml:"skipVerify"`
+	// When this is true, Gafkalo will read the _schemas topic directly and
+	// use an internal cache for read operations, bypassign the REST API
+	SkipRestForReads bool `yaml:"skipRegistryForReads"`
 }
 type Configuration struct {
 	Connections struct {

@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -85,30 +86,45 @@ type SRAdmin struct {
 	user         string
 	pass         string
 	TlsConfig    *tls.Config
+	UseSRCache   bool //Use schema registy cache for requests
+	SRCache      *SchemaRegistryCache
 }
 
 // Create a new SRAdmin
-func NewSRAdmin(config *SRConfig) SRAdmin {
+func NewSRAdmin(config *Configuration) SRAdmin {
 	var timeout time.Duration = 5
-	srclient := srclient.CreateSchemaRegistryClient(config.Url)
+	srclient := srclient.CreateSchemaRegistryClient(config.Connections.Schemaregistry.Url)
 	// Set a default for Timeouts or use config provided one
-	if config.Timeout != 0 {
-		timeout = config.Timeout
+	if config.Connections.Schemaregistry.Timeout != 0 {
+		timeout = config.Connections.Schemaregistry.Timeout
 	}
 	srclient.SetTimeout(timeout * time.Second)
+	if config.Connections.Schemaregistry.Username != "" && config.Connections.Schemaregistry.Password != "" {
+		srclient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
+	}
 
-	if config.Username != "" && config.Password != "" {
-		srclient.SetCredentials(config.Username, config.Password)
+	sradmin := SRAdmin{Client: *srclient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
+	sradmin.url = config.Connections.Schemaregistry.Url
+	if config.Connections.Schemaregistry.CAPath != "" {
+		sradmin.TlsConfig = createTlsConfig(config.Connections.Schemaregistry.CAPath, config.Connections.Schemaregistry.SkipVerify)
 	}
-	sradmin := SRAdmin{Client: *srclient, user: config.Username, pass: config.Password}
-	sradmin.url = config.Url
-	if config.CAPath != "" {
-		sradmin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+	if config.Connections.Schemaregistry.SkipRestForReads {
+		sradmin.UseSRCache = true
 	}
-	subjects, err := sradmin.Client.GetSubjects()
-	sradmin.SubjectCache = subjects
-	if err != nil {
-		log.Fatalf("Unable to get SR subjects: %s\n", err)
+	if sradmin.UseSRCache {
+		srCache, err := NewSchemaRegistryCache(config)
+		if err != nil {
+			log.Fatal(err)
+		}
+		sradmin.SRCache = srCache
+		sradmin.SRCache.ReadSchemaTopic("_schemas")
+		sradmin.SubjectCache = sradmin.SRCache.GetSubjects()
+	} else {
+		subjects, err := sradmin.Client.GetSubjects()
+		if err != nil {
+			log.Fatalf("Unable to get SR subjects: %s\n", err)
+		}
+		sradmin.SubjectCache = subjects
 	}
 	return sradmin
 }
@@ -154,43 +170,52 @@ func (admin *SRAdmin) makeRestCall(method string, uri string, payload io.Reader)
 // Lookup a Schema object in the Registry.
 // If it exists it will return the ID and the version for that subject
 func (admin *SRAdmin) LookupSchema(schema Schema) (int, int, error) {
-	type Response struct {
-		Subject string `json:"subject"`
-		Id      int    `json:"id"`
-		Version int    `json:"version"`
-		Schema  string `json:"schema"`
-	}
-	type Request struct {
-		Schema string `json:"schema"`
-	}
-	type RequestNonAvro struct {
-		Request
-		SchemaType string `json:"schemaType"`
-	}
-	var request []byte
+	var existingID, existingVersion int
 	var err error
-	// field schemaType was introduced in confluent 5.5 along with protobuf/jsonschema support. Even though its in the docs, it raises an HTTP 422. So only pass it when schema type is not AVRO
-	if schema.SchemaType != "AVRO" {
-		request, err = json.Marshal(RequestNonAvro{Request: Request{Schema: string(schema.SchemaData)}, SchemaType: string(schema.SchemaType)})
+	if admin.UseSRCache {
+		existingID, existingVersion, err = admin.SRCache.LookupSchemaForSubject(schema.SubjectName, schema.SchemaData)
 	} else {
-		request, err = json.Marshal(Request{Schema: string(schema.SchemaData)})
-	}
-	if err != nil {
-		log.Fatalf("Failed to construct request for LookupSchema call: %s\n", err)
-	}
-	respBody, err := admin.makeRestCall("POST", fmt.Sprintf("%s/subjects/%s", admin.url, schema.SubjectName), bytes.NewBuffer(request))
-	if err != nil {
-		log.Fatal(err)
-	}
+		type Response struct {
+			Subject string `json:"subject"`
+			Id      int    `json:"id"`
+			Version int    `json:"version"`
+			Schema  string `json:"schema"`
+		}
+		type Request struct {
+			Schema string `json:"schema"`
+		}
+		type RequestNonAvro struct {
+			Request
+			SchemaType string `json:"schemaType"`
+		}
+		var request []byte
+		var err error
+		// field schemaType was introduced in confluent 5.5 along with protobuf/jsonschema support. Even though its in the docs, it raises an HTTP 422. So only pass it when schema type is not AVRO
+		if schema.SchemaType != "AVRO" {
+			request, err = json.Marshal(RequestNonAvro{Request: Request{Schema: string(schema.SchemaData)}, SchemaType: string(schema.SchemaType)})
+		} else {
+			request, err = json.Marshal(Request{Schema: string(schema.SchemaData)})
+		}
+		if err != nil {
+			log.Fatalf("Failed to construct request for LookupSchema call: %s\n", err)
+		}
+		respBody, err := admin.makeRestCall("POST", fmt.Sprintf("%s/subjects/%s", admin.url, schema.SubjectName), bytes.NewBuffer(request))
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	var respObj Response
-	err = json.Unmarshal(respBody, &respObj)
-	if err != nil {
-		log.Fatalf("Failed unmarshaling response from POST: %s\n", err)
-	}
-	// Now check if we have the *latest* for this subject
+		var respObj Response
+		err = json.Unmarshal(respBody, &respObj)
+		if err != nil {
+			log.Fatalf("Failed unmarshaling response from POST: %s\n", err)
+		}
+		// Now check if we have the *latest* for this subject
 
-	return respObj.Id, respObj.Version, nil
+		existingID = respObj.Id
+		existingVersion = respObj.Version
+		err = nil
+	}
+	return existingID, existingVersion, err
 }
 
 // set schema Compatibility
@@ -219,6 +244,11 @@ func (admin *SRAdmin) SetCompatibility(schema Schema, compatibility string) erro
 
 // Get the compatibility setting
 func (admin *SRAdmin) GetCompatibility(schema Schema) (string, error) {
+	// If we can use the SR CAche then its quite simple. Otherwise the rest of this function deals with REST API details
+	if admin.UseSRCache {
+		return admin.SRCache.GetCompatibilityForSubject(schema.SubjectName), nil
+	}
+
 	type RequestResponse struct {
 		// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
 		Compatibility string `json:"compatibilityLevel"`
@@ -240,6 +270,9 @@ func (admin *SRAdmin) GetCompatibility(schema Schema) (string, error) {
 
 // Get the GLOBAL compatibility setting
 func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
+	if admin.UseSRCache {
+		return admin.SRCache.GetGlobalCompatibility(), nil
+	}
 	type RequestResponse struct {
 		// Confluent docs say the return field is `compatibility` but the example (and reality) is `compatibilityLevel`
 		Compatibility string `json:"compatibilityLevel"`
@@ -301,10 +334,10 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
-		if (curCompat == "") && (schema.Compatibility != globalCompat) {
+		if (curCompat == "") && !strings.EqualFold(schema.Compatibility, globalCompat) {
 			newCompat = schema.Compatibility
 		}
-		if (curCompat != "") && (schema.Compatibility != curCompat) {
+		if (curCompat != "") && !strings.EqualFold(schema.Compatibility, curCompat) {
 			newCompat = schema.Compatibility
 		}
 		if !dryRun {

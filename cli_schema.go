@@ -8,6 +8,7 @@ import (
 type SchemaCmd struct {
 	CheckExists CheckExistsCmd `cmd help:"Check if provided schema is registered"`
 	SchemaDiff  SchemaDiffCmd  `cmd help:"Get the diff between a schema file and a registered schema"`
+	SchemaCache SchemasCache   `cmd help:"TEST get schema cache"`
 }
 
 type CheckExistsCmd struct {
@@ -18,6 +19,8 @@ type SchemaDiffCmd struct {
 	SchemaFile string `required help:"Schema file to checj"`
 	Subject    string `required help:"Subject to check against schema"`
 	Version    int    `required help:"Version to check against"`
+}
+type SchemasCache struct {
 }
 
 // Check if a schema is registered in specified subject. Shows version and Id if it is
@@ -65,4 +68,16 @@ func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
 	}
 	return nil
 
+}
+
+func (cmd *SchemasCache) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	cache, err := NewSchemaRegistryCache(&config)
+	if err != nil {
+		return err
+	}
+	cache.ReadSchemaTopic("_topic")
+	cache.ListSubjects()
+
+	return nil
 }

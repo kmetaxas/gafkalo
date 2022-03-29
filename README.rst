@@ -4,17 +4,16 @@ Gafkalo
 
 A rewrite of `kafkalo` in Go
 
-It is used to create topics , schemas in the Schema registry and assign permissions.
+It is used to create topics , schemas in the Schema registry and assign permissions (using Confluent RBAC)
 Additionally it is meant as a CLI/debugging tool that needs no dependencies.
 
-It has minor differences from `kafkalo` (in its own configuration) but it is indended to be a safe replacement
-
 It uses Sarama with a goal of producing a Go binary with no external dependencies. Sarama does not use the client properties of Confluent libraries.
+
 
 Documentation
 -------------
 
-The documentation is available at https://gafkalo.kill9.eu
+The documentation is available at https://readthedocs.org/projects/gafkalo/
 
 Features
 --------
@@ -32,6 +31,10 @@ Features
   - Can read from multiple topics
   - Can set multiple partition:offset explicitly to reset the consumer group to these offsets.
 - Can check if a given schema is already registered in the schema registry under a given subject
+- Connect CLI
+  - Create connectors
+  - Status check
+  - Restart (heal) connectors and their failed tasks
 - Pure Go. Now dependencies, and no librdkafka!
 - Supports inreasing partition count
 

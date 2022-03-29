@@ -50,6 +50,9 @@ Config yaml structure:
        password: "password"
        # Path a CA file to add to trust store
        caPath: "/home/user/ca.crt"
+       # When you set skipRegistryForReads to true, it will read the _schemas topic directly and build an internal representation of schemas/subjects and configs. It will then use that in-memory cache for queries that would other go to Schema registry REST API. Mutating requests still go to Schema registry REST endpoint.
+       # This can provide a huge speed benefit when there are many subjects/schemas.
+       skipRegistryForReads: false
      mds:
        # URL to Confluent Metadata Service (MDS)
        url: "http://localhost:8090"
@@ -80,6 +83,17 @@ Config yaml structure:
 You can add input dirs with glob patterns to let kafkalo know where to find your YAML definitions. 
 Kafkalo will read all the input YAMLs, merge then into a single internal data structure and try to sync them.
 
+Bypassing schema registry for speed.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you have many subjects registered, then making REST API calls to schema registry to identify if a schema is already registered, and if the Compatibility matches what is requested, can results in thousands of queries and can take a long time.
+
+There is an option `skipRegistryForReads` that can be set to true, which will consume the `_schemas` topic directly.
+
+It will then construct an in-memory cache of the Schema registry data (schemas, subjects, compatibility) and use that instead of asking the Schema registry.
+Mutating operations will still go through the REST API.
+
+Note that this can, in theory, result in discrepancies with how the schema registry handles things (especially canonicalizing and comparing schemas). So please use carefully and only if needed.
 
 encryption
 ~~~~~~~~~~
@@ -196,7 +210,7 @@ The `configs:` sections is optional and defaults for the cluster will be used.
 clients
 ~~~~~~~~~
 
-This tools is not meant to make common tasks easy, not to make anything possible (at least, not yet)
+This tools is meant to make common tasks easy, not to make anything possible (at least, not yet)
 For this reason we define rolebindings primarily by the client's function.
 A client meant to be a consumer will have `consumer_for` defined and the topics it can consume from. This will automatically add the correct permissions for the schema registry. You will need to add a `group:` field to add the consumer group permisssion
 
