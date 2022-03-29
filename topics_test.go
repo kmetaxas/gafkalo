@@ -52,7 +52,7 @@ func TestRandNonRpeatingIntSet(t *testing.T) {
 		}
 
 	}
-	s, err = randNonRepeatingIntSet(brokerList, 10)
+	_, err = randNonRepeatingIntSet(brokerList, 10)
 	if err == nil {
 		t.Error("Should return error about available space for random set")
 	}
