@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -156,6 +156,7 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 		if err != nil {
 			return err
 		}
+		log.Debugf("Connector %s has status %v", connectorName, status)
 		if !status.isHealthy() {
 			fmt.Fprintf(os.Stderr, "Connector %s is not healthy\n", errorColor(connectorName))
 			faultyConnectors += 1
