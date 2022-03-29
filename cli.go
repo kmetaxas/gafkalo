@@ -25,6 +25,7 @@ type LintCmd struct {
 
 var CLI struct {
 	Config        string           `required help:"configuration file"`
+	Verbosity     string           `help:"Verbosity level. error,info,debug,trace" default:"error"`
 	Apply         ApplyCmd         `cmd help:"Apply the changes"`
 	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
 	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
