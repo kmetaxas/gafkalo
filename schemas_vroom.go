@@ -78,13 +78,6 @@ func (c *SchemaRegistryCache) ReadSchemaTopic(topic string) {
 	log.Print("Reading _schemas topic complete")
 }
 
-// Update the schema cache ith the provided schema object
-// If it does not exist it is added, otherwise updated.
-func (c *SchemaRegistryCache) updateOrCreateSchema(schema Schema) error {
-	var err error
-	return err
-}
-
 // Get the schema for the provided subject
 func (c *SchemaRegistryCache) GetSchemaForSubjectVersion(name string, version int) (*Schema, error) {
 	var schema Schema
@@ -226,7 +219,7 @@ func (r *SchemaRegistryCache) processSchemaValue(key *SRKey, data []byte) error 
 // Get a list of registered subjects
 func (c *SchemaRegistryCache) GetSubjects() []string {
 	var subjectResponse []string
-	for subject, _ := range c.subjects {
+	for subject := range c.subjects {
 		subjectResponse = append(subjectResponse, subject)
 	}
 	return subjectResponse

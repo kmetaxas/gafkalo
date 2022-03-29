@@ -93,6 +93,9 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	}
 
 	client, err := sarama.NewClient(kConf.Brokers, kafkaConf)
+	if err != nil {
+		log.Fatal(err)
+	}
 	cGroup, err := sarama.NewConsumerGroupFromClient(groupID, client)
 	if err != nil {
 		log.Fatal(err)

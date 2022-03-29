@@ -334,10 +334,10 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	var newCompat string = ""
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
-		if (curCompat == "") && (strings.ToUpper(schema.Compatibility) != strings.ToUpper(globalCompat)) {
+		if (curCompat == "") && !strings.EqualFold(schema.Compatibility, globalCompat) {
 			newCompat = schema.Compatibility
 		}
-		if (curCompat != "") && (strings.ToUpper(schema.Compatibility) != strings.ToUpper(curCompat)) {
+		if (curCompat != "") && !strings.EqualFold(schema.Compatibility, curCompat) {
 			newCompat = schema.Compatibility
 		}
 		if !dryRun {
