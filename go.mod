@@ -12,6 +12,6 @@ require (
 	github.com/linkedin/goavro/v2 v2.11.0
 	github.com/nsf/jsondiff v0.0.0-20210303162244-6ea32392771e
 	github.com/sirupsen/logrus v1.8.1
-	go.mozilla.org/sops/v3 v3.7.1
+	go.mozilla.org/sops/v3 v3.7.2
 	gopkg.in/yaml.v2 v2.4.0
 )
