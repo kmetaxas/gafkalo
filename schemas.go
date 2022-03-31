@@ -336,11 +336,11 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
 		if (curCompat == "") && !strings.EqualFold(schema.Compatibility, globalCompat) {
-			log.Tracef("curCompat=%, schema.Compatibility (%s) != globalCompat (%s)", curCompat, schema.Compatibility, globalCompat)
+			log.Tracef("curCompat=%s, schema.Compatibility (%s) != globalCompat (%s)", curCompat, schema.Compatibility, globalCompat)
 			newCompat = schema.Compatibility
 		}
 		if (curCompat != "") && !strings.EqualFold(schema.Compatibility, curCompat) {
-			log.Tracef("curCompat=%, schema.Compatibility (%s) != curCompat (%s)", curCompat, schema.Compatibility, curCompat)
+			log.Tracef("curCompat=%s, schema.Compatibility (%s) != curCompat (%s)", curCompat, schema.Compatibility, curCompat)
 			newCompat = schema.Compatibility
 		}
 		if !dryRun && newCompat != "" {
