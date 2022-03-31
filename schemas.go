@@ -313,6 +313,7 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 			mustRegister = true
 		}
 		if mustRegister {
+			log.Debugf("Must register schema %v , (existingID:%d) dryRun:%v", schema, existingID, dryRun)
 			if !dryRun {
 				newVersion, err := admin.RegisterSubject(schema)
 				if err != nil {
@@ -335,12 +336,15 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
 		if (curCompat == "") && !strings.EqualFold(schema.Compatibility, globalCompat) {
+			log.Tracef("curCompat=%, schema.Compatibility (%s) != globalCompat (%s)", curCompat, schema.Compatibility, globalCompat)
 			newCompat = schema.Compatibility
 		}
 		if (curCompat != "") && !strings.EqualFold(schema.Compatibility, curCompat) {
+			log.Tracef("curCompat=%, schema.Compatibility (%s) != curCompat (%s)", curCompat, schema.Compatibility, curCompat)
 			newCompat = schema.Compatibility
 		}
-		if !dryRun {
+		if !dryRun && newCompat != "" {
+			log.Debugf("Setting compatibility for subject %s to %s", schema.SubjectName, schema.Compatibility)
 			admin.SetCompatibility(schema, schema.Compatibility)
 
 		}
