@@ -24,6 +24,7 @@ type LintCmd struct {
 }
 
 type LintBrokersCmd struct {
+	OnlyErrors bool `flag default:"false" `
 }
 
 var CLI struct {
@@ -113,7 +114,15 @@ func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
 			Configs:           details.ConfigEntries,
 		}
 		res := LintTopic(topic)
-		results = append(results, res...)
+		if cmd.OnlyErrors {
+			for _, lintResult := range res {
+				if lintResult.Severity == LINT_ERROR {
+					results = append(results, lintResult)
+				}
+			}
+		} else {
+			results = append(results, res...)
+		}
 		PrettyPrintLintResults(results)
 	}
 	return nil
