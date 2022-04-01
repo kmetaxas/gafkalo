@@ -23,6 +23,9 @@ type ApplyCmd struct {
 type LintCmd struct {
 }
 
+type LintBrokersCmd struct {
+}
+
 var CLI struct {
 	Config        string           `required help:"configuration file"`
 	Verbosity     string           `help:"Verbosity level. error,info,debug,trace" default:"error"`
@@ -32,6 +35,7 @@ var CLI struct {
 	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
 	Schema        SchemaCmd        `cmd help:"Manage schemas"`
 	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
+	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
 	Connect       ConnectCmd       `cmd help:"manage connectors"`
 	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
 	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
@@ -89,6 +93,29 @@ func (cmd *LintCmd) Run(ctx *CLIContext) error {
 		results = append(results, res...)
 	}
 	PrettyPrintLintResults(results)
+	return nil
+}
+
+/*
+Run the Lint checkers against a kafka cluster's configured topics
+This is useful, for example, to do a sanity check on an existing running cluster
+*/
+func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	var results []LintResult
+	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
+	existing_topics := kafkadmin.ListTopics()
+	for topicName, details := range existing_topics {
+		topic := Topic{
+			Name:              topicName,
+			Partitions:        details.NumPartitions,
+			ReplicationFactor: details.ReplicationFactor,
+			Configs:           details.ConfigEntries,
+		}
+		res := LintTopic(topic)
+		results = append(results, res...)
+		PrettyPrintLintResults(results)
+	}
 	return nil
 }
 func LoadConfig(config string) Configuration {
