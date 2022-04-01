@@ -157,10 +157,14 @@ gafkalo has some schema related CLI functions.
 Topic linter
 ------------
 
+
 There is minimal support for a topic linter
 
 The idea is to parse the topic configs and give you errors or warnings for them. For example you may have replication settings not indicated for production setup,
 or a tombstone retention setting with a topic that does not use compacion (and is therefore meaningless and indicative of a possible mistake).
+
+Running linter against YAML
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Can be run with:
 
@@ -177,6 +181,25 @@ and will produce a report like this:
    SKATA3 has ERROR: Replication factor < 2. Possible downtime (Hint: Increase replication factor to 3)
 
 Ideally the user should be able to define custom rules in a future version..
+
+Running linter against Broker topics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Linter can also be run against the topics in the running brokers instead of the yaml.
+This is useful in detecting misconfigurations or before running a rolling restart.
+
+The command is `lint-broker`
+
+.. code-block:: bash
+
+   gafkalo --config myconfig.yaml lint-broker
+
+.. code-block:: console
+
+   confluent-audit-log-events has ERROR: Replication factor < 2. Possible downtime (Hint: Increase replication factor to 3)
+   confluent-audit-log-events has WARNING: min.insync.replicas not defined (Hint: Setting min.insync.replicas to 2 or higher will reduce chances of data-loss)
+   _confluent-metadata-auth has ERROR: Replication factor < 2. Possible downtime (Hint: Increase replication factor to 3)
+   _confluent-metadata-auth has WARNING: min.insync.replicas not defined (Hint: Setting min.insync.replicas to 2 or higher will reduce chances of data-loss)
 
 
 Replicator
