@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
@@ -70,20 +71,27 @@ func LintRuleIsReplication(topic Topic) (*LintResult, bool) {
 
 func LintRuleMinIsr(topic Topic) (*LintResult, bool) {
 	res := NewLintResult(topic)
-	if min_isr_conf, exists := topic.Configs["min.isr"]; exists {
+	if min_isr_conf, exists := topic.Configs["min.insync.replicas"]; exists {
 		min_isr, err := strconv.ParseInt(*min_isr_conf, 10, 32)
 		if err != nil {
 			log.Fatal(nil)
 		}
-		log.Printf("min.isr=%d\n", min_isr)
-		return res, true
+		log.Tracef("min.isr=%d\n", min_isr)
+		// min_isr must be below replicationFactor or we can stop producers using acks=all
+		if int64(topic.ReplicationFactor) <= min_isr {
+			log.Debugf("Identified possible min isr issue for topic %s (minIsr:%d, replication:%d)", topic.Name, min_isr, topic.ReplicationFactor)
+			res.Message = fmt.Sprintf("min.insync.replicas (%d) must be below replicationFactor (%d)", min_isr, topic.ReplicationFactor)
+			res.Severity = LINT_ERROR
+			res.Hint = "The min.insync.replicas setting *must* be below the replication factor for the topic. Otherwise a broker restart will stop production for consumers using acks=all"
+			return res, true
+		}
 	} else {
 		res.Message = "min.insync.replicas not defined"
 		res.Severity = LINT_WARN
 		res.Hint = "Setting min.insync.replicas to 2 or higher will reduce chances of data-loss"
 		return res, true
 	}
-
+	return res, false
 }
 
 type LintTemplateContext struct {

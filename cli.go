@@ -123,8 +123,8 @@ func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
 		} else {
 			results = append(results, res...)
 		}
-		PrettyPrintLintResults(results)
 	}
+	PrettyPrintLintResults(results)
 	return nil
 }
 func LoadConfig(config string) Configuration {
