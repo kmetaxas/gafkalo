@@ -63,7 +63,8 @@ func LintRuleIsReplication(topic Topic) (*LintResult, bool) {
 	}
 	if topic.ReplicationFactor < 3 {
 		res.Message = "Replication factor < 3"
-		res.Hint = LINT_WARN
+		res.Severity = LINT_WARN
+		res.Hint = "Increase replication factor to 3"
 		return res, true
 	}
 	return res, false
