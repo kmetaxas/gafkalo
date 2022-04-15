@@ -93,21 +93,31 @@ type SRAdmin struct {
 // Create a new SRAdmin
 func NewSRAdmin(config *Configuration) SRAdmin {
 	var timeout time.Duration = 5
-	srclient := srclient.CreateSchemaRegistryClient(config.Connections.Schemaregistry.Url)
+	// If TLS config is provided, construct HttpClient and use CreateSchemaRegistryClientWithOptions to construct Schema registry client.
+	var srClient *srclient.SchemaRegistryClient
+	var tlsConfig *tls.Config
+
+	if config.Connections.Schemaregistry.CAPath != "" {
+		log.Debug("Setting custom TLS config for Schema registry client")
+		tlsConfig = createTlsConfig(config.Connections.Schemaregistry.CAPath, config.Connections.Schemaregistry.SkipVerify)
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		httpClient := &http.Client{Transport: transport}
+		srClient = srclient.CreateSchemaRegistryClientWithOptions(config.Connections.Schemaregistry.Url, httpClient, 1)
+
+	} else {
+		srClient = srclient.CreateSchemaRegistryClient(config.Connections.Schemaregistry.Url)
+	}
 	// Set a default for Timeouts or use config provided one
 	if config.Connections.Schemaregistry.Timeout != 0 {
 		timeout = config.Connections.Schemaregistry.Timeout
 	}
-	srclient.SetTimeout(timeout * time.Second)
+	srClient.SetTimeout(timeout * time.Second)
 	if config.Connections.Schemaregistry.Username != "" && config.Connections.Schemaregistry.Password != "" {
-		srclient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
+		srClient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
 	}
 
-	sradmin := SRAdmin{Client: *srclient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
+	sradmin := SRAdmin{Client: *srClient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
 	sradmin.url = config.Connections.Schemaregistry.Url
-	if config.Connections.Schemaregistry.CAPath != "" {
-		sradmin.TlsConfig = createTlsConfig(config.Connections.Schemaregistry.CAPath, config.Connections.Schemaregistry.SkipVerify)
-	}
 	if config.Connections.Schemaregistry.SkipRestForReads {
 		sradmin.UseSRCache = true
 	}
