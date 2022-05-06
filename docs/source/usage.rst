@@ -154,6 +154,25 @@ gafkalo has some schema related CLI functions.
 `schema  check-exists` can check if a provided schema on disk, is already registered on the provided subject name. If it is, it will return under which version and what is the ID of the schema. 
 
 
+Topics
+------
+
+`topic` command allows you to manage topics.
+
+`describe` subcommand outputs the description of a Topic (partitions, replication, configuration).
+
+Example:
+
+.. code-block:: console
+
+   ./gafkalo --config mycluster.yaml topic describe TOPIC1
+
+   Topic: TOPIC1
+   ReplicationFactor 3 , Partitions: 1
+   Configs: cleanup.policy=delete, compression.type=producer, confluent.key.schema.validation=false, confluent.key.subject.name.strategy=io.confluent.kafka.serializers.subject.TopicNameStrategy, confluent.placement.constraints=, confluent.prefer.tier.fetch.ms=-1, confluent.segment.speculative.prefetch.enable=false, confluent.tier.enable=false, confluent.tier.local.hotset.bytes=-1, confluent.tier.local.hotset.ms=86400000, confluent.tier.segment.hotset.roll.min.bytes=104857600, confluent.value.schema.validation=false, confluent.value.subject.name.strategy=io.confluent.kafka.serializers.subject.TopicNameStrategy, delete.retention.ms=86400000, file.delete.delay.ms=60000, flush.messages=9223372036854775807, flush.ms=9223372036854775807, follower.replication.throttled.replicas=, index.interval.bytes=4096, leader.replication.throttled.replicas=, max.compaction.lag.ms=9223372036854775807, max.message.bytes=1048588, message.downconversion.enable=true, message.format.version=2.7-IV2, message.timestamp.difference.max.ms=9223372036854775807, message.timestamp.type=CreateTime, min.cleanable.dirty.ratio=0.5, min.compaction.lag.ms=0, min.insync.replicas=1, preallocate=false, retention.bytes=-1, retention.ms=604800000, segment.bytes=1073741824, segment.index.bytes=10485760, segment.jitter.ms=0, segment.ms=604800000, unclean.leader.election.enable=false, 
+   Partition 0: Leader ID 0. Followers: [1,2]
+
+
 Topic linter
 ------------
 
