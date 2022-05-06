@@ -36,6 +36,7 @@ var CLI struct {
 	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
 	Schema        SchemaCmd        `cmd help:"Manage schemas"`
 	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
+	Topic         TopicCmd         `cmd help:"Manage topics"`
 	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
 	Connect       ConnectCmd       `cmd help:"manage connectors"`
 	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
