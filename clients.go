@@ -24,12 +24,19 @@ type ClientGroupRole struct {
 	Roles     []string `yaml:"roles"`
 	IsLiteral bool     `yaml:"isLiteral" default:"true"`
 }
+
+type ClientTransactionalIdRole struct {
+	Name      string   `yaml:"name"`
+	Roles     []string `yaml:"roles"`
+	IsLiteral bool     `yaml:"isLiteral" default:"true"`
+}
 type Client struct {
-	Principal        string            `yaml:"principal"`
-	ConsumerFor      []ClientTopicRole `yaml:"consumer_for"`
-	ProducerFor      []ClientTopicRole `yaml:"producer_for"`
-	ResourceownerFor []ClientTopicRole `yaml:"resourceowner_for"`
-	Groups           []ClientGroupRole `yaml:"groups"`
+	Principal        string                      `yaml:"principal"`
+	ConsumerFor      []ClientTopicRole           `yaml:"consumer_for"`
+	ProducerFor      []ClientTopicRole           `yaml:"producer_for"`
+	ResourceownerFor []ClientTopicRole           `yaml:"resourceowner_for"`
+	Groups           []ClientGroupRole           `yaml:"groups"`
+	TransactionalIds []ClientTransactionalIdRole `yaml:"transactional_ids"`
 }
 
 func mergeClients(target Client, source Client) Client {
@@ -469,6 +476,37 @@ func (admin *MDSAdmin) doGroupRoleFor(groupName, principal string, roles []strin
 	return res, err
 }
 
+/*
+Create any needed TransactionalId rolebindings
+*/
+func (admin *MDSAdmin) doTransactionalIdRole(transactionalIdName, principal string, roles []string, isLiteral, dryRun bool) ([]ClientResult, error) {
+	var res []ClientResult
+	var err error
+	var actualRoles []string
+	existingRoles := admin.getRoleBindingsForPrincipal(principal)
+	if len(roles) > 0 {
+		actualRoles = roles
+	} else {
+		actualRoles = []string{"DeveloperWrite"}
+	}
+	for _, roleName := range actualRoles {
+		log.Trace("doTransactionalIdRole for role: %s", roleName)
+		newRole := ClientResult{Principal: principal, ResourceType: "TransactionalId", ResourceName: transactionalIdName, Role: roleName, PatternType: getPrefixStr(isLiteral)}
+		if !admin.roleExists(newRole, existingRoles) {
+			res = append(res, newRole)
+		}
+		if !dryRun && !admin.roleExists(newRole, existingRoles) {
+			err = admin.SetRoleBinding(CTX_KAFKA, "TransactionalId", transactionalIdName, principal, []string{roleName}, isLiteral, dryRun)
+			if err != nil {
+				return res, err
+			}
+		}
+	}
+
+	return res, err
+
+}
+
 func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []ClientResult {
 	var clientResults []ClientResult
 	for _, client := range clients {
@@ -496,6 +534,14 @@ func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []Clien
 		// Add any Consumer Group permissions defined
 		for _, groupRole := range client.Groups {
 			clientRes, err := admin.doGroupRoleFor(groupRole.Name, client.Principal, groupRole.Roles, groupRole.IsLiteral, dryRun)
+			if err != nil {
+				log.Fatal(err)
+			}
+			clientResults = append(clientResults, clientRes...)
+		}
+		// Add Transactional Ids
+		for _, transactionalIdRole := range client.TransactionalIds {
+			clientRes, err := admin.doTransactionalIdRole(transactionalIdRole.Name, client.Principal, transactionalIdRole.Roles, transactionalIdRole.IsLiteral, dryRun)
 			if err != nil {
 				log.Fatal(err)
 			}

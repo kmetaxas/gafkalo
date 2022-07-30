@@ -62,6 +62,8 @@ clients:
       - topic: TOPIC1.
     resourceowner_for:
       - topic: TOPIC4.
+    transactional_ids:
+      - name: MYID
   - principal: Group:malakes
     consumer_for:
       - topic: TOPIC1.
