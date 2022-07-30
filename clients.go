@@ -490,7 +490,7 @@ func (admin *MDSAdmin) doTransactionalIdRole(transactionalIdName, principal stri
 		actualRoles = []string{"DeveloperWrite"}
 	}
 	for _, roleName := range actualRoles {
-		log.Trace("doTransactionalIdRole for role: %s", roleName)
+		log.Tracef("doTransactionalIdRole for role: %s", roleName)
 		newRole := ClientResult{Principal: principal, ResourceType: "TransactionalId", ResourceName: transactionalIdName, Role: roleName, PatternType: getPrefixStr(isLiteral)}
 		if !admin.roleExists(newRole, existingRoles) {
 			res = append(res, newRole)
