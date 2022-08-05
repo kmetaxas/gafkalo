@@ -54,8 +54,8 @@ type Task struct {
 	Task      int    `json:"task" mapstructure:"task"`
 }
 type Connector struct {
-	Name   string             `json:"name" mapstructure:"name"`
-	Config map[string]*string `json:"config" mapstructure:"config"`
+	Name   string                      `json:"name" mapstructure:"name"`
+	Config map[string]*json.RawMessage `json:"config" mapstructure:"config"`
 	// Lots of information in the response that we ignore here
 	Tasks []Task `json:"tasks" mapstructure:"tasks"`
 }
@@ -119,9 +119,9 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 
 	type ConnectorResponse struct {
 		Info struct {
-			Name   string             `json:"name" mapstructure:"name"`
-			Config map[string]*string `json:"config mapstructure:"name"`
-			Type   string             `json:"type"`
+			Name   string                      `json:"name" mapstructure:"name"`
+			Config map[string]*json.RawMessage `json:"config mapstructure:"name"`
+			Type   string                      `json:"type"`
 		} `json:"info"`
 		Status struct {
 			Name          string `json:"name"`
@@ -260,11 +260,11 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 	var createdNew bool = false
 	var err error
 	var respConnector Connector
-	request := make(map[string]string)
+	request := make(map[string]json.RawMessage)
 	type createConnectorResponse struct {
-		Name   string             `json:"name"`
-		Config map[string]*string `json:"config"`
-		Tasks  []Task             `json:"tasks"`
+		Name   string                      `json:"name"`
+		Config map[string]*json.RawMessage `json:"config"`
+		Tasks  []Task                      `json:"tasks"`
 	}
 	for confName, confVal := range conn.Config {
 		request[confName] = *confVal
@@ -305,8 +305,8 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	var name string
 	type createConnectorRequest struct {
-		Name   string            `json:"name"`
-		Config map[string]string `json:"config"`
+		Name   string                     `json:"name"`
+		Config map[string]json.RawMessage `json:"config"`
 	}
 	type createConnectorResponse struct {
 		Name   string            `json:"name"`
@@ -315,7 +315,7 @@ func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	}
 	var request createConnectorRequest
 	request.Name = conn.Name
-	request.Config = make(map[string]string)
+	request.Config = make(map[string]json.RawMessage)
 	for confName, confVal := range conn.Config {
 		request.Config[confName] = *confVal
 	}
