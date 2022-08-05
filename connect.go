@@ -55,7 +55,7 @@ type Task struct {
 }
 type Connector struct {
 	Name   string             `json:"name" mapstructure:"name"`
-	Config map[string]*string `json:"config mapstructure:"config"`
+	Config map[string]*string `json:"config" mapstructure:"config"`
 	// Lots of information in the response that we ignore here
 	Tasks []Task `json:"tasks" mapstructure:"tasks"`
 }
@@ -243,14 +243,14 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 
 func NewConnectorFromJson(jsonDefinition string) (*Connector, error) {
 	log.Tracef("jsonDefinition =%s", jsonDefinition)
-	conn := new(Connector)
+	var conn Connector
 	err := json.Unmarshal([]byte(jsonDefinition), &conn)
 	if err != nil {
 		log.Trace("Failed to create Connector from JSON")
-		return conn, err
+		return &conn, err
 	}
-	log.Tracef("Returning conn %v", *conn)
-	return conn, nil
+	log.Tracef("Returning conn %v", conn)
+	return &conn, nil
 
 }
 
