@@ -13,12 +13,14 @@ type ConnectCmd struct {
 	List        ListConnectorsCmd    `cmd help:"List configured connectors"`
 	Describe    DescribeConnectorCmd `cmd help:"Describe connector"`
 	Create      CreateConnectorCmd   `cmd help:"Create connector"`
+	Update      UpdateConnectorCmd   `cmd help:"Update connector config"`
 	Delete      DeleteConnectorCmd   `cmd help:"Delete connector"`
 	Heal        HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
 	HealthCheck HealthCheckCmd       `cmd help:"Health Check on connector(s)"`
 }
 
 type ListConnectorsCmd struct {
+	Expanded bool `default:"false" help:"Expanded status"`
 }
 
 type HealthCheckCmd struct {
@@ -27,6 +29,10 @@ type DescribeConnectorCmd struct {
 	Name string `arg required help:"Connector name"`
 }
 type CreateConnectorCmd struct {
+	JsonFile string `arg required help:"path to JSON definition for connector"`
+}
+
+type UpdateConnectorCmd struct {
 	JsonFile string `arg required help:"path to JSON definition for connector"`
 }
 
@@ -90,18 +96,28 @@ func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	connectors, err := admin.ListConnectors()
-	if err != nil {
-		log.Fatal(err)
+	if !cmd.Expanded {
+		connectors, err := admin.ListConnectors()
+		if err != nil {
+			log.Fatal(err)
+		}
+		tb := table.NewWriter()
+		tb.SetStyle(table.StyleLight)
+		tb.SetOutputMirror(os.Stdout)
+		tb.AppendHeader(table.Row{"#", "Connector name"})
+		for i, name := range connectors {
+			tb.AppendRow(table.Row{i, name})
+		}
+		tb.Render()
+	} else {
+		fmt.Print("Doing list connectors in EXPANDED form\n")
+		connectors, err := admin.ListConnectorsExpanded()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		fmt.Printf("Connectors expanded = %v\n", connectors)
 	}
-	tb := table.NewWriter()
-	tb.SetStyle(table.StyleLight)
-	tb.SetOutputMirror(os.Stdout)
-	tb.AppendHeader(table.Row{"#", "Connector name"})
-	for i, name := range connectors {
-		tb.AppendRow(table.Row{i, name})
-	}
-	tb.Render()
 
 	return nil
 }
@@ -116,11 +132,39 @@ func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
 	}
-	name, err := admin.CreateConnector(string(data))
+	conn, err := NewConnectorFromJson(string(data))
+	name, err := admin.CreateConnector(conn)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Created conector%s\n", name)
+	fmt.Printf("Created conector: %s\n", name)
+	return nil
+}
+
+func (cmd *UpdateConnectorCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdin(&config.Connections.Connect)
+	if err != nil {
+		log.Fatal(err)
+	}
+	data, err := ioutil.ReadFile(cmd.JsonFile)
+	if err != nil {
+		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
+	}
+	conn, err := NewConnectorFromJson(string(data))
+	if err != nil {
+		return err
+	}
+	log.Tracef("Newconnectorfromjson conn=%v", conn)
+	newConn, createdNew, err := admin.PatchConnector(conn)
+	if err != nil {
+		return err
+	}
+	if createdNew {
+		fmt.Printf("Created conector: %s with Config: %v\n", newConn.Name, newConn.Config)
+	} else {
+		fmt.Printf("Updated connector %s with Config: %v\n", newConn.Name, newConn.Config)
+	}
 	return nil
 }
 

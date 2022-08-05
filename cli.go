@@ -155,5 +155,6 @@ func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, inputDa
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
+
 	NewReport(topicResults, schemaResults, roleResults, dryRun)
 }
