@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/Shopify/sarama"
 )
 
@@ -43,8 +44,8 @@ type ClientResult struct {
 
 type ConnectorResult struct {
 	Name       string
-	NewConfigs map[string]*string // New Configs
-	OldConfigs map[string]*string // Previous configs
+	NewConfigs map[string]*json.RawMessage // New Configs
+	OldConfigs map[string]*json.RawMessage // Previous configs
 }
 
 func TopicResultFromTopic(topic Topic) TopicResult {

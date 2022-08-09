@@ -26,7 +26,7 @@ type SchemasCache struct {
 // Check if a schema is registered in specified subject. Shows version and Id if it is
 func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	_, sradmin, _ := GetAdminClients(config)
+	_, sradmin, _, _ := GetAdminClients(config)
 	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
 	if err != nil {
 		log.Fatal(err)
@@ -50,7 +50,7 @@ func (cmd *CheckExistsCmd) Run(ctx *CLIContext) error {
 // usefull to identify schemas that differ only in newlines or comments and schemaregistry considers it a new schema
 func (cmd *SchemaDiffCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	_, sradmin, _ := GetAdminClients(config)
+	_, sradmin, _, _ := GetAdminClients(config)
 	schema, err := CreateSchema(cmd.Subject, cmd.SchemaFile, "BACKWARD", "AVRO")
 	if err != nil {
 		return err

@@ -47,7 +47,7 @@ type HealCmd struct {
 // Describe a connector.
 func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 
 func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 
 func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -133,6 +133,9 @@ func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
 	}
 	conn, err := NewConnectorFromJson(string(data))
+	if err != nil {
+		return fmt.Errorf("failed to read JSON: %s", err)
+	}
 	name, err := admin.CreateConnector(conn)
 	if err != nil {
 		return err
@@ -143,7 +146,7 @@ func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 
 func (cmd *UpdateConnectorCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -170,7 +173,7 @@ func (cmd *UpdateConnectorCmd) Run(ctx *CLIContext) error {
 
 func (cmd *DeleteConnectorCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		return err
 	}
@@ -184,7 +187,7 @@ func (cmd *DeleteConnectorCmd) Run(ctx *CLIContext) error {
 
 func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	var faultyConnectors int = 0
 	healthyColor := color.New(color.FgGreen).SprintFunc()
 	errorColor := color.New(color.FgRed).SprintFunc()
@@ -216,7 +219,7 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 
 func (cmd *HealCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
-	admin, err := NewConnectAdin(&config.Connections.Connect)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ type ConnectAdmin struct {
 	TlsConfig *tls.Config
 }
 
-func NewConnectAdin(config *ConnectConfig) (*ConnectAdmin, error) {
+func NewConnectAdmin(config *ConnectConfig) (*ConnectAdmin, error) {
 	var admin ConnectAdmin
 	if config.Url == "" {
 		return &admin, fmt.Errorf("url is required for connect")
@@ -167,7 +167,7 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 		clusterState.Connectors[conn.Name] = conn
 
 	}
-	log.Debug("Returning clusterstate %v\n", clusterState)
+	log.Debugf("Returning clusterstate %v\n", clusterState)
 	return &clusterState, nil
 
 }
@@ -408,7 +408,7 @@ func (status *ConnectorStatus) isHealthy() bool {
 	return true
 }
 
-func (admin *ConnectAdmin) Reconcile(connectorConfigs []Connector, dryRun bool) []ConnectorResult {
+func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryRun bool) []ConnectorResult {
 	var connectorResults []ConnectorResult
 	/*
 		- Get existing connectors and their definitions
@@ -419,17 +419,39 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs []Connector, dryRun bool) 
 	*/
 	existingConnectorNames, err := admin.ListConnectorsExpanded()
 	if err != nil {
-		fmt.Errorf("Failed to list connectors")
+		log.Fatal("Failed to list connectors")
 	}
 	for _, connectorConf := range connectorConfigs {
 		if _, exists := existingConnectorNames.Connectors[connectorConf.Name]; exists {
-			log.Debugf("Connector '%s' exists already. New conf %v", connectorConf, connectorConf)
-			// TODO .. PATCH?
+			log.Debugf("Connector '%v' exists already. New conf %v", connectorConf, connectorConf)
+			if !dryRun {
+				newConn, _, err := admin.PatchConnector(&connectorConf)
+				if err != nil {
+					log.Fatalf("Failed to create connector %s - error: %v", newConn, err)
+				}
+			} else {
+				res := ConnectorResult{
+					Name:       connectorConf.Name,
+					NewConfigs: connectorConf.Config,
+					OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
+				}
+				connectorResults = append(connectorResults, res)
+			}
+
 		} else {
-			// New connector. Create it
-			name, err := admin.CreateConnector(&connectorConf)
-			if err != nil {
-				log.Fatalf("Failed to create connector %s - error: %s", name, err)
+			if !dryRun {
+				// New connector. Create it
+				name, err := admin.CreateConnector(&connectorConf)
+				if err != nil {
+					log.Fatalf("Failed to create connector %s - error: %s", name, err)
+				}
+			} else {
+				res := ConnectorResult{
+					Name:       connectorConf.Name,
+					NewConfigs: connectorConf.Config,
+					OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
+				}
+				connectorResults = append(connectorResults, res)
 			}
 		}
 	}
