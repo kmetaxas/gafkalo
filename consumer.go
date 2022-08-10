@@ -209,9 +209,14 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 			key = string(message.Key)
 		}
 		if c.deserializeValue {
-			val, valSchemaID, err = c.DeserializePayload(message.Value)
-			if err != nil {
-				log.Fatal(err)
+			if message.Value == nil {
+				val = "Gafkalo: NULL (TOMBSTONE?)!"
+			} else {
+
+				val, valSchemaID, err = c.DeserializePayload(message.Value)
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 
 		} else {
