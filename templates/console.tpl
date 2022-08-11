@@ -6,7 +6,7 @@
   - {{ . }} 
 {{ end -}} 
 {{ else -}}
-{{ if $.IsPlan }}[Plan] Will {{if .IsNew}}Create{{else}}Update{{end}} {{ else }} {{if .IsNew}}Created{{else}}Update{{end}} {{ end }} Topic {{ .Name }}. {{ if .HasChangedConfigs}}Non-default configs:{{else}}(default configs){{end}}
+{{ if $.IsPlan }}[Plan] Will {{if .IsNew}}Create{{else}}Update{{end}} {{ else }} {{if .IsNew}}Created{{else}}Update{{end}} {{ end }} Topic {{ .Name }} Partitions: {{ .NewPartitions}} ReplicationFactor: {{ .NewReplicationFactor }} {{ if .HasChangedConfigs}}Non-default configs:{{else}}(default configs){{end}}
   {{- range .ChangedConfigs }} 
   - Config {{ .Name }} changed from {{ .OldVal }} to {{ .NewVal }}
   {{- end }} 
