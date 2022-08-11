@@ -210,7 +210,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 		}
 		if c.deserializeValue {
 			if message.Value == nil {
-				val = "Gafkalo: NULL (TOMBSTONE?)!"
+				val = "Null (Tombstone?)"
 			} else {
 
 				val, valSchemaID, err = c.DeserializePayload(message.Value)
