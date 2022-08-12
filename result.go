@@ -119,3 +119,11 @@ func (tr *TopicResult) PartitionsChanged() bool {
 func (res *SchemaResult) HasNewCompatibility() bool {
 	return res.NewCompat != ""
 }
+
+func (res *SchemaResult) HasNewVersion() bool {
+	if res.NewVersion != 0 {
+		return true
+	} else {
+		return false
+	}
+}
