@@ -146,6 +146,7 @@ func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	log.Tracef("Registered new schema %v - Version %d", newSchema, newSchema.Version())
 	return newSchema.Version(), nil
 }
 
@@ -343,6 +344,7 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		  - Otherwise, set compat
 	*/
 	var newCompat string = ""
+	var compatChanged bool
 	curCompat, _ := admin.GetCompatibility(schema)
 	if schema.Compatibility != "" {
 		if (curCompat == "") && !strings.EqualFold(schema.Compatibility, globalCompat) {
@@ -356,11 +358,11 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		if !dryRun && newCompat != "" {
 			log.Debugf("Setting compatibility for subject %s to %s", schema.SubjectName, schema.Compatibility)
 			admin.SetCompatibility(schema, schema.Compatibility)
-
+			compatChanged = true
 		}
 	}
 	result.NewCompat = newCompat
-	result.Changed = mustRegister
+	result.Changed = mustRegister || compatChanged
 	return &result
 
 }
