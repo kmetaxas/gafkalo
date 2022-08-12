@@ -27,4 +27,5 @@ func TestNewReport(t *testing.T) {
 	schema_results = append(schema_results, schema_res1)
 	schema_results = append(schema_results, schema_res2)
 	NewReport(topic_results, schema_results, client_results, false)
+	NewReport(topic_results, schema_results, client_results, true)
 }
