@@ -85,3 +85,23 @@ clients:
         # if not specified, roles is [DeveloperRead]
         roles: ["ResourceOwner"]
         isLiteral: true
+connectors:
+  - name: skata1
+    config:
+      "connector.class": "io.confluent.connect.s3.S3SinkConnector"
+      "transforms": "Archive"
+      "errors.log.enable": "true",
+      "errors.log.include.messages": "true"
+      "topics": "SKATA1"
+      "transforms.Archive.type": "com.github.jcustenborder.kafka.connect.archive.Archive"
+      "store.url": "http://127.0.0.1:9000"
+      "s3.bucket.name": "testsmt"
+      "s3.part.size": "5242880"
+      "flush.size": 1000
+      "storage.class": "io.confluent.connect.s3.storage.S3Storage"
+      "format.class": "io.confluent.connect.s3.format.avro.AvroFormat"
+      "schema.generator.class": "io.confluent.connect.storage.hive.schema.DefaultSchemaGenerator"
+      "aws.secret.access.key": "minioadmin"
+      "aws.access.key.id": "minioadmin"
+      "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner"
+      "schema.compatibility": "NONE"
