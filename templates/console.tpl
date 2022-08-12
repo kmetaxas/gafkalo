@@ -22,12 +22,15 @@ Partitions {{ if $.IsPlan }}will be {{end}}changed to {{.NewPartitions}} from {{
 ## Schemas
 {{ range .Schemas -}}
 {{ if or .Changed .HasNewCompatibility -}} 
--{{ if $.IsPlan -}}[PLAN] -  Subject {{ .SubjectName }} {{ if .Changed }}will be registered with a new version.{{- end }} {{ if .HasNewCompatibility }} Compatibility will be set to {{ .NewCompat }}{{- end }}
-{{ else }}Subject {{ .SubjectName }}: {{ if .Changed }}Registered with new version {{ if eq .NewVersion 0 }}(Known after apply){{ else }}{{ .NewVersion }}.{{- end }}{{if .HasNewCompatibility }} Changed Compatibility to {{ .NewCompat }}.{{end}}
-{{ end}}
-{{- end }}
-{{- end }}
-{{- end }}
+{{ if $.IsPlan -}}
+[PLAN] -  Subject {{ .SubjectName }} {{ if .Changed }}will be registered with a new version.{{- end }} {{ if .HasNewCompatibility }} Compatibility will be set to {{ .NewCompat }}{{- end }}
+{{ else -}}
+Subject {{ .SubjectName }}: 
+{{- if .HasNewVersion -}} Registered with new version {{ .NewVersion }}. {{- end -}}
+{{if .HasNewCompatibility }} Changed Compatibility to {{ .NewCompat }}.{{end}}
+{{ end -}}
+{{- end -}}
+{{- end }}{{/* .Changed .HasNewCompatibility  */}}
 ## Roles and Clients
 {{ range .Clients -}}
 {{ if $.IsPlan }}[PLAN]. Will add{{ else }} Added {{ end }} role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}
