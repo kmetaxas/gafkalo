@@ -37,9 +37,9 @@ Subject {{ .SubjectName }}:
 {{ end }}
 ## Connectors
 {{ range $connector := .Connectors }}
-{{- if $.IsPlan }}Will create/update{{ else }}Created/updated{{ end }} connector {{ $connector.Name }}. Configs:
+{{- if $.IsPlan }}[PLAN] Will create/update{{ else }}Created/updated{{ end }} connector {{ $connector.Name }}. Configs:
 {{ range $confKey, $confVal := $connector.NewConfigs }}
 {{- $oldValue := index $connector.OldConfigs $confKey -}}
-{{"\t"}}{{ $confKey }}: {{ $confVal }}{{ if $oldValue }}(Old value: {{ $oldValue }}){{ end }}
+{{"\t"}}{{ $confKey }}: {{ $confVal }}{{ if ne $oldValue $confVal }} (Old value: {{ $oldValue }}){{ end }}
 {{ end }} {{/*End range over NewConfigs */}}
 {{- end }}
