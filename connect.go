@@ -54,16 +54,16 @@ type Task struct {
 	Task      int    `json:"task" mapstructure:"task"`
 }
 type Connector struct {
-	Name   string                      `json:"name" mapstructure:"name"`
-	Config map[string]*json.RawMessage `json:"config" mapstructure:"config"`
+	Name   string            `json:"name" mapstructure:"name"`
+	Config map[string]string `json:"config" mapstructure:"config"`
 	// Lots of information in the response that we ignore here
 	Tasks []Task `json:"tasks" mapstructure:"tasks"`
 }
 
 type ConnectorStatus struct {
-	Name      string                 `json:"name" mapstructure:"name"`
-	Connector map[string]interface{} `json:"connector" mapstructure:"connector"`
-	Tasks     []TaskStatus           `json:"tasks" mapstructure:"tasks"`
+	Name      string            `json:"name" mapstructure:"name"`
+	Connector map[string]string `json:"connector" mapstructure:"connector"`
+	Tasks     []TaskStatus      `json:"tasks" mapstructure:"tasks"`
 }
 
 // Perform REST call on Connect
@@ -119,9 +119,9 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 
 	type ConnectorResponse struct {
 		Info struct {
-			Name   string                      `json:"name" mapstructure:"name"`
-			Config map[string]*json.RawMessage `json:"config mapstructure:"name"`
-			Type   string                      `json:"type"`
+			Name   string            `json:"name" mapstructure:"name"`
+			Config map[string]string `json:"config mapstructure:"name"`
+			Type   string            `json:"type"`
 		} `json:"info"`
 		Status struct {
 			Name          string `json:"name"`
@@ -260,14 +260,14 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 	var createdNew bool = false
 	var err error
 	var respConnector Connector
-	request := make(map[string]json.RawMessage)
+	request := make(map[string]string)
 	type createConnectorResponse struct {
-		Name   string                      `json:"name"`
-		Config map[string]*json.RawMessage `json:"config"`
-		Tasks  []Task                      `json:"tasks"`
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
+		Tasks  []Task            `json:"tasks"`
 	}
 	for confName, confVal := range conn.Config {
-		request[confName] = *confVal
+		request[confName] = confVal
 	}
 	var response createConnectorResponse
 	uri := fmt.Sprintf("/connectors/%s/config", conn.Name)
@@ -305,8 +305,8 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	var name string
 	type createConnectorRequest struct {
-		Name   string                     `json:"name"`
-		Config map[string]json.RawMessage `json:"config"`
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
 	}
 	type createConnectorResponse struct {
 		Name   string            `json:"name"`
@@ -315,9 +315,9 @@ func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	}
 	var request createConnectorRequest
 	request.Name = conn.Name
-	request.Config = make(map[string]json.RawMessage)
+	request.Config = make(map[string]string)
 	for confName, confVal := range conn.Config {
-		request.Config[confName] = *confVal
+		request.Config[confName] = confVal
 	}
 	var response createConnectorResponse
 	uri := "/connectors"
@@ -427,7 +427,7 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 			if !dryRun {
 				newConn, _, err := admin.PatchConnector(&connectorConf)
 				if err != nil {
-					log.Fatalf("Failed to create connector %s - error: %v", newConn, err)
+					log.Fatalf("Failed to create connector %v - error: %v", newConn, err)
 				}
 			} else {
 				res := ConnectorResult{

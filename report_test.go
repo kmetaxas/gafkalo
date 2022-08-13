@@ -6,6 +6,7 @@ func TestNewReport(t *testing.T) {
 	var topic_results []TopicResult
 	var schema_results []SchemaResult
 	var client_results []ClientResult
+	var connect_results []ConnectorResult
 
 	topic_res1 := TopicResult{
 		Name:          "Topic1",
@@ -26,6 +27,14 @@ func TestNewReport(t *testing.T) {
 	}
 	schema_results = append(schema_results, schema_res1)
 	schema_results = append(schema_results, schema_res2)
-	NewReport(topic_results, schema_results, client_results, false)
-	NewReport(topic_results, schema_results, client_results, true)
+
+	connect_res1 := ConnectorResult{
+		Name:       "connector1",
+		NewConfigs: map[string]string{"skata": "pola"},
+		OldConfigs: map[string]string{"skata": "pola"},
+	}
+	connect_results = append(connect_results, connect_res1)
+
+	NewReport(topic_results, schema_results, client_results, connect_results, false)
+	NewReport(topic_results, schema_results, client_results, connect_results, true)
 }

@@ -50,7 +50,11 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 	return nil
 }
 func Parse(inputFiles []string) DesiredState {
-	var desiredState = DesiredState{Topics: make(map[string]Topic), Clients: make(map[string]Client, 20)}
+	var desiredState = DesiredState{
+		Topics:     make(map[string]Topic),
+		Clients:    make(map[string]Client, 20),
+		Connectors: make(map[string]Connector),
+	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
 		data, err := ioutil.ReadFile(filename)

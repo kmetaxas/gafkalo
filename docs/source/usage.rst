@@ -5,7 +5,7 @@ Usage
 Maintain topics, schemas and RBAC
 ---------------------------------
 
-`gafkalo` can maintain the topics, schemas and RBAC rolebindings for a cluster.
+`gafkalo` can maintain the topics, schemas, connectors and RBAC rolebindings for a cluster.
 
 In the configuration file you point it to the YAML definitions and it will attempt to create or update any resources needed.
 
