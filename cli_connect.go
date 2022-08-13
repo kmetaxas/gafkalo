@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -110,13 +111,26 @@ func (cmd *ListConnectorsCmd) Run(ctx *CLIContext) error {
 		}
 		tb.Render()
 	} else {
-		fmt.Print("Doing list connectors in EXPANDED form\n")
+		// Display connectors in Expanded form
+		// https://docs.confluent.io/platform/current/connect/references/restapi.html#get--connectors
 		connectors, err := admin.ListConnectorsExpanded()
 		if err != nil {
 			log.Fatal(err)
 			return err
 		}
-		fmt.Printf("Connectors expanded = %v\n", connectors)
+		tb := table.NewWriter()
+		tb.SetStyle(table.StyleLight)
+		tb.SetOutputMirror(os.Stdout)
+		tb.AppendHeader(table.Row{"Configs name", "Config value"})
+		for name, conn := range connectors.Connectors {
+			buff_conf := new(bytes.Buffer)
+			for key, val := range conn.Config {
+				fmt.Fprintf(buff_conf, "%s: %s\n", key, val)
+			}
+
+			tb.AppendRow(table.Row{name, fmt.Sprintf("%v", buff_conf.String())})
+		}
+		tb.Render()
 	}
 
 	return nil
