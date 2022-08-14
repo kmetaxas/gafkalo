@@ -66,6 +66,16 @@ type ConnectorStatus struct {
 	Tasks     []TaskStatus      `json:"tasks" mapstructure:"tasks"`
 }
 
+/*
+Represents a connector plugin.
+Useful in /connector-plugins endoint respone
+*/
+type ConnectorPlugin struct {
+	Class   string `json:"class"`
+	Type    string `json:"type"`
+	Version string `json:"version"`
+}
+
 // Perform REST call on Connect
 // method is POST,GET,PUT etc.
 // `api` is the part param after the host so the /connectors/myconnector/config for eample
@@ -408,6 +418,30 @@ func (status *ConnectorStatus) isHealthy() bool {
 	return true
 }
 
+/*
+Retrieve the list of Connector plugins fron Connect Rest API
+*/
+func (admin *ConnectAdmin) ListPlugins() ([]ConnectorPlugin, error) {
+	var plugins []ConnectorPlugin
+	respBody, httpStatusCode, err := admin.doREST("GET", "/connector-plugins", nil)
+	log.Tracef("listplugins respBody=%s", respBody)
+	if err != nil {
+		return plugins, err
+	}
+	if httpStatusCode != 200 {
+		return plugins, fmt.Errorf("Unable to retrieve connector plugins as endpoint returned http status %d", httpStatusCode)
+	}
+	err = json.Unmarshal(respBody, &plugins)
+	if err != nil {
+		return plugins, err
+	}
+	return plugins, nil
+}
+
+/*
+Reconcile connector status with config (yaml) contents
+This is called by plan/apply calls.
+*/
 func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryRun bool) []ConnectorResult {
 	var connectorResults []ConnectorResult
 	/*

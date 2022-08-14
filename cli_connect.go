@@ -18,6 +18,7 @@ type ConnectCmd struct {
 	Delete      DeleteConnectorCmd   `cmd help:"Delete connector"`
 	Heal        HealCmd              `cmd help:"Heal connector by restarting any failed tasks"`
 	HealthCheck HealthCheckCmd       `cmd help:"Health Check on connector(s)"`
+	ListPlugins ListPluginsCmd       `cmd help:"List connector plugins"`
 }
 
 type ListConnectorsCmd struct {
@@ -43,6 +44,31 @@ type DeleteConnectorCmd struct {
 
 type HealCmd struct {
 	Name string `arg  help:"Connector name"`
+}
+
+type ListPluginsCmd struct {
+}
+
+func (cmd *ListPluginsCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin, err := NewConnectAdmin(&config.Connections.Connect)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	plugins, err := admin.ListPlugins()
+	if err != nil {
+		return err
+	}
+	tb := table.NewWriter()
+	tb.SetStyle(table.StyleLight)
+	tb.SetOutputMirror(os.Stdout)
+	tb.AppendHeader(table.Row{"Class", "Type", "Version"})
+	for _, plugin := range plugins {
+		tb.AppendRow(table.Row{plugin.Class, plugin.Type, plugin.Version})
+	}
+	tb.Render()
+	return nil
 }
 
 // Describe a connector.
