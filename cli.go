@@ -46,15 +46,16 @@ var CLI struct {
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
-	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, false)
+	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
+	DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, false)
 	return nil
 }
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
-	kafkadmin, sradmin, mdsadmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &inputData, true)
+	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
+	DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, true)
+
 	return nil
 }
 func parseOffsetsArg(arg *string) (map[int32]int64, error) {
@@ -144,16 +145,26 @@ func GetInputData(config Configuration) DesiredState {
 	return inputData
 }
 
-func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin) {
+func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin) {
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	sradmin := NewSRAdmin(&config)
 	mdsadmin := NewMDSAdmin(config.Connections.Mds)
-	return kafkadmin, sradmin, *mdsadmin
+	connectAdmin := new(ConnectAdmin)
+	if config.Connections.Connect != (ConnectConfig{}) {
+		newConnectAdmin, err := NewConnectAdmin(&config.Connections.Connect)
+		connectAdmin = newConnectAdmin
+		if err != nil {
+			log.Fatalf("Failed to create ConnectAdmin instance: %s", err)
+		}
+	}
+	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
 }
-func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, inputData *DesiredState, dryRun bool) {
+func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) {
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
-	NewReport(topicResults, schemaResults, roleResults, dryRun)
+	connectResults := connectadmin.Reconcile(inputData.Connectors, dryRun)
+
+	NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
 }

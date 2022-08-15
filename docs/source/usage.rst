@@ -5,7 +5,7 @@ Usage
 Maintain topics, schemas and RBAC
 ---------------------------------
 
-`gafkalo` can maintain the topics, schemas and RBAC rolebindings for a cluster.
+`gafkalo` can maintain the topics, schemas, connectors and RBAC rolebindings for a cluster.
 
 In the configuration file you point it to the YAML definitions and it will attempt to create or update any resources needed.
 
@@ -27,6 +27,13 @@ Once you are satisfied with the plan you can let `gafkalo` apply the changes:
   gafkalo apply --config myconfig.yaml
 
 This command will read all the yaml files specified in the config , merge them and apply them. It will produce a report at the end.
+
+Using this method you can manage:
+
+- topics
+- RBAC roles (using predefined groups of roles, for 'consumer' , 'producer' etc)
+- Schema registry subjects and 'compatibility' settings per subject
+- connectors
 
 
 Producer

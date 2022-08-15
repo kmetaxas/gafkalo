@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -37,7 +36,7 @@ func TestTopicResultFromTopic(t *testing.T) {
 	topic := getTopic()
 	res := TopicResultFromTopic(topic)
 	if res.Name != topic.Name || res.NewPartitions != topic.Partitions || res.NewReplicationFactor != topic.ReplicationFactor {
-		t.Error(fmt.Sprintf("Res does not match topic (%+vs)", res))
+		t.Errorf("Res does not match topic (%+vs)", res)
 	}
 }
 
@@ -50,7 +49,7 @@ func TestChangedConfigs(t *testing.T) {
 	tr = getTestTopicResult(true, false)
 	diff = tr.ChangedConfigs()
 	if len(diff) == 0 {
-		t.Error(fmt.Sprintf("No changed configs detected:%+vs", tr))
+		t.Errorf("No changed configs detected:%+vs", tr)
 	}
 
 }

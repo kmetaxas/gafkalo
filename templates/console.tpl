@@ -35,4 +35,14 @@ Subject {{ .SubjectName }}:
 {{ range .Clients -}}
 {{ if $.IsPlan }}[PLAN]. Will add{{ else }} Added {{ end }} role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}
 {{ end }}
-
+## Connectors
+{{ range $connector := .Connectors }}
+{{- if $.IsPlan }}[PLAN] Will create/update{{ else }}Created/updated{{ end }} connector {{ $connector.Name }}. Configs:
+{{ range $confKey, $confVal := $connector.NewConfigs }}
+{{- $oldValue := index $connector.OldConfigs $confKey -}}
+{{"\t"}}{{ $confKey }}: {{ $confVal }}{{ if ne $oldValue $confVal }} (Old value: {{ $oldValue }}){{ end }}
+{{- if index $connector.Errors $confKey -}}
+{{ range (index $connector.Errors $confKey) }} {{"\n\t\t"}}- Validation ERROR: "{{.}}" {{ end }}
+{{- end -}} {{/* If errors */}}
+{{ end }} {{/*End range over NewConfigs */}}
+{{- end }}

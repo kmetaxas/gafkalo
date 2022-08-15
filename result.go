@@ -5,10 +5,11 @@ import (
 )
 
 type Results struct {
-	Topics  []TopicResult
-	Schemas []SchemaResult
-	Clients []ClientResult
-	IsPlan  bool
+	Topics     []TopicResult
+	Schemas    []SchemaResult
+	Clients    []ClientResult
+	Connectors []ConnectorResult
+	IsPlan     bool
 }
 
 type TopicResult struct {
@@ -38,6 +39,14 @@ type ClientResult struct {
 	ResourceName string
 	Role         string
 	PatternType  string // LITERAL Or PREFIXED
+}
+
+type ConnectorResult struct {
+	Name       string
+	NewConfigs map[string]string // New Configs
+	OldConfigs map[string]string // Previous configs
+	// key is field name, value is list of strings with errors returned by Validate API
+	Errors map[string][]string
 }
 
 func TopicResultFromTopic(topic Topic) TopicResult {

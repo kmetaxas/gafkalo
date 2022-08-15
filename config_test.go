@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"testing"
 )
@@ -52,7 +51,7 @@ func TestResoveFilesFromPatterns(t *testing.T) {
 		t.Error(err)
 	}
 	if len(patterns) != 1 || patterns[0] != "testdata/files/data/sample.yaml" {
-		t.Error(fmt.Sprintf("ResolvedPatterns %+vs", patterns))
+		t.Errorf("ResolvedPatterns %+vs", patterns)
 	}
 }
 func TestIsValidInputFile(t *testing.T) {

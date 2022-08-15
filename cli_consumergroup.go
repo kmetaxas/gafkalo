@@ -22,7 +22,7 @@ type ConsumerGroupDescribeCmd struct {
 func (cmd *ConsumerGroupListCmd) Run(ctx *CLIContext) error {
 
 	config := LoadConfig(ctx.Config)
-	admin, _, _ := GetAdminClients(config)
+	admin, _, _, _ := GetAdminClients(config)
 	groups, err := admin.AdminClient.ListConsumerGroups()
 	if err != nil {
 		log.Fatal(err)
@@ -34,7 +34,7 @@ func (cmd *ConsumerGroupListCmd) Run(ctx *CLIContext) error {
 func (cmd *ConsumerGroupDescribeCmd) Run(ctx *CLIContext) error {
 	var groups []string
 	config := LoadConfig(ctx.Config)
-	admin, _, _ := GetAdminClients(config)
+	admin, _, _, _ := GetAdminClients(config)
 	if cmd.Group != "" {
 		groups = append(groups, cmd.Group)
 	} else {

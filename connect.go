@@ -5,7 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
+	"github.com/mitchellh/mapstructure"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -18,7 +19,7 @@ type ConnectAdmin struct {
 	TlsConfig *tls.Config
 }
 
-func NewConnectAdin(config *ConnectConfig) (*ConnectAdmin, error) {
+func NewConnectAdmin(config *ConnectConfig) (*ConnectAdmin, error) {
 	var admin ConnectAdmin
 	if config.Url == "" {
 		return &admin, fmt.Errorf("url is required for connect")
@@ -32,30 +33,94 @@ func NewConnectAdin(config *ConnectConfig) (*ConnectAdmin, error) {
 	return &admin, nil
 }
 
-// Status of a task as returned by /task/<num>/status endpoint
+// Represents the current state of a Connect cluster.
+// It lists connectors , their config, tasks etc
+type ConnectClusterState struct {
+	Connectors map[string]Connector `json:"connectors"`
+}
+
 type TaskStatus struct {
-	ID       int    `json:"id"`
-	Status   string `json:"state"`
-	WorkerID string `json:"worker_id"`
+	ID       int    `json:"id" mapstructure:"id"`
+	Status   string `json:"state" mapstructure:"state"`
+	WorkerID string `json:"worker_id" mapstructure:"worker_id"`
 	// not part of resposne but utility functions fill it in to make boolean check easy.
 	isRunning bool
 }
 
 type Task struct {
-	Connector string `json:"connector"`
-	Task      int    `json:"task"`
+	Connector string `json:"connector" mapstructure:"connector"`
+	Task      int    `json:"task" mapstructure:"task"`
 }
-type ConnectorInfo struct {
-	Name   string            `json:"name"`
-	Config map[string]string `json:"config"`
+type Connector struct {
+	Name   string            `json:"name" mapstructure:"name"`
+	Config map[string]string `json:"config" mapstructure:"config"`
 	// Lots of information in the response that we ignore here
-	Tasks []Task `json:"tasks"`
+	Tasks []Task `json:"tasks" mapstructure:"tasks"`
 }
 
 type ConnectorStatus struct {
-	Name      string                 `json:"name"`
-	Connector map[string]interface{} `json:"connector"`
-	Tasks     []TaskStatus           `json:"tasks"`
+	Name      string            `json:"name" mapstructure:"name"`
+	Connector map[string]string `json:"connector" mapstructure:"connector"`
+	Tasks     []TaskStatus      `json:"tasks" mapstructure:"tasks"`
+}
+
+/*
+Represents a connector plugin.
+Useful in /connector-plugins endoint respone
+*/
+type ConnectorPlugin struct {
+	Class   string `json:"class"`
+	Type    string `json:"type"`
+	Version string `json:"version"`
+}
+
+/*
+Validate connector plugin REST api response object (nested Groups object)
+*/
+type ConnectorPluginValidateResponseConfig struct {
+	Definition struct {
+		Name          string   `json:"name"`
+		Type          string   `json:"type"`
+		Required      bool     `json:"required"`
+		DefaultValue  string   `json:"default_value,omitempty"`
+		Importance    string   `json:"importance"`
+		Documentation string   `json:"documentation,omitempty"`
+		Group         string   `json:"group,omitempty" `
+		Width         string   `json:"width,omitempty"`
+		DisplayName   string   `json:"display_name"`
+		Dependents    []string `json:"dependents,omitempty"`
+		Order         int      `json:"order"`
+	} `json:"definition"`
+	Value struct {
+		Name              string   `json:"name"`
+		Value             string   `json:"value,omitempty"`
+		RecommendedValues []string `json:"recommended_values,omitempty"`
+		Errors            []string `json:"errors"`
+		Visible           bool     `json:"visible"`
+	} `json:"value"`
+}
+
+/*
+Validate connector plugin REST api response object
+*/
+type ConnectorPluginValidateResponse struct {
+	Name       string                                  `json:"name"`
+	ErrorCount int                                     `json:"error_count"`
+	Groups     []string                                `json:"groups"`
+	Configs    []ConnectorPluginValidateResponseConfig `json:"configs"`
+}
+
+/*
+Convenience method to get the errors in a validation request
+Returns a map where the key is the field name and the value is an array of strings with all the errors for that field
+*/
+func (v *ConnectorPluginValidateResponse) GetErrors() map[string]([]string) {
+
+	resp := make(map[string]([]string))
+	for _, config := range v.Configs {
+		resp[config.Definition.Name] = append(resp[config.Definition.Name], config.Value.Errors...)
+	}
+	return resp
 }
 
 // Perform REST call on Connect
@@ -88,6 +153,8 @@ func (admin *ConnectAdmin) doREST(method, api string, payload io.Reader) ([]byte
 	return respBody, httpStatus, nil
 }
 
+// Will list connectors without expanded info.
+// Returns a list of strings
 func (admin *ConnectAdmin) ListConnectors() ([]string, error) {
 	var connectors []string
 	respBody, _, err := admin.doREST("GET", "/connectors", nil)
@@ -101,9 +168,70 @@ func (admin *ConnectAdmin) ListConnectors() ([]string, error) {
 	return connectors, nil
 }
 
+/*
+Will list connectors and set expanded info for 'status' and 'info', effectively
+ Getting all the info for the cluster
+*/
+func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error) {
+
+	type ConnectorResponse struct {
+		Info struct {
+			Name   string            `json:"name" mapstructure:"name"`
+			Config map[string]string `json:"config" mapstructure:"config"`
+			Type   string            `json:"type" mapstructure:"type"`
+		} `json:"info" mapstructure:"info"`
+		Status struct {
+			Name          string `json:"name" mapstructure:"name"`
+			ConnectorStat struct {
+				State    string `json:"state" mapstructure:"state"`
+				WorkerID string `json:"worker_id" mapstructure:"worker_id"`
+			} `json:"connector"`
+			Tasks []Task `json:"tasks" mapstructure:"tasks"`
+			Type  string `json:"type" mapstructure:"type"`
+		} `json:"status,omitempty" mapstructure:"status"`
+	}
+	var clusterState ConnectClusterState
+	clusterState.Connectors = make(map[string]Connector)
+	respBody, _, err := admin.doREST("GET", "/connectors?expand=status&expand=info", nil)
+	log.Tracef("respBody=%s\n", string(respBody))
+	if err != nil {
+		return &clusterState, err
+	}
+	err = json.Unmarshal(respBody, &clusterState)
+	if err != nil {
+		return &clusterState, err
+	}
+
+	var f interface{}
+	err = json.Unmarshal(respBody, &f)
+	if err != nil {
+		return &clusterState, err
+	}
+	itemsMap := f.(map[string]interface{})
+	for name, infoBlob := range itemsMap {
+		resp := ConnectorResponse{}
+		err = mapstructure.Decode(infoBlob, &resp)
+		if err != nil {
+			log.Panic(err)
+			return &clusterState, err
+		}
+		log.Debugf("[%s] Conn = %v\n", name, resp)
+		conn := Connector{
+			Name:   resp.Info.Name,
+			Config: resp.Info.Config,
+			Tasks:  resp.Status.Tasks,
+		}
+		clusterState.Connectors[conn.Name] = conn
+
+	}
+	log.Tracef("Returning clusterstate %v\n", clusterState)
+	return &clusterState, nil
+
+}
+
 // Get information about the connector. corresponds to  GET /connectors/(string: name)
-func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*ConnectorInfo, error) {
-	var resp ConnectorInfo
+func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*Connector, error) {
+	var resp Connector
 	uri := fmt.Sprintf("/connectors/%s", connector)
 	respBody, _, err := admin.doREST("GET", uri, nil)
 	if err != nil {
@@ -170,11 +298,66 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 
 }
 
-func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error) {
+func NewConnectorFromJson(jsonDefinition string) (*Connector, error) {
+	var conn Connector
+	err := json.Unmarshal([]byte(jsonDefinition), &conn)
+	if err != nil {
+		return &conn, err
+	}
+	return &conn, nil
+
+}
+
+// Patch an existing connector config.
+// returns  the name, and a boolean being true if a new connector was created instead, as the API will do that automatically.
+func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, error) {
+	var createdNew bool = false
+	var err error
+	var respConnector Connector
+	request := make(map[string]string)
+	type createConnectorResponse struct {
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
+		Tasks  []Task            `json:"tasks"`
+	}
+	for confName, confVal := range conn.Config {
+		request[confName] = confVal
+	}
+	var response createConnectorResponse
+	uri := fmt.Sprintf("/connectors/%s/config", conn.Name)
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return respConnector, createdNew, err
+	}
+
+	respBody, statusCode, err := admin.doREST("PUT", uri, bytes.NewBuffer(reqBody))
+	if statusCode < 200 || statusCode > 399 {
+		return respConnector, createdNew, fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
+	}
+	if err != nil {
+		return respConnector, createdNew, err
+	}
+	// This endpoint will return 201 Created for when it creates a new connector instead of updating (and a 200 OK for updates)
+	if statusCode == 201 {
+		createdNew = true
+	}
+	err = json.Unmarshal(respBody, &response)
+	if err != nil {
+		return respConnector, createdNew, err
+	}
+	respConnector.Name = response.Name
+	respConnector.Config = response.Config
+	respConnector.Tasks = response.Tasks
+	return respConnector, createdNew, nil
+
+}
+
+// Create a new Connector.
+func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	var name string
 	type createConnectorRequest struct {
-		Name   string                 `json:"name"`
-		Config map[string]interface{} `json:"config"`
+		Name   string            `json:"name"`
+		Config map[string]string `json:"config"`
 	}
 	type createConnectorResponse struct {
 		Name   string            `json:"name"`
@@ -182,9 +365,10 @@ func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error
 		Tasks  []Task            `json:"tasks"`
 	}
 	var request createConnectorRequest
-	err := json.Unmarshal([]byte(jsonDefinition), &request)
-	if err != nil {
-		return name, err
+	request.Name = conn.Name
+	request.Config = make(map[string]string)
+	for confName, confVal := range conn.Config {
+		request.Config[confName] = confVal
 	}
 	var response createConnectorResponse
 	uri := "/connectors"
@@ -193,7 +377,7 @@ func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error
 		return name, err
 	}
 	respBody, statusCode, err := admin.doREST("POST", uri, bytes.NewBuffer(reqBody))
-	if statusCode < 200 || statusCode > 400 {
+	if statusCode < 200 || statusCode > 399 {
 		return name, fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
 	}
 	if err != nil {
@@ -207,6 +391,42 @@ func (admin *ConnectAdmin) CreateConnector(jsonDefinition string) (string, error
 	return name, nil
 
 }
+
+/*
+Validate connector config.
+Useful for validating the configuration when doing a Plan and telling the if and what is wrong
+PUT /connector-plugins/(string: name)/config/validate
+*/
+func (admin *ConnectAdmin) ValidateConnectorConfig(connector Connector) (ConnectorPluginValidateResponse, error) {
+	var resp ConnectorPluginValidateResponse
+
+	class := connector.Config["connector.class"]
+	url := fmt.Sprintf("/connector-plugins/%s/config/validate", class)
+
+	request := connector.Config
+	payload, err := json.Marshal(request)
+	if err != nil {
+		return resp, err
+	}
+	respBody, httpStatusCode, err := admin.doREST("PUT", url, bytes.NewBuffer(payload))
+	if err != nil {
+		return resp, err
+	}
+	if httpStatusCode != 200 {
+		return resp, fmt.Errorf("Connector validation for class %s failed with HTTP status code %d and message: %s", class, httpStatusCode, string(respBody))
+
+	}
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		return resp, err
+	}
+	log.Tracef("ValidateConnectorConfig response: %v\n", resp)
+	return resp, nil
+}
+
+/*
+Delete a connector
+*/
 func (admin *ConnectAdmin) DeleteConnector(connector string) error {
 	uri := fmt.Sprintf("/connectors/%s", connector)
 	respBody, statusCode, err := admin.doREST("DELETE", uri, nil)
@@ -252,16 +472,6 @@ func (admin *ConnectAdmin) RestartConnector(connector string) error {
 	return nil
 }
 
-func prettyPrintTaskStatus(task *TaskStatus) {
-	stateFmt := color.New(color.FgGreen).SprintFunc()
-	if !task.isRunning {
-		stateFmt = color.New(color.FgGreen).SprintFunc()
-	}
-	msg := fmt.Sprintf("Task [%d] has status %s on worker '%s' (running: %v)\n", task.ID, stateFmt(task.Status), task.WorkerID, stateFmt(task.isRunning))
-	fmt.Print(msg)
-
-}
-
 // Get if the connector if healthy. This means that the connector itself reports healthy *and* all the tasks report healthy
 func (status *ConnectorStatus) isHealthy() bool {
 	if status.Connector["state"] != "RUNNING" {
@@ -273,4 +483,112 @@ func (status *ConnectorStatus) isHealthy() bool {
 		}
 	}
 	return true
+}
+
+/*
+Retrieve the list of Connector plugins fron Connect Rest API
+*/
+func (admin *ConnectAdmin) ListPlugins() ([]ConnectorPlugin, error) {
+	var plugins []ConnectorPlugin
+	respBody, httpStatusCode, err := admin.doREST("GET", "/connector-plugins", nil)
+	log.Tracef("listplugins respBody=%s", respBody)
+	if err != nil {
+		return plugins, err
+	}
+	if httpStatusCode != 200 {
+		return plugins, fmt.Errorf("unable to retrieve connector plugins as endpoint returned http status %d", httpStatusCode)
+	}
+	err = json.Unmarshal(respBody, &plugins)
+	if err != nil {
+		return plugins, err
+	}
+	return plugins, nil
+}
+
+/*
+Checks the known cluster state against the provided connector configs and returns True if the state needs to be updated.
+Will also return true if connector is not found in the state
+*/
+func (c *ConnectClusterState) NeedsPatch(connector Connector) bool {
+	// Name is part of the configs in some API calls but not others. Woohoo!
+	connector.Config["name"] = connector.Name
+	existingConnector, exists := c.Connectors[connector.Name]
+	if !exists {
+		return true
+	}
+	// If not the same number of configs, no need to compare them
+	if len(existingConnector.Config) != len(connector.Config) {
+		return true
+	}
+	for confName, confVal := range connector.Config {
+		if existingConnector.Config[confName] != confVal {
+			return true
+		}
+	}
+	return false
+}
+
+// Status of a task as returned by /task/<num>/status endpoint
+/*
+Reconcile connector status with config (yaml) contents
+This is called by plan/apply calls.
+*/
+func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryRun bool) []ConnectorResult {
+	var connectorResults []ConnectorResult
+	/*
+		- Get existing connectors and their definitions
+		- For each connector defined in YAML,
+		  - Check if an existing connector exists:
+		    - If if exists -> PATCH (and restart?)
+		    - If not -> CREATE
+	*/
+	existingConnectorNames, err := admin.ListConnectorsExpanded()
+	if err != nil {
+		log.Fatal("Failed to list connectors")
+	}
+	for _, connectorConf := range connectorConfigs {
+		// Do a validate call before creating the ConnectorResult as this will give us more info about potential errors , coming direcly from Connect API itself (and the connector class)
+		connectorConf.Config["name"] = connectorConf.Name // Some calls depend on this crap
+		validateRes, err := admin.ValidateConnectorConfig(connectorConf)
+		if err != nil {
+			log.Fatalf("Error validating config for %s. Error message: %s", connectorConf.Name, err)
+		}
+
+		// IF the connector exists already we use the Patch API endpoint, otherwise the PUT
+		if _, exists := existingConnectorNames.Connectors[connectorConf.Name]; exists {
+			if existingConnectorNames.NeedsPatch(connectorConf) {
+				log.Debugf("Connector '%v' exists already. New conf %v", connectorConf, connectorConf)
+				if !dryRun {
+					newConn, _, err := admin.PatchConnector(&connectorConf)
+					if err != nil {
+						log.Fatalf("Failed to create connector %v - error: %v", newConn, err)
+					}
+				}
+				res := ConnectorResult{
+					Name:       connectorConf.Name,
+					NewConfigs: connectorConf.Config,
+					OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
+					Errors:     validateRes.GetErrors(),
+				}
+				connectorResults = append(connectorResults, res)
+			}
+
+		} else {
+			if !dryRun {
+				// New connector. Create it
+				name, err := admin.CreateConnector(&connectorConf)
+				if err != nil {
+					log.Fatalf("Failed to create connector %s - error: %s", name, err)
+				}
+			}
+			res := ConnectorResult{
+				Name:       connectorConf.Name,
+				NewConfigs: connectorConf.Config,
+				OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
+				Errors:     validateRes.GetErrors(),
+			}
+			connectorResults = append(connectorResults, res)
+		}
+	}
+	return connectorResults
 }

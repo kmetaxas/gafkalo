@@ -35,7 +35,7 @@ func (cmd *DescribeTopicCmd) Run(ctx *CLIContext) error {
 			log.Fatal(err)
 		}
 	} else {
-		return fmt.Errorf("No such topic: %s", cmd.Name)
+		return fmt.Errorf("no such topic: %s", cmd.Name)
 	}
 	return nil
 }

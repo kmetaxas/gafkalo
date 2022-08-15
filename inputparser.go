@@ -9,13 +9,16 @@ import (
 // This represents the desired state that the user asked for
 // It a merge of all individual input files
 type DesiredState struct {
-	Topics  map[string]Topic
-	Clients map[string]Client
+	Topics     map[string]Topic
+	Clients    map[string]Client
+	Connectors map[string]Connector
 }
 
+// This is the input Yaml file schema
 type InputYaml struct {
-	Topics  []Topic  `yaml:"topics"`
-	Clients []Client `yaml:"clients"`
+	Topics     []Topic     `yaml:"topics"`
+	Clients    []Client    `yaml:"clients"`
+	Connectors []Connector `yaml:"connectors"`
 }
 
 func (state *DesiredState) mergeInput(data *InputYaml) error {
@@ -35,10 +38,23 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 			state.Clients[client.Principal] = client
 		}
 	}
+
+	for _, connector := range data.Connectors {
+		if _, exists := state.Connectors[connector.Name]; exists {
+			log.Fatalf("Duplicate definition for connector %s", connector.Name)
+		} else {
+			state.Connectors[connector.Name] = connector
+		}
+
+	}
 	return nil
 }
 func Parse(inputFiles []string) DesiredState {
-	var desiredState = DesiredState{Topics: make(map[string]Topic), Clients: make(map[string]Client, 20)}
+	var desiredState = DesiredState{
+		Topics:     make(map[string]Topic),
+		Clients:    make(map[string]Client, 20),
+		Connectors: make(map[string]Connector),
+	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
 		data, err := ioutil.ReadFile(filename)
