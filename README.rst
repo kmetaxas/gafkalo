@@ -1,11 +1,17 @@
 Gafkalo
 =======
 
+Gafkalo is to manage a Confluent platform by managing, in YAML:
+- Topics
+- Subjects (Schema registry schemas)
+- RBAC (using Confluent RBAC plugin. No ACL support)
+- Connectors.
 
-A rewrite of `kafkalo` in Go
+This allows the implementation of a GitOps pipeline to manage a cluster.
 
-It is used to create topics , schemas in the Schema registry and assign permissions (using Confluent RBAC)
-Additionally it is meant as a CLI/debugging tool that needs no dependencies.
+It does not support deleting topics or schemas, primarily out of an abundance of caution, though this feature may be added in later versions if needed.
+
+Additionally, it is meant as a CLI/debugging tool that needs no dependencies.
 
 It uses Sarama with a goal of producing a Go binary with no external dependencies. Sarama does not use the client properties of Confluent libraries.
 
@@ -38,12 +44,6 @@ Features
 - Pure Go. Now dependencies, and no librdkafka!
 - Supports inreasing partition count
 
-
-Incompatible changes
---------------------
-
-1. Configuration for kafka itself and howto connect to componets has changed. We use sarama and it does not accept confluent/kakfa style string properties.
-2. `prefixed` field renamed to `isLiteral` and logic inverted to match how Go treats default bool fields. Topics without this field keep the same behavior (defaults to PREFIXED) but topics that had it disabled now need to have `isLiteral: true`
 
 License
 -------
