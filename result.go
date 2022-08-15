@@ -45,6 +45,8 @@ type ConnectorResult struct {
 	Name       string
 	NewConfigs map[string]string // New Configs
 	OldConfigs map[string]string // Previous configs
+	// key is field name, value is list of strings with errors returned by Validate API
+	Errors map[string][]string
 }
 
 func TopicResultFromTopic(topic Topic) TopicResult {
