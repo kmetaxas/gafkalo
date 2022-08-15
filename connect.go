@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -119,9 +118,7 @@ func (v *ConnectorPluginValidateResponse) GetErrors() map[string]([]string) {
 
 	resp := make(map[string]([]string))
 	for _, config := range v.Configs {
-		for _, errText := range config.Value.Errors {
-			resp[config.Definition.Name] = append(resp[config.Definition.Name], errText)
-		}
+		resp[config.Definition.Name] = append(resp[config.Definition.Name], config.Value.Errors...)
 	}
 	return resp
 }
@@ -195,9 +192,8 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 	}
 	var clusterState ConnectClusterState
 	clusterState.Connectors = make(map[string]Connector)
-	log.Tracef("Requesting Expanded connector listing")
 	respBody, _, err := admin.doREST("GET", "/connectors?expand=status&expand=info", nil)
-	log.Debugf("respBody=%s\n", string(respBody))
+	log.Tracef("respBody=%s\n", string(respBody))
 	if err != nil {
 		return &clusterState, err
 	}
@@ -208,10 +204,11 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 
 	var f interface{}
 	err = json.Unmarshal(respBody, &f)
+	if err != nil {
+		return &clusterState, err
+	}
 	itemsMap := f.(map[string]interface{})
-	log.Debugf("itemsMap = %s\n", itemsMap)
 	for name, infoBlob := range itemsMap {
-		log.Debugf("Unmarshal name %s - infoBlob %v\n", name, infoBlob)
 		resp := ConnectorResponse{}
 		err = mapstructure.Decode(infoBlob, &resp)
 		if err != nil {
@@ -227,7 +224,7 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 		clusterState.Connectors[conn.Name] = conn
 
 	}
-	log.Debugf("Returning clusterstate %v\n", clusterState)
+	log.Tracef("Returning clusterstate %v\n", clusterState)
 	return &clusterState, nil
 
 }
@@ -302,14 +299,11 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 }
 
 func NewConnectorFromJson(jsonDefinition string) (*Connector, error) {
-	log.Tracef("jsonDefinition =%s", jsonDefinition)
 	var conn Connector
 	err := json.Unmarshal([]byte(jsonDefinition), &conn)
 	if err != nil {
-		log.Trace("Failed to create Connector from JSON")
 		return &conn, err
 	}
-	log.Tracef("Returning conn %v", conn)
 	return &conn, nil
 
 }
@@ -337,8 +331,6 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 	}
 
 	respBody, statusCode, err := admin.doREST("PUT", uri, bytes.NewBuffer(reqBody))
-	log.Debugf("respBody=%s", respBody)
-	log.Debugf("ReqBody = %s, param conn %v", reqBody, conn)
 	if statusCode < 200 || statusCode > 399 {
 		return respConnector, createdNew, fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
 	}
@@ -356,7 +348,6 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 	respConnector.Name = response.Name
 	respConnector.Config = response.Config
 	respConnector.Tasks = response.Tasks
-	log.Tracef("patch response var %v. Copied var = %v", response, respConnector)
 	return respConnector, createdNew, nil
 
 }
@@ -481,16 +472,6 @@ func (admin *ConnectAdmin) RestartConnector(connector string) error {
 	return nil
 }
 
-func prettyPrintTaskStatus(task *TaskStatus) {
-	stateFmt := color.New(color.FgGreen).SprintFunc()
-	if !task.isRunning {
-		stateFmt = color.New(color.FgGreen).SprintFunc()
-	}
-	msg := fmt.Sprintf("Task [%d] has status %s on worker '%s' (running: %v)\n", task.ID, stateFmt(task.Status), task.WorkerID, stateFmt(task.isRunning))
-	fmt.Print(msg)
-
-}
-
 // Get if the connector if healthy. This means that the connector itself reports healthy *and* all the tasks report healthy
 func (status *ConnectorStatus) isHealthy() bool {
 	if status.Connector["state"] != "RUNNING" {
@@ -515,7 +496,7 @@ func (admin *ConnectAdmin) ListPlugins() ([]ConnectorPlugin, error) {
 		return plugins, err
 	}
 	if httpStatusCode != 200 {
-		return plugins, fmt.Errorf("Unable to retrieve connector plugins as endpoint returned http status %d", httpStatusCode)
+		return plugins, fmt.Errorf("unable to retrieve connector plugins as endpoint returned http status %d", httpStatusCode)
 	}
 	err = json.Unmarshal(respBody, &plugins)
 	if err != nil {

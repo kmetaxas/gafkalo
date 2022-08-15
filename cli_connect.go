@@ -198,7 +198,6 @@ func (cmd *UpdateConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		return err
 	}
-	log.Tracef("Newconnectorfromjson conn=%v", conn)
 	newConn, createdNew, err := admin.PatchConnector(conn)
 	if err != nil {
 		return err
