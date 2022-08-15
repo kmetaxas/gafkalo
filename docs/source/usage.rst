@@ -28,6 +28,13 @@ Once you are satisfied with the plan you can let `gafkalo` apply the changes:
 
 This command will read all the yaml files specified in the config , merge them and apply them. It will produce a report at the end.
 
+Using this method you can manage:
+
+- topics
+- RBAC roles (using predefined groups of roles, for 'consumer' , 'producer' etc)
+- Schema registry subjects and 'compatibility' settings per subject
+- connectors
+
 
 Producer
 --------
