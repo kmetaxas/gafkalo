@@ -41,5 +41,8 @@ Subject {{ .SubjectName }}:
 {{ range $confKey, $confVal := $connector.NewConfigs }}
 {{- $oldValue := index $connector.OldConfigs $confKey -}}
 {{"\t"}}{{ $confKey }}: {{ $confVal }}{{ if ne $oldValue $confVal }} (Old value: {{ $oldValue }}){{ end }}
+{{- if index $connector.Errors $confKey -}}
+{{ range (index $connector.Errors $confKey) }} {{"\n\t\t"}}- Validation ERROR: "{{.}}" {{ end }}
+{{- end -}} {{/* If errors */}}
 {{ end }} {{/*End range over NewConfigs */}}
 {{- end }}

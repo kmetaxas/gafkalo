@@ -421,9 +421,8 @@ func (admin *ConnectAdmin) ValidateConnectorConfig(connector Connector) (Connect
 	if err != nil {
 		return resp, err
 	}
-	log.Tracef("ValidateConnectorConfig repBody: %v\n", string(respBody))
 	if httpStatusCode != 200 {
-		return resp, fmt.Errorf("Connector validation for class %s failed with HTTP status code %d", class, httpStatusCode)
+		return resp, fmt.Errorf("Connector validation for class %s failed with HTTP status code %d and message: %s", class, httpStatusCode, string(respBody))
 
 	}
 	err = json.Unmarshal(respBody, &resp)
