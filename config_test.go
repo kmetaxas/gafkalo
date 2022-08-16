@@ -25,6 +25,7 @@ func TestParseConfig(t *testing.T) {
 	expectedConf.Connections.Schemaregistry = expSRConf
 	expectedConf.Kafkalo.InputDirs = []string{"testdata/files/data/*", "testdata/files/data/team2.yaml"}
 	expectedConf.Kafkalo.SchemaDir = "testdata/files/data/"
+	expectedConf.Kafkalo.ConnectorsSensitiveKeysRegex = "^.*(auth|password|credential).*$"
 
 	config := parseConfig("testdata/files/config.sample.yaml")
 	if config.Connections.Kafka.Brokers[0] != "localhost:9093" {

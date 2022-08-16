@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -47,15 +48,18 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, false)
+	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, false)
+	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
+	report.Render(os.Stdout)
 	return nil
 }
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
-	DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, true)
-
+	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, true)
+	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
+	report.Render(os.Stdout)
 	return nil
 }
 func parseOffsetsArg(arg *string) (map[int32]int64, error) {
@@ -159,12 +163,12 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 	}
 	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
 }
-func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) {
+func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) *Report {
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
 	connectResults := connectadmin.Reconcile(inputData.Connectors, dryRun)
 
-	NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
+	return NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	log "github.com/sirupsen/logrus"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 )
@@ -57,10 +59,19 @@ func Parse(inputFiles []string) DesiredState {
 	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
-		data, err := ioutil.ReadFile(filename)
+		rawData, err := ioutil.ReadFile(filename)
 		if err != nil {
 			log.Warnf("unable to read %s with error %s\n", filename, err)
 		}
+		// Try to decrypt using sops first, as some YAML may have sensitive info (for example connectors)
+		data, err := decrypt.Data(rawData, "yaml")
+		//	If we have an error MetadataNotFound, then we consider the file plaintext and ignore this error
+		if err != nil && err != sops.MetadataNotFound {
+			log.Fatalf("Failed to read config: %s", err)
+		} else if err == sops.MetadataNotFound {
+			data = rawData
+		}
+
 		var inputdata InputYaml
 		err = yaml.Unmarshal(data, &inputdata)
 		if err != nil {
