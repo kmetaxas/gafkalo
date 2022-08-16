@@ -49,6 +49,7 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
 	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, false)
+	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
 	report.Render(os.Stdout)
 	return nil
 }
@@ -57,6 +58,7 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	inputData := GetInputData(config)
 	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
 	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, true)
+	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
 	report.Render(os.Stdout)
 	return nil
 }
