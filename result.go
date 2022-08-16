@@ -5,11 +5,12 @@ import (
 )
 
 type Results struct {
-	Topics     []TopicResult
-	Schemas    []SchemaResult
-	Clients    []ClientResult
-	Connectors []ConnectorResult
-	IsPlan     bool
+	Topics           []TopicResult
+	Schemas          []SchemaResult
+	Clients          []ClientResult
+	Connectors       []ConnectorResult
+	IsPlan           bool
+	ExtraContextKeys map[string]string // Used to pass extra context keys for use by templates
 }
 
 type TopicResult struct {

@@ -38,4 +38,6 @@ kafkalo:
     - "data/team2.yaml"
   # If schema_dir is specified, gafkalo will prepend this to the schema path in each schema definition. This makes it easy to have schema files relative to a shared path.
   schema_dir: "data/"
-
+  connectors_sensitive_keys:
+      # List of regex patterns that , if matched , will hide from plan output as sensitve
+      - '^.*(auth|password|credential).*$'

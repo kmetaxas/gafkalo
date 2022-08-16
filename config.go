@@ -71,8 +71,9 @@ type Configuration struct {
 		Connect        ConnectConfig `yaml:"connect"`
 	} `yaml:"connections"`
 	Kafkalo struct {
-		InputDirs []string `yaml:"input_dirs"`
-		SchemaDir string   `yaml:"schema_dir"` // Directory to look for schemas when using a relative path
+		InputDirs                    []string `yaml:"input_dirs"`
+		SchemaDir                    string   `yaml:"schema_dir"` // Directory to look for schemas when using a relative path
+		ConnectorsSensitiveKeysRegex []string `yaml:"connectors_sensitive_keys"`
 	} `yaml:"kafkalo"`
 }
 

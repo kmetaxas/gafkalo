@@ -33,4 +33,7 @@ kafkalo:
     - "testdata/files/data/*"
     - "testdata/files/data/team2.yaml"
   schema_dir: "testdata/files/data/"
+  connectors_sensitive_keys:
+      # List of regex patterns that , if matched , will hide from plan output as sensitve
+      - '^.*(auth|password|credential).*$'
 
