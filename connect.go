@@ -546,7 +546,9 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 	if err != nil {
 		log.Fatal("Failed to list connectors")
 	}
-	for _, connectorConf := range connectorConfigs {
+	for _, connectorConfIter := range connectorConfigs {
+		connectorConf := connectorConfIter // reassign to prevent gosec (CWE-118): Implicit memory aliasing in for loop.
+
 		// Do a validate call before creating the ConnectorResult as this will give us more info about potential errors , coming direcly from Connect API itself (and the connector class)
 		connectorConf.Config["name"] = connectorConf.Name // Some calls depend on this crap
 		validateRes, err := admin.ValidateConnectorConfig(connectorConf)

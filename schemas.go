@@ -358,7 +358,10 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		}
 		if !dryRun && newCompat != "" {
 			log.Debugf("Setting compatibility for subject %s to %s", schema.SubjectName, schema.Compatibility)
-			admin.SetCompatibility(schema, schema.Compatibility)
+			err = admin.SetCompatibility(schema, schema.Compatibility)
+			if err != nil {
+				log.Errorf("Failed to set compatibility to %s for Subject %s with error %s\n", schema.Compatibility, schema.SubjectName, err)
+			}
 			compatChanged = true
 		}
 	}

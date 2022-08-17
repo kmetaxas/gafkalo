@@ -285,7 +285,10 @@ func (cmd *HealCmd) Run(ctx *CLIContext) error {
 	for _, task := range tasks {
 		if task.Status != "RUNNING" {
 			fmt.Printf("Restarting task %d..\n", task.ID)
-			admin.RestartTask(cmd.Name, task.ID)
+			err = admin.RestartTask(cmd.Name, task.ID)
+			if err != nil {
+				log.Errorf("Failed to restart task %d with error: %s\n", task.ID, err)
+			}
 		}
 	}
 	return nil

@@ -136,9 +136,12 @@ func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, 
 		}
 		switch recordKey.Keytype {
 		case "CONFIG":
-			r.processConfigValue(&recordKey, message.Value)
+			err = r.processConfigValue(&recordKey, message.Value)
 		case "SCHEMA":
-			r.processSchemaValue(&recordKey, message.Value)
+			err = r.processSchemaValue(&recordKey, message.Value)
+		}
+		if err != nil {
+			return err
 		}
 		session.MarkMessage(message, "")
 		// If that was the last message we should read, stop consuming
