@@ -80,7 +80,7 @@ type Configuration struct {
 func parseConfig(configFile string) Configuration {
 	var configData, data []byte
 	var err error
-	data, err = ioutil.ReadFile(configFile)
+	data, err = ioutil.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", configFile, err)
 	}

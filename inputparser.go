@@ -6,6 +6,7 @@ import (
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"path/filepath"
 )
 
 // This represents the desired state that the user asked for
@@ -59,7 +60,7 @@ func Parse(inputFiles []string) DesiredState {
 	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
-		rawData, err := ioutil.ReadFile(filename)
+		rawData, err := ioutil.ReadFile(filepath.Clean(filename))
 		if err != nil {
 			log.Warnf("unable to read %s with error %s\n", filename, err)
 		}

@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
+	"path/filepath"
 )
 
 type Topic struct {
@@ -51,7 +52,7 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	pem, err := ioutil.ReadFile(CAPath)
+	pem, err := ioutil.ReadFile(filepath.Clean(CAPath))
 	if err != nil {
 		log.Fatal(err)
 	}

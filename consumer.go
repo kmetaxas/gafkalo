@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"text/template"
@@ -71,7 +72,7 @@ func RandomString(n int) string {
 }
 
 func loadTemplate(path string) *template.Template {
-	tplData, err := ioutil.ReadFile(path)
+	tplData, err := ioutil.ReadFile(filepath.Clean(path))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -47,9 +48,9 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 	newSchema.Compatibility = Compatibility
 
 	// Load the schema data
-	pathToSchemaFile := normalizeSchemaPath(SchemaPath)
+	pathToSchemaFile := normalizeSchemaPath(filepath.Clean(SchemaPath))
 	if pathToSchemaFile != "" && SchemaPath != "" {
-		data, err := ioutil.ReadFile(pathToSchemaFile)
+		data, err := ioutil.ReadFile(filepath.Clean(pathToSchemaFile))
 		if err != nil {
 			log.Fatalf("Unable to create schema with Error: %s\n", err)
 		}
