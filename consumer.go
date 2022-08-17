@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"github.com/kmetaxas/srclient"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"math/rand"
+	"math/big"
 	"os"
 	"os/signal"
 	"sync"
@@ -53,12 +54,18 @@ type CustomRecordTemplateContext struct {
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
-	rand.Seed(time.Now().UTC().UnixNano())
+	//rand.Seed(time.Now().UTC().UnixNano())
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	s := make([]rune, n)
 	for i := range s {
-		s[i] = letters[rand.Intn(len(letters))]
+		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			// Well the the original implementation of RandomString had no invocation of functions that can return errors
+			// So, instead of returning something silly, we .. fail
+			log.Fatalf("Failed to create cryptographically secure random string: %s", err)
+		}
+		s[i] = letters[randInt.Int64()]
 	}
 	return string(s)
 }

@@ -43,7 +43,7 @@ type KafkaAdmin struct {
 
 func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	// Get system Cert Pool
-	config := &tls.Config{}
+	config := &tls.Config{MinVersion: tls.VersionTLS12}
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Fatal(err)
