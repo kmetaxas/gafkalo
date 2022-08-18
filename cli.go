@@ -112,14 +112,9 @@ func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
 	var results []LintResult
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	existing_topics := kafkadmin.ListTopics()
-	for topicName, details := range existing_topics {
-		topic := Topic{
-			Name:              topicName,
-			Partitions:        details.NumPartitions,
-			ReplicationFactor: details.ReplicationFactor,
-			Configs:           details.ConfigEntries,
-		}
-		res := LintTopic(topic)
+	for _, details := range existing_topics {
+		topic := details
+		res := LintTopic(*topic)
 		if cmd.OnlyErrors {
 			for _, lintResult := range res {
 				if lintResult.Severity == LINT_ERROR {

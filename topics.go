@@ -41,6 +41,17 @@ type KafkaAdmin struct {
 	DryRunPlan  []TopicPlan
 }
 
+func NewTopicFromSaramaTopicDetail(name string, topicdetail *sarama.TopicDetail) *Topic {
+	var newTopic Topic
+	newTopic.Name = name
+	newTopic.Partitions = topicdetail.NumPartitions
+	newTopic.ReplicationFactor = topicdetail.ReplicationFactor
+	newTopic.Configs = make(map[string]*string)
+	for key, val := range topicdetail.ConfigEntries {
+		newTopic.Configs[key] = val
+	}
+	return &newTopic
+}
 func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	// Get system Cert Pool
 	config := &tls.Config{}
@@ -135,14 +146,20 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 }
 
 // Return a list of Kafka topics and fill cache.
-func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
+func (admin *KafkaAdmin) ListTopics() map[string]*Topic {
+	resp := make(map[string]*Topic)
 	topics, err := admin.AdminClient.ListTopics()
 	log.Tracef("ListTopics = %v", topics)
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
 	}
 	admin.TopicCache = topics
-	return topics
+
+	for name, saramaTopicDetails := range topics {
+		resp[name] = NewTopicFromSaramaTopicDetail(name, &saramaTopicDetails)
+	}
+
+	return resp
 }
 
 // Unmarshal yaml callback for Topic
@@ -169,10 +186,10 @@ func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // Compare two topic definitions of newTopic with oldTopic and give back a list of configs that are different from new to old
-func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
+func getTopicConfigDiff(newTopic Topic, oldTopic Topic) []string {
 	var diff []string
 	for name, newVal := range newTopic.Configs {
-		if oldVal, exists := oldTopic.ConfigEntries[name]; exists {
+		if oldVal, exists := oldTopic.Configs[name]; exists {
 			if *newVal != *oldVal {
 				diff = append(diff, name)
 			}
@@ -182,20 +199,20 @@ func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
 }
 
 // Test if a Topic's config need updating
-func topicConfigNeedsUpdate(topic Topic, existing sarama.TopicDetail) bool {
+func topicConfigNeedsUpdate(topic Topic, existing Topic) bool {
 	diff := getTopicConfigDiff(topic, existing)
 	return len(diff) > 0
 }
 
-func topicPartitionNeedUpdate(topic Topic, existing sarama.TopicDetail) bool {
-	return topic.Partitions != existing.NumPartitions
+func topicPartitionNeedUpdate(topic Topic, existing Topic) bool {
+	return topic.Partitions != existing.Partitions
 }
 
 // Compare the topic names and give back a list of string on which topics are new and need to be created
-func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[string]Topic) []string {
+func getTopicNamesDiff(oldTopics map[string]*Topic, newTopics *map[string]Topic) []string {
 	var newNames []string
 	for name := range *newTopics {
-		_, exists := (*oldTopics)[name]
+		_, exists := (oldTopics)[name]
 		if !exists {
 			newNames = append(newNames, name)
 		}
@@ -331,7 +348,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	var topicResults []TopicResult
 	existing_topics := admin.ListTopics()
 	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
-	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	newTopics := getTopicNamesDiff(existing_topics, &topics)
 	// Initialize newTopicsStatus to false
 	for _, name := range newTopics {
 		newTopicsStatus[name] = false
@@ -355,11 +372,11 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	// Alter configs
 	for topicName, topic := range topics {
 		topicRes := TopicResultFromTopic(topic)
-		topicRes.FillFromOldTopic(existing_topics[topicName])
+		topicRes.FillFromOldTopic(*existing_topics[topicName])
 		// skip topics we just created or topics that failed creation. So all new ones
 		_, isNew := newTopicsStatus[topicName]
 		if !isNew {
-			if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
+			if topicConfigNeedsUpdate(topic, *existing_topics[topicName]) {
 				err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
 				if err != nil {
 					topicRes.Errors = append(topicRes.Errors, err.Error())
@@ -367,13 +384,13 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 				topicRes.NewConfigs = topic.Configs
 				topicResults = append(topicResults, topicRes)
 			}
-			if topicPartitionNeedUpdate(topic, existing_topics[topicName]) {
+			if topicPartitionNeedUpdate(topic, *existing_topics[topicName]) {
 				newPlan, err := admin.ChangePartitionCount(topicName, topic.Partitions, topic.ReplicationFactor, dry_run)
 				if err != nil {
 					topicRes.Errors = append(topicRes.Errors, err.Error())
 				}
 				topicRes.NewPartitions = topic.Partitions
-				topicRes.OldPartitions = existing_topics[topicName].NumPartitions
+				topicRes.OldPartitions = existing_topics[topicName].Partitions
 				topicRes.ReplicaPlan = newPlan
 				topicResults = append(topicResults, topicRes)
 			}
