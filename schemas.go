@@ -80,7 +80,7 @@ func (s *Schema) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // SRAdmin 'class'
 type SRAdmin struct {
-	Client       srclient.SchemaRegistryClient
+	Client       *srclient.SchemaRegistryClient
 	SubjectCache []string
 	GlobalCompat string
 	url          string
@@ -117,7 +117,7 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 		srClient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
 	}
 
-	sradmin := SRAdmin{Client: *srClient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
+	sradmin := SRAdmin{Client: srClient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
 	sradmin.url = config.Connections.Schemaregistry.Url
 	if config.Connections.Schemaregistry.SkipRestForReads {
 		sradmin.UseSRCache = true

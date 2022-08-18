@@ -133,7 +133,7 @@ func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bo
 		msg.Key = sarama.ByteEncoder(keyPayload)
 	} else {
 		if value == nil {
-			valuePayload = sarama.ByteEncoder(nil)
+			msg.Value = sarama.ByteEncoder(nil)
 		} else {
 			msg.Value = sarama.StringEncoder(*value)
 		}
