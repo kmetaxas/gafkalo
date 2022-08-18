@@ -12,7 +12,7 @@ import (
 var gafkaloConfig Configuration
 
 type CLIContext struct {
-	Config string `required arg help:"configuration file"`
+	Config string `required arg:"" help:"configuration file"`
 }
 type PlanCmd struct {
 	Dryrun bool `default:"true" hidden`
@@ -31,17 +31,17 @@ type LintBrokersCmd struct {
 var CLI struct {
 	Config        string           `required help:"configuration file"`
 	Verbosity     string           `help:"Verbosity level. error,info,debug,trace" default:"error"`
-	Apply         ApplyCmd         `cmd help:"Apply the changes"`
-	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
-	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
-	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
-	Schema        SchemaCmd        `cmd help:"Manage schemas"`
-	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
-	Topic         TopicCmd         `cmd help:"Manage topics"`
-	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
-	Connect       ConnectCmd       `cmd help:"manage connectors"`
-	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
-	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
+	Apply         ApplyCmd         `cmd:"" help:"Apply the changes"`
+	Plan          PlanCmd          `cmd:"" help:"Produce a plan of changes"`
+	Consumer      ConsumerCmd      `cmd:"" help:"Consume from topics"`
+	Produce       ProduceCmd       `cmd:"" help:"Produce to a topic"`
+	Schema        SchemaCmd        `cmd:"" help:"Manage schemas"`
+	Lint          LintCmd          `cmd:"" help:"Run a linter against topic definitions"`
+	Topic         TopicCmd         `cmd:"" help:"Manage topics"`
+	LintBroker    LintBrokersCmd   `cmd:"" help:"Run a linter against topics in a running brokers"`
+	Connect       ConnectCmd       `cmd:"" help:"manage connectors"`
+	Consumergroup ConsumerGroupCmd `cmd:"" help:"manage and view consumer groups"`
+	Replicator    ReplicatorCmd    `cmd:"" helm:"Replicator topics"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {

@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
+	"path/filepath"
 )
 
 type Topic struct {
@@ -43,7 +44,7 @@ type KafkaAdmin struct {
 
 func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	// Get system Cert Pool
-	config := &tls.Config{}
+	config := &tls.Config{MinVersion: tls.VersionTLS12}
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Fatal(err)
@@ -51,7 +52,7 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	pem, err := ioutil.ReadFile(CAPath)
+	pem, err := ioutil.ReadFile(filepath.Clean(CAPath))
 	if err != nil {
 		log.Fatal(err)
 	}

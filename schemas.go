@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -47,9 +48,9 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 	newSchema.Compatibility = Compatibility
 
 	// Load the schema data
-	pathToSchemaFile := normalizeSchemaPath(SchemaPath)
+	pathToSchemaFile := normalizeSchemaPath(filepath.Clean(SchemaPath))
 	if pathToSchemaFile != "" && SchemaPath != "" {
-		data, err := ioutil.ReadFile(pathToSchemaFile)
+		data, err := ioutil.ReadFile(filepath.Clean(pathToSchemaFile))
 		if err != nil {
 			log.Fatalf("Unable to create schema with Error: %s\n", err)
 		}
@@ -79,7 +80,7 @@ func (s *Schema) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // SRAdmin 'class'
 type SRAdmin struct {
-	Client       srclient.SchemaRegistryClient
+	Client       *srclient.SchemaRegistryClient
 	SubjectCache []string
 	GlobalCompat string
 	url          string
@@ -116,7 +117,7 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 		srClient.SetCredentials(config.Connections.Schemaregistry.Username, config.Connections.Schemaregistry.Password)
 	}
 
-	sradmin := SRAdmin{Client: *srClient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
+	sradmin := SRAdmin{Client: srClient, user: config.Connections.Schemaregistry.Username, pass: config.Connections.Schemaregistry.Password}
 	sradmin.url = config.Connections.Schemaregistry.Url
 	if config.Connections.Schemaregistry.SkipRestForReads {
 		sradmin.UseSRCache = true
@@ -357,7 +358,10 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 		}
 		if !dryRun && newCompat != "" {
 			log.Debugf("Setting compatibility for subject %s to %s", schema.SubjectName, schema.Compatibility)
-			admin.SetCompatibility(schema, schema.Compatibility)
+			err = admin.SetCompatibility(schema, schema.Compatibility)
+			if err != nil {
+				log.Errorf("Failed to set compatibility to %s for Subject %s with error %s\n", schema.Compatibility, schema.SubjectName, err)
+			}
 			compatChanged = true
 		}
 	}

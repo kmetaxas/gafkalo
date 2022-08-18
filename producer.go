@@ -7,6 +7,7 @@ import (
 	"github.com/kmetaxas/srclient"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"path/filepath"
 )
 
 type Producer struct {
@@ -84,7 +85,7 @@ func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format s
 	var resp []byte
 	subject := getSubjectForTopic(topic, isKey)
 	if schemaPath != "" {
-		schemaData, err := ioutil.ReadFile(schemaPath)
+		schemaData, err := ioutil.ReadFile(filepath.Clean(schemaPath))
 		if err != nil {
 			return resp, err
 		}
@@ -132,7 +133,7 @@ func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bo
 		msg.Key = sarama.ByteEncoder(keyPayload)
 	} else {
 		if value == nil {
-			valuePayload = sarama.ByteEncoder(nil)
+			msg.Value = sarama.ByteEncoder(nil)
 		} else {
 			msg.Value = sarama.StringEncoder(*value)
 		}
