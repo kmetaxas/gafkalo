@@ -30,6 +30,13 @@ type ClientTransactionalIdRole struct {
 	Roles     []string `yaml:"roles"`
 	IsLiteral bool     `yaml:"isLiteral" default:"true"`
 }
+
+type RoleBinding struct {
+	Context   string               `yaml:"context"`
+	Scope     string               `yaml:scope"`
+	Role      string               `yaml:role"`
+	Resources []MDSResourcePattern `json:"resources"`
+}
 type Client struct {
 	Principal        string                      `yaml:"principal"`
 	ConsumerFor      []ClientTopicRole           `yaml:"consumer_for"`
@@ -37,6 +44,7 @@ type Client struct {
 	ResourceownerFor []ClientTopicRole           `yaml:"resourceowner_for"`
 	Groups           []ClientGroupRole           `yaml:"groups"`
 	TransactionalIds []ClientTransactionalIdRole `yaml:"transactional_ids"`
+	Rolebindings     []RoleBinding               `yaml:rolebindings`
 }
 
 func mergeClients(target Client, source Client) Client {
@@ -75,9 +83,9 @@ type MDSRolebindings struct {
 
 // Matches the response/request objects of MDS on resource patterns
 type MDSResourcePattern struct {
-	ResourceType string `json:"resourceType"`
+	ResourceType string `json:"resource_type"`
 	Name         string `json:"name"`
-	PatternType  string `json:"patternType"`
+	PatternType  string `json:"pattern_type"`
 }
 
 type MDSContext struct {
@@ -507,6 +515,19 @@ func (admin *MDSAdmin) doTransactionalIdRole(transactionalIdName, principal stri
 
 }
 
+/*
+Do rolebindings
+*/
+
+func (admin *MDSAdmin) doCustomRoleBindingFor(rolebinding RoleBinding) ([]ClientResult, error) {
+	var res []ClientResult
+	fmt.Printf("doCustomRoleBindingFor asked to create: %v\n", rolebinding)
+	return res, nil
+}
+
+/*
+Main reconciliation function
+*/
 func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []ClientResult {
 	var clientResults []ClientResult
 	for _, client := range clients {
@@ -534,6 +555,14 @@ func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []Clien
 		// Add any Consumer Group permissions defined
 		for _, groupRole := range client.Groups {
 			clientRes, err := admin.doGroupRoleFor(groupRole.Name, client.Principal, groupRole.Roles, groupRole.IsLiteral, dryRun)
+			if err != nil {
+				log.Fatal(err)
+			}
+			clientResults = append(clientResults, clientRes...)
+		}
+		// Do any custom rolebindings defined in rolebindings key
+		for _, rolebinding := range client.Rolebindings {
+			clientRes, err := admin.doCustomRoleBindingFor(rolebinding)
 			if err != nil {
 				log.Fatal(err)
 			}
