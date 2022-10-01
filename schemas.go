@@ -393,5 +393,5 @@ func getSubjectForTopic(topic string, isKey bool) string {
 	} else {
 		subject_suffix = "-value"
 	}
-	return fmt.Sprintf("%s-%s", topic, subject_suffix)
+	return fmt.Sprintf("%s%s", topic, subject_suffix)
 }
