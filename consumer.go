@@ -5,10 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/Shopify/sarama"
-	"github.com/fatih/color"
-	"github.com/kmetaxas/srclient"
-	log "github.com/sirupsen/logrus"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -17,8 +14,27 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/Shopify/sarama"
+	"github.com/fatih/color"
+	"github.com/kmetaxas/srclient"
+	log "github.com/sirupsen/logrus"
 )
 
+// Encapsulate a writer (ie stdout) to lock it for serializing writes
+type lockedWriter struct {
+	mutex  sync.Mutex
+	writer io.Writer
+}
+
+func (w *lockedWriter) Write(b []byte) (int, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	return w.writer.Write(b)
+
+}
+
+// The main consumer struct
 type Consumer struct {
 	Client               sarama.Client
 	SRClient             *srclient.SchemaRegistryClient
@@ -34,6 +50,7 @@ type Consumer struct {
 	deserializeKey       bool
 	deserializeValue     bool
 	customRecordTemplate *template.Template
+	serializingWriter    *lockedWriter
 	// The consumerHandler to use for Setup/ConsumeClaim() etc.
 	// The NewConsumerGroup will default to itself since Consumer implements this interface by default,
 	// But we want users of Consumer to be able to implement their own handlers
@@ -116,6 +133,9 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	} else {
 		consumer.consumerGroupHandler = &consumer
 	}
+	// Set serializingWriter to stdout
+	// We should allow customization of this to a a file or whatever
+	consumer.serializingWriter = &lockedWriter{writer: os.Stdout}
 	return &consumer
 }
 
@@ -241,7 +261,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 }
 func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID}
-	err := c.customRecordTemplate.Execute(os.Stdout, context)
+	err := c.customRecordTemplate.Execute(c.serializingWriter, context)
 	if err != nil {
 		log.Fatal(err)
 	}
