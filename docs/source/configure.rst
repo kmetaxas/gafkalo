@@ -169,11 +169,11 @@ A sample YAML file is as follows:
      # and the topics for each of these categories
      - principal: User:poutanaola
        consumer_for:
-         # By default we will use PREFIXED. 
-         # set prefixed: false to set it to LITERAL
+         # By default we will use PREFIXED
+         # set isLiteral: true to set it to LITERAL
          - topic: TOPIC1.
          - topic: TOPIC2.
-           prefixed: false
+           isLiteral: true
        producer_for:
          - topic: TOPIC1.
        resourceowner_for:
