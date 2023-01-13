@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Make it global so that it can be accessed in callbacks, though its not a great solution
@@ -41,7 +42,8 @@ var CLI struct {
 	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
 	Connect       ConnectCmd       `cmd help:"manage connectors"`
 	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
-	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
+	Replicator    ReplicatorCmd    `cmd help:"Replicator topics"`
+	Srv           SrvCmd           `cmd help:"Launch REST API srver"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {

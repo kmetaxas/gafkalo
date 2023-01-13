@@ -5,19 +5,20 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
+
+	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 )
 
 type Topic struct {
-	Name              string             `yaml:"name"`
-	Partitions        int32              `yaml:"partitions"`
-	ReplicationFactor int16              `yaml:"replication_factor"`
-	Configs           map[string]*string `yaml:"configs"`
-	Key               Schema             `yaml:"key"`
-	Value             Schema             `yaml:"value"`
+	Name              string             `yaml:"name" json:"name"`
+	Partitions        int32              `yaml:"partitions" json:"partition_count"`
+	ReplicationFactor int16              `yaml:"replication_factor" json:"replication_factor"`
+	Configs           map[string]*string `yaml:"configs" json:"configs"`
+	Key               Schema             `yaml:"key" json:"key_schema"`
+	Value             Schema             `yaml:"value" json:"value_schema"`
 }
 
 // Dry run data for a Topic

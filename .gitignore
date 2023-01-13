@@ -1,3 +1,4 @@
 docs/build/
 gafkalo
-.swp
+*.swp
+tmp/

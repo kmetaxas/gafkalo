@@ -1,16 +1,17 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/decrypt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/decrypt"
+	"gopkg.in/yaml.v2"
 )
 
 type KafkaConfig struct {
@@ -63,6 +64,9 @@ type SRConfig struct {
 	// use an internal cache for read operations, bypassign the REST API
 	SkipRestForReads bool `yaml:"skipRegistryForReads"`
 }
+type APIServerConfig struct {
+	Port int `yaml:"port"`
+}
 type Configuration struct {
 	Connections struct {
 		Kafka          KafkaConfig   `yaml:"kafka"`
@@ -71,9 +75,10 @@ type Configuration struct {
 		Connect        ConnectConfig `yaml:"connect"`
 	} `yaml:"connections"`
 	Kafkalo struct {
-		InputDirs                    []string `yaml:"input_dirs"`
-		SchemaDir                    string   `yaml:"schema_dir"` // Directory to look for schemas when using a relative path
-		ConnectorsSensitiveKeysRegex string   `yaml:"connectors_sensitive_keys"`
+		InputDirs                    []string        `yaml:"input_dirs"`
+		SchemaDir                    string          `yaml:"schema_dir"` // Directory to look for schemas when using a relative path
+		ConnectorsSensitiveKeysRegex string          `yaml:"connectors_sensitive_keys"`
+		RestConfig                   APIServerConfig `yaml:"restconfig"`
 	} `yaml:"kafkalo"`
 }
 
