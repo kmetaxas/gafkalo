@@ -30,3 +30,35 @@ func TestParseOffsetsArg(t *testing.T) {
 		t.Error("Should get error about wrong structure")
 	}
 }
+
+// test LoadConfig()
+func TestLoadConfig(t *testing.T) {
+	config := LoadConfig("testdata/files/config.sample.yaml")
+	if config.Connections.Schemaregistry.Username != "user" {
+		t.Errorf("Schema registry username not 'username' (%s)", config.Connections.Schemaregistry.Username)
+	}
+	if config.Connections.Mds.Password != "password" {
+		t.Errorf("MDS password not 'password' (%s)", config.Connections.Mds.Password)
+	}
+
+}
+
+// Test GetInputData()
+func TestGetInputData(t *testing.T) {
+	config := LoadConfig("testdata/files/config.sample.yaml")
+	inputdata := GetInputData(config)
+	topic_count := len(inputdata.Topics)
+	if topic_count != 9 {
+		t.Errorf("Input topics <> 9 (%d)", topic_count)
+	}
+}
+
+// Test GetAdminClients()
+func TestGetAdminClients(t *testing.T) {
+	config := LoadConfig("testdata/files/config.sample.yaml")
+	k, _, _, _ := GetAdminClients(config)
+	if k.DryRun == false {
+		t.Error("dryrun should be true")
+	}
+
+}

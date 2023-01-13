@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -24,7 +25,7 @@ func TestParseConfig(t *testing.T) {
 	expectedConf.Connections.Mds = expMDSConf
 	expectedConf.Connections.Schemaregistry = expSRConf
 	expectedConf.Kafkalo.InputDirs = []string{"testdata/files/data/*", "testdata/files/data/team2.yaml"}
-	expectedConf.Kafkalo.SchemaDir = "testdata/files/data/"
+	expectedConf.Kafkalo.SchemaDir = "testdata/files/"
 	expectedConf.Kafkalo.ConnectorsSensitiveKeysRegex = "^.*(auth|password|credential).*$"
 
 	config := parseConfig("testdata/files/config.sample.yaml")
