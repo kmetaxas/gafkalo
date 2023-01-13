@@ -37,8 +37,7 @@ func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 	err = s.adminclient.AdminClient.CreateTopic(topic.Name, &detail, false)
 	if err != nil {
 		fmt.Printf("Error from CreateTopic: %s\n", err)
-		// TODO return an appropriate HTTP error response +text here
-		return return c.String(http
+		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.String(http.StatusOK, fmt.Sprintf("Created topic %s", topic.Name))
