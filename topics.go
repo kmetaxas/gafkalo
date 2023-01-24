@@ -135,6 +135,11 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 }
 
+// Delete a topic
+func (admin *KafkaAdmin) DeleteTopic(topic string) error {
+	return admin.AdminClient.DeleteTopic(topic)
+}
+
 // Return a list of Kafka topics and fill cache.
 func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
 	topics, err := admin.AdminClient.ListTopics()

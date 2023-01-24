@@ -1,12 +1,12 @@
 package main
 
 import (
-	"net/http"
-
 	"fmt"
+	"net/http"
 
 	"github.com/Shopify/sarama"
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 )
 
 type GafkaloRestServer struct {
@@ -20,14 +20,20 @@ func (s *GafkaloRestServer) Start(p string) error {
 
 }
 
+type restApiGenericResponse struct {
+	Result string `json:"result"`
+	Error  string `json:"errors"`
+}
+
 /*
 Create a Kafka Topic
 */
 func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 	var topic Topic
+
 	err := c.Bind(&topic)
 	if err != nil {
-		return err
+		return c.String(http.StatusBadRequest, "bad request")
 	}
 	detail := sarama.TopicDetail{
 		NumPartitions:     topic.Partitions,
@@ -36,13 +42,35 @@ func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 	}
 	err = s.adminclient.AdminClient.CreateTopic(topic.Name, &detail, false)
 	if err != nil {
-		fmt.Printf("Error from CreateTopic: %s\n", err)
-		return c.String(http.StatusInternalServerError, err.Error())
+		log.Errorf("Error from CreateTopic: %s\n", err)
+		return c.JSON(http.StatusInternalServerError, &restApiGenericResponse{Result: "Failed to create topic", Error: err.Error()})
 	}
 
-	return c.String(http.StatusOK, fmt.Sprintf("Created topic %s", topic.Name))
+	return c.JSON(http.StatusOK, &restApiGenericResponse{Result: fmt.Sprintf("Created topic %s", topic.Name), Error: ""})
 }
 
+/*
+Delete a  Kafka Topic
+*/
+func (s *GafkaloRestServer) deleteTopicHandler(c echo.Context) error {
+	type DeleteTopicRequest struct {
+		Topic string `json:"topic"`
+	}
+	var topic DeleteTopicRequest
+
+	err := c.Bind(&topic)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "bad request")
+	}
+	log.Errorf("Deleting topic %v", topic)
+	err = s.adminclient.DeleteTopic(topic.Topic)
+	if err != nil {
+		log.Errorf("Error from deleteTopicHandler (topic: %s): %s\n", topic.Topic, err)
+		return c.JSON(http.StatusInternalServerError, &restApiGenericResponse{Result: fmt.Sprintf("Failed to delete topic %s", topic.Topic), Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, &restApiGenericResponse{Result: fmt.Sprintf("Deleted topic %s", topic.Topic), Error: ""})
+}
 func NewAPIServer(conf Configuration) *GafkaloRestServer {
 	srv := echo.New()
 	admin := NewKafkaAdmin(conf.Connections.Kafka)
@@ -51,6 +79,7 @@ func NewAPIServer(conf Configuration) *GafkaloRestServer {
 		adminclient: &admin,
 	}
 	//Register handlers
-	srv.GET("/trololo", gServer.createTopicHandler)
+	srv.POST("/topic/create", gServer.createTopicHandler)
+	srv.POST("/topic/delete", gServer.deleteTopicHandler)
 	return gServer
 }
