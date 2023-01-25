@@ -33,7 +33,8 @@ func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 
 	err := c.Bind(&topic)
 	if err != nil {
-		return c.String(http.StatusBadRequest, "bad request")
+		log.Errorf("Error from CreateTopic: %s\n", err)
+		return c.JSON(http.StatusBadRequest, &restApiGenericResponse{Result: "Bad request", Error: err.Error()})
 	}
 	detail := sarama.TopicDetail{
 		NumPartitions:     topic.Partitions,
@@ -46,6 +47,7 @@ func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, &restApiGenericResponse{Result: "Failed to create topic", Error: err.Error()})
 	}
 
+	log.Infof("Created topic %s\n", topic.Name)
 	return c.JSON(http.StatusOK, &restApiGenericResponse{Result: fmt.Sprintf("Created topic %s", topic.Name), Error: ""})
 }
 
