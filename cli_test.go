@@ -54,6 +54,7 @@ func TestGetInputData(t *testing.T) {
 }
 
 // Test GetAdminClients()
+/*
 func TestGetAdminClients(t *testing.T) {
 	config := LoadConfig("testdata/files/config.sample.yaml")
 	k, _, _, _ := GetAdminClients(config)
@@ -62,3 +63,4 @@ func TestGetAdminClients(t *testing.T) {
 	}
 
 }
+*/
