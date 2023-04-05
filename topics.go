@@ -5,10 +5,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
+
+	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 )
 
 type Topic struct {
@@ -51,16 +52,19 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	pem, err := ioutil.ReadFile(CAPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
-		log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+	if CAPath != "" {
+		pem, err := ioutil.ReadFile(CAPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
+			log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+		}
+		log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
 	}
 	config.RootCAs = rootCAs
 	config.InsecureSkipVerify = SkipVerify
-	log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
+	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
 	return config
 
 }

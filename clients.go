@@ -5,11 +5,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type ClientTopicRole struct {
@@ -180,6 +181,7 @@ func (admin *MDSAdmin) doRest(method string, url string, payload io.Reader) ([]b
 	resp, err := hClient.Do(req)
 	if err != nil {
 		log.Println(err)
+		return nil, err
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 
