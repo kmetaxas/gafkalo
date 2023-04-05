@@ -336,11 +336,13 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	existing_topics := admin.ListTopics()
 	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
 	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
 	// Initialize newTopicsStatus to false
 	for _, name := range newTopics {
 		newTopicsStatus[name] = false
 	}
 
+	log.Tracef("creating topics (dry_run=%v)", dry_run)
 	// Create new topics
 	for _, topicName := range newTopics {
 		topic := topics[topicName]
