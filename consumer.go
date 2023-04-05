@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -95,10 +96,18 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
 	if srConf != nil {
-		consumer.SRClient = srclient.CreateSchemaRegistryClient(srConf.Url)
-		if srConf.Username != "" && srConf.Password != "" {
-			consumer.SRClient.SetCredentials(srConf.Username, srConf.Password)
+		if srConf.CAPath != "" || srConf.SkipVerify {
+			tlsConfig := createTlsConfig(srConf.CAPath, srConf.SkipVerify)
+			transport := &http.Transport{TLSClientConfig: tlsConfig}
+			hClient := http.Client{Transport: transport, Timeout: 5 * time.Second}
+			consumer.SRClient = srclient.CreateSchemaRegistryClientWithOptions(srConf.Url, &hClient, 16)
 		}
+
+	} else {
+		consumer.SRClient = srclient.CreateSchemaRegistryClient(srConf.Url)
+	}
+	if srConf.Username != "" && srConf.Password != "" {
+		consumer.SRClient.SetCredentials(srConf.Username, srConf.Password)
 	}
 	if groupID == "" {
 		randGroupPart := RandomString(5)
