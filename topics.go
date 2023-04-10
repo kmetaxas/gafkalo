@@ -52,16 +52,19 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	pem, err := ioutil.ReadFile(CAPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
-		log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+	if CAPath != "" {
+		pem, err := ioutil.ReadFile(CAPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
+			log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+		}
+		log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
 	}
 	config.RootCAs = rootCAs
 	config.InsecureSkipVerify = SkipVerify
-	log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
+	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
 	return config
 
 }
@@ -338,11 +341,13 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	existing_topics := admin.ListTopics()
 	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
 	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
 	// Initialize newTopicsStatus to false
 	for _, name := range newTopics {
 		newTopicsStatus[name] = false
 	}
 
+	log.Tracef("creating topics (dry_run=%v)", dry_run)
 	// Create new topics
 	for _, topicName := range newTopics {
 		topic := topics[topicName]

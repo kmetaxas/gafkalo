@@ -154,7 +154,10 @@ func GetInputData(config Configuration) DesiredState {
 func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin) {
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	sradmin := NewSRAdmin(&config)
-	mdsadmin := NewMDSAdmin(config.Connections.Mds)
+	mdsadmin := new(MDSAdmin)
+	if config.Connections.Mds != (MDSConfig{}) {
+		mdsadmin = NewMDSAdmin(config.Connections.Mds)
+	}
 	connectAdmin := new(ConnectAdmin)
 	if config.Connections.Connect != (ConnectConfig{}) {
 		newConnectAdmin, err := NewConnectAdmin(&config.Connections.Connect)
