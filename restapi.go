@@ -73,6 +73,15 @@ func (s *GafkaloRestServer) deleteTopicHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &restApiGenericResponse{Result: fmt.Sprintf("Deleted topic %s", topic.Topic), Error: ""})
 }
+func (s *GafkaloRestServer) healthCheckHandler(c echo.Context) error {
+	type healthCheckResponse struct {
+		Status string
+	}
+	resp := healthCheckResponse{
+		Status: "OK"}
+	return c.JSON(http.StatusOK, &resp)
+}
+
 func NewAPIServer(conf Configuration) *GafkaloRestServer {
 	srv := echo.New()
 	admin := NewKafkaAdmin(conf.Connections.Kafka)
@@ -83,5 +92,6 @@ func NewAPIServer(conf Configuration) *GafkaloRestServer {
 	//Register handlers
 	srv.POST("/topic/create", gServer.createTopicHandler)
 	srv.POST("/topic/delete", gServer.deleteTopicHandler)
+	srv.GET("/health", gServer.healthCheckHandler)
 	return gServer
 }
