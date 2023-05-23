@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Shopify/sarama"
 	log "github.com/sirupsen/logrus"
 )
@@ -128,27 +129,32 @@ func (r *SchemaRegistryCache) Cleanup(session sarama.ConsumerGroupSession) error
 }
 
 func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for message := range claim.Messages() {
-		var recordKey SRKey
-		err := json.Unmarshal(message.Key, &recordKey)
-		if err != nil {
-			return err
-		}
-		switch recordKey.Keytype {
-		case "CONFIG":
-			r.processConfigValue(&recordKey, message.Value)
-		case "SCHEMA":
-			r.processSchemaValue(&recordKey, message.Value)
-		}
-		session.MarkMessage(message, "")
-		// If that was the last message we should read, stop consuming
-		if message.Offset == r.lastKnownOffsetEnd {
-			log.Debugf("Stopping at end of topic %v", message.Offset)
-			r.consumer.cancel()
-			break
+
+	for {
+		select {
+		case message := <-claim.Messages():
+			var recordKey SRKey
+			err := json.Unmarshal(message.Key, &recordKey)
+			if err != nil {
+				return err
+			}
+			switch recordKey.Keytype {
+			case "CONFIG":
+				r.processConfigValue(&recordKey, message.Value)
+			case "SCHEMA":
+				r.processSchemaValue(&recordKey, message.Value)
+			}
+			session.MarkMessage(message, "")
+			// If that was the last message we should read, stop consuming
+			if message.Offset == r.lastKnownOffsetEnd {
+				log.Debugf("Stopping at end of topic %v", message.Offset)
+				r.consumer.cancel()
+				break
+			}
+		case <-session.Context().Done():
+			return nil
 		}
 	}
-	return nil
 }
 
 func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error {

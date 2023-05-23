@@ -95,14 +95,11 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	var consumer Consumer
 	kafkaConf := SaramaConfigFromKafkaConfig(kConf)
 
-	if srConf != nil {
-		if srConf.CAPath != "" || srConf.SkipVerify {
-			tlsConfig := createTlsConfig(srConf.CAPath, srConf.SkipVerify)
-			transport := &http.Transport{TLSClientConfig: tlsConfig}
-			hClient := http.Client{Transport: transport, Timeout: 5 * time.Second}
-			consumer.SRClient = srclient.CreateSchemaRegistryClientWithOptions(srConf.Url, &hClient, 16)
-		}
-
+	if (srConf != nil) && (srConf.CAPath != "" || srConf.SkipVerify) {
+		tlsConfig := createTlsConfig(srConf.CAPath, srConf.SkipVerify)
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		hClient := http.Client{Transport: transport, Timeout: 5 * time.Second}
+		consumer.SRClient = srclient.CreateSchemaRegistryClientWithOptions(srConf.Url, &hClient, 16)
 	} else {
 		consumer.SRClient = srclient.CreateSchemaRegistryClient(srConf.Url)
 	}
@@ -225,48 +222,54 @@ func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 
-	for message := range claim.Messages() {
-		var key, val string
-		var err error
-		var keySchemaID, valSchemaID int
-		if c.deserializeKey {
-			key, keySchemaID, err = c.DeserializePayload(message.Key)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			key = string(message.Key)
-		}
-		if c.deserializeValue {
-			if message.Value == nil {
-				val = "Null (Tombstone?)"
-			} else {
-
-				val, valSchemaID, err = c.DeserializePayload(message.Value)
+	for {
+		select {
+		case message := <-claim.Messages():
+			var key, val string
+			var err error
+			var keySchemaID, valSchemaID int
+			if c.deserializeKey {
+				key, keySchemaID, err = c.DeserializePayload(message.Key)
 				if err != nil {
 					log.Fatal(err)
 				}
+			} else {
+				key = string(message.Key)
 			}
+			if c.deserializeValue {
+				if message.Value == nil {
+					val = "Null (Tombstone?)"
+				} else {
 
-		} else {
-			val = string(message.Value)
-		}
-		// Print the record. Either with a user provided template or our own "prettyprint" function
-		if c.customRecordTemplate != nil {
-			c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
-		} else {
-			prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
-		}
-		session.MarkMessage(message, "")
-		// Do we need to call Commit()?
-		c.msgCount += 1
-		if c.maxRecords == c.msgCount {
-			fmt.Printf("Reached user defined message limit of %d. Stoppping.\n", c.maxRecords)
-			c.cancel()
-			break
+					val, valSchemaID, err = c.DeserializePayload(message.Value)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+
+			} else {
+				val = string(message.Value)
+			}
+			// Print the record. Either with a user provided template or our own "prettyprint" function
+			if c.customRecordTemplate != nil {
+				c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+			} else {
+				prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+			}
+			session.MarkMessage(message, "")
+			// Do we need to call Commit()?
+			c.msgCount += 1
+			if c.maxRecords == c.msgCount {
+				fmt.Printf("Reached user defined message limit of %d. Stoppping.\n", c.maxRecords)
+				c.cancel()
+				break
+			}
+		case <-session.Context().Done():
+			return nil
+
 		}
 	}
-	return nil
+
 }
 func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID}
