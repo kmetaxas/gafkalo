@@ -5,8 +5,9 @@ go 1.16
 require (
 	github.com/Shopify/sarama v1.38.0
 	github.com/alecthomas/kong v0.2.16
+	github.com/confluentinc/confluent-kafka-go/v2 v2.1.1
 	github.com/fatih/color v1.13.0
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/kmetaxas/srclient v0.4.3

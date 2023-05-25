@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/twmb/franz-go/pkg/kadm"
-	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type Partition struct {
@@ -58,12 +58,13 @@ type TopicPlan struct {
 }
 
 type KafkaAdmin struct {
-	AdminClient kadm.Client
-	Consumer    string
-	TopicCache  Topics
-	DryRun      bool
-	DryRunPlan  []TopicPlan
-	Timeout     time.Duration
+	AdminClient    kafka.AdminClient
+	ConsumerClient kafka.Consumer
+	Consumer       string
+	TopicCache     Topics
+	DryRun         bool
+	DryRunPlan     []TopicPlan
+	Timeout        time.Duration
 }
 
 // Get a context to use. Uses KafkaAdmin Timeout if defined, or defaults to 15 seconds
@@ -134,19 +135,50 @@ func NewGafkaloTopicsFromFranzTopics(topics kadm.TopicDetails) Topics {
 	return gafkaloTopics
 }
 
+// Return a Gafkalo Data structure from confluent structure
+func NewGafkaloTopicsFromConfluentTopics(res *kafka.Metadata) Topics {
+	gafkaloTopics := make(Topics)
+
+	for fName, fTopic := range res.Topics {
+		// create new topics and copy them
+		newTopic := Topic{
+			Name:       fTopic.Topic,
+			Partitions: int32(len(fTopic.Partitions)),
+		}
+		// Copy partition info
+		newTopic.PartitionDetails = make(Partitions)
+		for _, partDetails := range fTopic.Partitions {
+			newTopic.PartitionDetails[partDetails.ID] = Partition{
+				TopicName: fName,
+				Num:       partDetails.ID,
+				Leader:    partDetails.Leader,
+				ISR:       partDetails.Isrs,
+			}
+		}
+
+		gafkaloTopics[fTopic.Topic] = newTopic
+	}
+
+	return gafkaloTopics
+}
+
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
 	// XXX replace this with something for franz-go
 	//config := SaramaConfigFromKafkaConfig(conf)
 
-	opts := CreateFranzKafkaOptsFromKafkaConfig(conf)
-	kgoClient, err := kgo.NewClient(opts...)
+	opts := ConfluentClientConfigFromKafkaConfig(&conf)
+	consumer, err := kafka.NewConsumer(opts)
 	if err != nil {
-		log.Fatalf("Failed to create kgo client with: %s\n", err)
+		log.Fatalf("Failed to create Confluent client with: %s\n", err)
 	}
-	franzAdmin := kadm.NewClient(kgoClient)
-	admin.AdminClient = *franzAdmin
+	admin.ConsumerClient = *consumer
+	kAdmin, err := kafka.NewAdminClient(opts)
+	if err != nil {
+		log.Fatalf("Failed to create Confluent client with: %s\n", err)
+	}
+	admin.AdminClient = *kAdmin
 	admin.Timeout = 60 * time.Second // TODO this is too much
 	return admin
 
@@ -154,38 +186,39 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 // Return a list of Kafka topics and fill cache.
 func (admin *KafkaAdmin) ListTopics() Topics {
+	var topicConfigResourceRequest ([]kafka.ConfigResource)
 	ctx, cancel := admin.NewContext()
 	defer cancel()
+
 	log.Tracef("Calling list topics using client %v", admin.AdminClient)
-	fTopics, err := admin.AdminClient.ListTopics(ctx)
+	fTopics, err := admin.ConsumerClient.GetMetadata(nil, true, 30*1000)
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
 	}
-	topics := NewGafkaloTopicsFromFranzTopics(fTopics)
-	log.Tracef("ListTopics = %v", topics)
-	// franz-go does not do a describe when listing topics, that is a separate call. Lets do that
-	log.Tracef("Describeconfigs using client %v", admin.AdminClient)
-	ctx_desc, cancel_desc := admin.NewContext()
-	defer cancel_desc()
-	resourceConfigs, err := admin.AdminClient.DescribeTopicConfigs(ctx_desc, topics.Names()...)
-	log.Tracef("resourceConfigs=%v", resourceConfigs)
-	if err != nil {
-		for _, res := range resourceConfigs {
-			if res.Err != nil {
-				log.Error("ResourceConfig %s had error %s", res.Name, res.Err)
-			}
-		}
-		log.Fatalf("Failed to describe topic configs with error: %s", err)
+	log.Tracef("topics= %v", fTopics)
+	topics := NewGafkaloTopicsFromConfluentTopics(fTopics)
+	// Desribe configs
+	for _, topicName := range topics.Names() {
+		topicConfigResourceRequest = append(topicConfigResourceRequest, kafka.ConfigResource{
+			Type: kafka.ResourceTopic, Name: topicName,
+		})
 	}
-
+	fConfigs, err := admin.AdminClient.DescribeConfigs(ctx,
+		topicConfigResourceRequest,
+		kafka.SetAdminRequestTimeout(30*time.Second),
+	)
+	log.Tracef("configs= %v", fConfigs)
 	// Copy the configs from franz-go to Gafkalo data structure
-	for _, fConfig := range resourceConfigs {
-		log.Tracef("Processing fConfig %v", fConfig)
-		for _, conf := range fConfig.Configs {
-			topics[fConfig.Name].Configs[conf.Key] = conf.Value
+	for _, configRes := range fConfigs {
+		topic := topics[configRes.Name]
+		topic.Configs = make(map[string]*string)
+		for name, fConfig := range configRes.Config {
+			topic.Configs[name] = &fConfig.Value
 
 		}
+		topics[configRes.Name] = topic
 	}
+
 	admin.TopicCache = topics
 	return topics
 }

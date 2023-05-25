@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	krb5client "github.com/jcmturner/gokrb5/v8/client"
 	krb5config "github.com/jcmturner/gokrb5/v8/config"
 	krb5keytab "github.com/jcmturner/gokrb5/v8/keytab"
@@ -326,4 +327,13 @@ func Krb5GetKeytab(path string) *krb5keytab.Keytab {
 		log.Fatalf("Unable to read keytab at %s with error %s", path, err)
 	}
 	return keytab
+}
+
+// Get a kafka configmap usable by confluent's kafka go library
+func ConfluentClientConfigFromKafkaConfig(conf *KafkaConfig) *kafka.ConfigMap {
+	newConf := make(kafka.ConfigMap)
+	newConf["bootstrap.servers"] = strings.Join(conf.Brokers, ",")
+	newConf["group.id"] = "trololo" // Set consume group XXX
+
+	return &newConf
 }

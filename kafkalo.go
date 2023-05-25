@@ -24,7 +24,6 @@ func main() {
 	log.SetLevel(logLevel)
 	//Set sarama logging
 	log.SetReportCaller(true)
-	log.SetLevel(logLevel)
 
 	sarama.Logger = log
 	log.SetLevel(logLevel)
