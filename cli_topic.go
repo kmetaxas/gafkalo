@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"text/template"
+
+	log "github.com/sirupsen/logrus"
+
+	_ "embed"
 )
-import _ "embed"
 
 //go:embed templates/topic_describe.tpl
 var topicDescribeTmplData string

@@ -1,16 +1,38 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"time"
 
-	"github.com/Shopify/sarama"
 	log "github.com/sirupsen/logrus"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kversion"
 )
+
+type Partition struct {
+	TopicName       string
+	Num             int32
+	Leader          int32
+	LeaderEpoch     int32
+	ISR             []int32
+	OfflineReplicas []int32
+}
+type Partitions map[int32]Partition
+type Topics map[string]Topic
+
+func (t *Topics) Names() []string {
+	var names []string
+	for topicName, _ := range *t {
+		names = append(names, topicName)
+	}
+	return names
+}
 
 type Topic struct {
 	Name              string             `yaml:"name"`
@@ -19,6 +41,9 @@ type Topic struct {
 	Configs           map[string]*string `yaml:"configs"`
 	Key               Schema             `yaml:"key"`
 	Value             Schema             `yaml:"value"`
+	IsInternal        bool               `yaml:"isInternal"`
+	ID                [16]byte           `yaml:"id"`
+	PartitionDetails  Partitions         // This is not to be part of YAML
 }
 
 // Dry run data for a Topic
@@ -35,11 +60,22 @@ type TopicPlan struct {
 }
 
 type KafkaAdmin struct {
-	AdminClient sarama.ClusterAdmin
+	AdminClient kadm.Client
 	Consumer    string
-	TopicCache  map[string]sarama.TopicDetail
+	TopicCache  Topics
 	DryRun      bool
 	DryRunPlan  []TopicPlan
+	Timeout     time.Duration
+}
+
+// Get a context to use. Uses KafkaAdmin Timeout if defined, or defaults to 15 seconds
+func (admin *KafkaAdmin) NewContext() (context.Context, context.CancelFunc) {
+	timeout := 15 * time.Second
+	if admin.Timeout != 0 {
+		timeout = admin.Timeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	return ctx, cancel
 }
 
 func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
@@ -69,81 +105,84 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 
 }
 
-func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
-	config := sarama.NewConfig()
-	config.Metadata.Full = true
-	config.Net.TLS.Enable = conf.SSL.Enabled
-	if conf.Krb5.Enabled {
-		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
-		config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
-		config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
-		if conf.Krb5.Keytab != "" {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
-			config.Net.SASL.GSSAPI.KeyTabPath = conf.Krb5.Keytab
+// Return a Gafkalo Data structure from a goadm datastructure
+func NewGafkaloTopicsFromFranzTopics(topics kadm.TopicDetails) Topics {
+	gafkaloTopics := make(Topics)
 
-		} else {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
-			config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
+	for fName, fTopic := range topics {
+		// create new topics and copy them
+		newTopic := Topic{
+			Name:       fName,
+			ID:         fTopic.ID,
+			IsInternal: fTopic.IsInternal,
+			Partitions: int32(len(fTopic.Partitions)),
 		}
-		if conf.Krb5.ServiceName == "" {
-			config.Net.SASL.GSSAPI.ServiceName = "kafka"
-		} else {
-			config.Net.SASL.GSSAPI.ServiceName = conf.Krb5.ServiceName
+		newTopic.PartitionDetails = *new(Partitions)
+		for partNum, partDetails := range fTopic.Partitions {
+			newTopic.PartitionDetails[partNum] = Partition{
+				TopicName:       fName,
+				Num:             partDetails.Partition,
+				Leader:          partDetails.Leader,
+				LeaderEpoch:     partDetails.LeaderEpoch,
+				ISR:             partDetails.ISR,
+				OfflineReplicas: partDetails.OfflineReplicas,
+			}
 		}
-		if conf.Krb5.KerberosConfigPath == "" {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
-		} else {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
-		}
+		// Now copy partition details
+		newTopic.Configs = make(map[string]*string)
+		gafkaloTopics[fTopic.Topic] = newTopic
 	}
-	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
-		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
-		config.Net.TLS.Config = tlsConfig
-	}
-	if conf.Producer.MaxMessageBytes != 0 {
-		config.Producer.MaxMessageBytes = conf.Producer.MaxMessageBytes
-	}
-	if conf.Producer.Compression != "" {
-		switch conf.Producer.Compression {
-		case "snappy":
-			config.Producer.Compression = sarama.CompressionSnappy
-		case "gzip":
-			config.Producer.Compression = sarama.CompressionGZIP
-		case "lz4":
-			config.Producer.Compression = sarama.CompressionLZ4
-		case "zstd":
-			config.Producer.Compression = sarama.CompressionZSTD
-		case "none":
-			config.Producer.Compression = sarama.CompressionNone
-		}
-	} else {
-		// Use snappy as default if none other is specified
-		config.Producer.Compression = sarama.CompressionSnappy
-	}
-	return config
 
+	return gafkaloTopics
 }
+
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
-	config := SaramaConfigFromKafkaConfig(conf)
+	// XXX replace this with something for franz-go
+	//config := SaramaConfigFromKafkaConfig(conf)
 
-	saramaAdmin, err := sarama.NewClusterAdmin(conf.Brokers, config)
+	kgoClient, err := kgo.NewClient(
+		//kgo.SeedBrokers(conf.Brokers...),
+		kgo.SeedBrokers("localhost:9092"),
+		kgo.MaxVersions(kversion.V2_4_0()),
+		// TODO add all appropriate parms from conf somehow
+	)
 	if err != nil {
-		log.Fatalf("Failed to create adminclient with: %s\n", err)
+		log.Fatalf("Failed to create kgo client with: %s\n", err)
 	}
-	admin.AdminClient = saramaAdmin
+	franzAdmin := kadm.NewClient(kgoClient)
+	admin.AdminClient = *franzAdmin
+	admin.Timeout = 15 * time.Second
 	return admin
 
 }
 
 // Return a list of Kafka topics and fill cache.
-func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
-	topics, err := admin.AdminClient.ListTopics()
-	log.Tracef("ListTopics = %v", topics)
+func (admin *KafkaAdmin) ListTopics() Topics {
+	ctx, cancel := admin.NewContext()
+	defer cancel()
+	log.Tracef("Calling list topics using client %v", admin.AdminClient)
+	fTopics, err := admin.AdminClient.ListTopics(ctx)
+	topics := NewGafkaloTopicsFromFranzTopics(fTopics)
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
+	}
+	log.Tracef("ListTopics = %v", topics)
+	// franz-go does not do a describe when listing topics, that is a separate call. Lets do that
+	log.Tracef("Describeconfigs using client %v", admin.AdminClient)
+	resourceConfigs, err := admin.AdminClient.DescribeTopicConfigs(ctx, topics.Names()...)
+	if err != nil {
+		log.Fatalf("Failed to describe topic configs with error: %s", err)
+	}
+
+	// Copy the configs from franz-go to Gafkalo data structure
+	for _, fConfig := range resourceConfigs {
+		log.Tracef("Processing fConfig %v", fConfig)
+		for _, conf := range fConfig.Configs {
+			topics[fConfig.Name].Configs[conf.Key] = conf.Value
+
+		}
 	}
 	admin.TopicCache = topics
 	return topics
@@ -173,10 +212,10 @@ func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // Compare two topic definitions of newTopic with oldTopic and give back a list of configs that are different from new to old
-func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
+func getTopicConfigDiff(newTopic Topic, oldTopic Topic) []string {
 	var diff []string
 	for name, newVal := range newTopic.Configs {
-		if oldVal, exists := oldTopic.ConfigEntries[name]; exists {
+		if oldVal, exists := oldTopic.Configs[name]; exists {
 			if *newVal != *oldVal {
 				diff = append(diff, name)
 			}
@@ -186,20 +225,20 @@ func getTopicConfigDiff(newTopic Topic, oldTopic sarama.TopicDetail) []string {
 }
 
 // Test if a Topic's config need updating
-func topicConfigNeedsUpdate(topic Topic, existing sarama.TopicDetail) bool {
+func topicConfigNeedsUpdate(topic Topic, existing Topic) bool {
 	diff := getTopicConfigDiff(topic, existing)
 	return len(diff) > 0
 }
 
-func topicPartitionNeedUpdate(topic Topic, existing sarama.TopicDetail) bool {
-	return topic.Partitions != existing.NumPartitions
+func topicPartitionNeedUpdate(topic Topic, existing Topic) bool {
+	return topic.Partitions != existing.Partitions
 }
 
 // Compare the topic names and give back a list of string on which topics are new and need to be created
-func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[string]Topic) []string {
+func getTopicNamesDiff(oldTopics Topics, newTopics Topics) []string {
 	var newNames []string
-	for name := range *newTopics {
-		_, exists := (*oldTopics)[name]
+	for name := range newTopics {
+		_, exists := (oldTopics)[name]
 		if !exists {
 			newNames = append(newNames, name)
 		}
@@ -209,6 +248,7 @@ func getTopicNamesDiff(oldTopics *map[string]sarama.TopicDetail, newTopics *map[
 
 // Changes the partition count. Automatically calculates a re-assignment plan.
 // Returns the new plan
+/*
 func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replicationFactor int16, dry_run bool) ([][]int32, error) {
 	var numBrokers int
 	var brokerIDs []int32
@@ -247,6 +287,7 @@ func (admin *KafkaAdmin) ChangePartitionCount(topic string, count int32, replica
 	}
 	return newPlan, nil
 }
+*/
 
 /*
 Generate a random set of integers of size `size` between `from` and `to` arguments (included)
@@ -333,58 +374,60 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 
 	// Get topics which are to be created
 	var topicResults []TopicResult
-	existing_topics := admin.ListTopics()
-	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
-	newTopics := getTopicNamesDiff(&existing_topics, &topics)
-	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
-	// Initialize newTopicsStatus to false
-	for _, name := range newTopics {
-		newTopicsStatus[name] = false
-	}
+	/*
+		existing_topics := admin.ListTopics()
+		newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
+		newTopics := getTopicNamesDiff(&existing_topics, &topics)
+		log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
+		// Initialize newTopicsStatus to false
+		for _, name := range newTopics {
+			newTopicsStatus[name] = false
+		}
 
-	log.Tracef("creating topics (dry_run=%v)", dry_run)
-	// Create new topics
-	for _, topicName := range newTopics {
-		topic := topics[topicName]
-		topicRes := TopicResultFromTopic(topic)
-		topicRes.IsNew = true
-		detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
-		err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
-		if err != nil {
-			topicRes.Errors = append(topicRes.Errors, err.Error())
-			newTopicsStatus[topicName] = false
-		}
-		log.Debugf("Create Topic %s - config %v (Dryrun %v)", topic.Name, detail, dry_run)
-		topicResults = append(topicResults, topicRes)
-		newTopicsStatus[topicName] = true
-	}
-	// Alter configs
-	for topicName, topic := range topics {
-		topicRes := TopicResultFromTopic(topic)
-		topicRes.FillFromOldTopic(existing_topics[topicName])
-		// skip topics we just created or topics that failed creation. So all new ones
-		_, isNew := newTopicsStatus[topicName]
-		if !isNew {
-			if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
-				err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
-				if err != nil {
-					topicRes.Errors = append(topicRes.Errors, err.Error())
-				}
-				topicRes.NewConfigs = topic.Configs
-				topicResults = append(topicResults, topicRes)
+		log.Tracef("creating topics (dry_run=%v)", dry_run)
+		// Create new topics
+		for _, topicName := range newTopics {
+			topic := topics[topicName]
+			topicRes := TopicResultFromTopic(topic)
+			topicRes.IsNew = true
+			detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
+			err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
+			if err != nil {
+				topicRes.Errors = append(topicRes.Errors, err.Error())
+				newTopicsStatus[topicName] = false
 			}
-			if topicPartitionNeedUpdate(topic, existing_topics[topicName]) {
-				newPlan, err := admin.ChangePartitionCount(topicName, topic.Partitions, topic.ReplicationFactor, dry_run)
-				if err != nil {
-					topicRes.Errors = append(topicRes.Errors, err.Error())
+			log.Debugf("Create Topic %s - config %v (Dryrun %v)", topic.Name, detail, dry_run)
+			topicResults = append(topicResults, topicRes)
+			newTopicsStatus[topicName] = true
+		}
+		// Alter configs
+		for topicName, topic := range topics {
+			topicRes := TopicResultFromTopic(topic)
+			topicRes.FillFromOldTopic(existing_topics[topicName])
+			// skip topics we just created or topics that failed creation. So all new ones
+			_, isNew := newTopicsStatus[topicName]
+			if !isNew {
+				if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
+					err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
+					if err != nil {
+						topicRes.Errors = append(topicRes.Errors, err.Error())
+					}
+					topicRes.NewConfigs = topic.Configs
+					topicResults = append(topicResults, topicRes)
 				}
-				topicRes.NewPartitions = topic.Partitions
-				topicRes.OldPartitions = existing_topics[topicName].NumPartitions
-				topicRes.ReplicaPlan = newPlan
-				topicResults = append(topicResults, topicRes)
+				if topicPartitionNeedUpdate(topic, existing_topics[topicName]) {
+					newPlan, err := admin.ChangePartitionCount(topicName, topic.Partitions, topic.ReplicationFactor, dry_run)
+					if err != nil {
+						topicRes.Errors = append(topicRes.Errors, err.Error())
+					}
+					topicRes.NewPartitions = topic.Partitions
+					topicRes.OldPartitions = existing_topics[topicName].NumPartitions
+					topicRes.ReplicaPlan = newPlan
+					topicResults = append(topicResults, topicRes)
+				}
 			}
 		}
-	}
-	// TODO we currently don' update replicationFactor for existing topics. Fix that
+		// TODO we currently don' update replicationFactor for existing topics. Fix that
+	*/
 	return topicResults
 }

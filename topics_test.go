@@ -57,3 +57,17 @@ func TestRandNonRpeatingIntSet(t *testing.T) {
 		t.Error("Should return error about available space for random set")
 	}
 }
+
+func TesttopicPartitionNeedsUpdate(t *testing.T) {
+	newTopic := Topic{
+		Name:       "trololo",
+		Partitions: 5,
+	}
+	existing := Topic{
+		Name:       "trololo",
+		Partitions: 10,
+	}
+	if topicPartitionNeedUpdate(newTopic, existing) != true {
+		t.Error("topicPartitionNeedUpdate is false but should be true")
+	}
+}

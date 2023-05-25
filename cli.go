@@ -30,19 +30,19 @@ type LintBrokersCmd struct {
 }
 
 var CLI struct {
-	Config        string           `required help:"configuration file"`
-	Verbosity     string           `help:"Verbosity level. error,info,debug,trace" default:"error"`
-	Apply         ApplyCmd         `cmd help:"Apply the changes"`
-	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
-	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
-	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
-	Schema        SchemaCmd        `cmd help:"Manage schemas"`
-	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
-	Topic         TopicCmd         `cmd help:"Manage topics"`
-	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
-	Connect       ConnectCmd       `cmd help:"manage connectors"`
-	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
-	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
+	Config     string         `required help:"configuration file"`
+	Verbosity  string         `help:"Verbosity level. error,info,debug,trace" default:"error"`
+	Apply      ApplyCmd       `cmd help:"Apply the changes"`
+	Plan       PlanCmd        `cmd help:"Produce a plan of changes"`
+	Consumer   ConsumerCmd    `cmd help:"Consume from topics"`
+	Produce    ProduceCmd     `cmd help:"Produce to a topic"`
+	Schema     SchemaCmd      `cmd help:"Manage schemas"`
+	Lint       LintCmd        `cmd help:"Run a linter against topic definitions"`
+	Topic      TopicCmd       `cmd help:"Manage topics"`
+	LintBroker LintBrokersCmd `cmd help:"Run a linter against topics in a running brokers"`
+	Connect    ConnectCmd     `cmd help:"manage connectors"`
+	//Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
+	Replicator ReplicatorCmd `cmd helm:"Replicator topics"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -113,13 +113,7 @@ func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
 	var results []LintResult
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	existing_topics := kafkadmin.ListTopics()
-	for topicName, details := range existing_topics {
-		topic := Topic{
-			Name:              topicName,
-			Partitions:        details.NumPartitions,
-			ReplicationFactor: details.ReplicationFactor,
-			Configs:           details.ConfigEntries,
-		}
+	for _, topic := range existing_topics {
 		res := LintTopic(topic)
 		if cmd.OnlyErrors {
 			for _, lintResult := range res {
