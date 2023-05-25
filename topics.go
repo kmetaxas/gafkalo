@@ -9,10 +9,8 @@ import (
 	"math/rand"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/twmb/franz-go/pkg/kversion"
 )
 
 type Partition struct {
@@ -70,7 +68,7 @@ type KafkaAdmin struct {
 
 // Get a context to use. Uses KafkaAdmin Timeout if defined, or defaults to 15 seconds
 func (admin *KafkaAdmin) NewContext() (context.Context, context.CancelFunc) {
-	timeout := 15 * time.Second
+	timeout := 60 * time.Second
 	if admin.Timeout != 0 {
 		timeout = admin.Timeout
 	}
@@ -117,7 +115,7 @@ func NewGafkaloTopicsFromFranzTopics(topics kadm.TopicDetails) Topics {
 			IsInternal: fTopic.IsInternal,
 			Partitions: int32(len(fTopic.Partitions)),
 		}
-		newTopic.PartitionDetails = *new(Partitions)
+		newTopic.PartitionDetails = make(Partitions)
 		for partNum, partDetails := range fTopic.Partitions {
 			newTopic.PartitionDetails[partNum] = Partition{
 				TopicName:       fName,
@@ -142,18 +140,14 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 	// XXX replace this with something for franz-go
 	//config := SaramaConfigFromKafkaConfig(conf)
 
-	kgoClient, err := kgo.NewClient(
-		//kgo.SeedBrokers(conf.Brokers...),
-		kgo.SeedBrokers("localhost:9092"),
-		kgo.MaxVersions(kversion.V2_4_0()),
-		// TODO add all appropriate parms from conf somehow
-	)
+	opts := CreateFranzKafkaOptsFromKafkaConfig(conf)
+	kgoClient, err := kgo.NewClient(opts...)
 	if err != nil {
 		log.Fatalf("Failed to create kgo client with: %s\n", err)
 	}
 	franzAdmin := kadm.NewClient(kgoClient)
 	admin.AdminClient = *franzAdmin
-	admin.Timeout = 15 * time.Second
+	admin.Timeout = 60 * time.Second // TODO this is too much
 	return admin
 
 }
@@ -164,15 +158,23 @@ func (admin *KafkaAdmin) ListTopics() Topics {
 	defer cancel()
 	log.Tracef("Calling list topics using client %v", admin.AdminClient)
 	fTopics, err := admin.AdminClient.ListTopics(ctx)
-	topics := NewGafkaloTopicsFromFranzTopics(fTopics)
 	if err != nil {
 		log.Fatalf("Failed to list topics with: %s\n", err)
 	}
+	topics := NewGafkaloTopicsFromFranzTopics(fTopics)
 	log.Tracef("ListTopics = %v", topics)
 	// franz-go does not do a describe when listing topics, that is a separate call. Lets do that
 	log.Tracef("Describeconfigs using client %v", admin.AdminClient)
-	resourceConfigs, err := admin.AdminClient.DescribeTopicConfigs(ctx, topics.Names()...)
+	ctx_desc, cancel_desc := admin.NewContext()
+	defer cancel_desc()
+	resourceConfigs, err := admin.AdminClient.DescribeTopicConfigs(ctx_desc, topics.Names()...)
+	log.Tracef("resourceConfigs=%v", resourceConfigs)
 	if err != nil {
+		for _, res := range resourceConfigs {
+			if res.Err != nil {
+				log.Error("ResourceConfig %s had error %s", res.Name, res.Err)
+			}
+		}
 		log.Fatalf("Failed to describe topic configs with error: %s", err)
 	}
 

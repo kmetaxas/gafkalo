@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/kmetaxas/srclient"
 	"github.com/nsf/jsondiff"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"

@@ -5,8 +5,6 @@ import (
 	"os"
 	"text/template"
 
-	log "github.com/sirupsen/logrus"
-
 	_ "embed"
 )
 

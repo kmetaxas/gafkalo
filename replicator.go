@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 )
 
 /*

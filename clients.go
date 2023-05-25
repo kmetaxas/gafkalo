@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type ClientTopicRole struct {

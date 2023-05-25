@@ -3,30 +3,33 @@ package main
 import (
 	"github.com/Shopify/sarama"
 	"github.com/alecthomas/kong"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
+var log = logrus.New()
+
 func main() {
-	var logLevel log.Level
+	var logLevel logrus.Level
 	var err error
 	// Initialize kong
 	ctx := kong.Parse(&CLI)
 
 	// Initialize logrus
 	log.SetReportCaller(true)
-	logLevel, err = log.ParseLevel(CLI.Verbosity)
+	logLevel, err = logrus.ParseLevel(CLI.Verbosity)
 	if err != nil {
 		log.Printf("Could not parse log level. Setting to 'error'")
-		logLevel = log.ErrorLevel
+		logLevel = logrus.ErrorLevel
 	}
 	log.SetLevel(logLevel)
 	//Set sarama logging
-	sarama_logger := log.New()
-	sarama_logger.SetReportCaller(true)
-	sarama_logger.SetLevel(logLevel)
-	sarama.Logger = sarama_logger
+	log.SetReportCaller(true)
+	log.SetLevel(logLevel)
+
+	sarama.Logger = log
+	log.SetLevel(logLevel)
 	if CLI.Verbosity == "trace" || CLI.Verbosity == "debug" {
-		sarama.DebugLogger = sarama_logger
+		sarama.DebugLogger = log
 	}
 	// Run Kong CLI command user chose
 	err = ctx.Run(&CLIContext{Config: CLI.Config})

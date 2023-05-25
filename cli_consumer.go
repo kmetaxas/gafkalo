@@ -1,8 +1,6 @@
 package main
 
-import (
-	log "github.com/sirupsen/logrus"
-)
+import ()
 
 type ConsumerCmd struct {
 	Topics           []string `required arg help:"Topic to read from"`

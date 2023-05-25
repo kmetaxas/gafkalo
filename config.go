@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -9,7 +11,12 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
+	krb5client "github.com/jcmturner/gokrb5/v8/client"
+	krb5config "github.com/jcmturner/gokrb5/v8/config"
+	krb5keytab "github.com/jcmturner/gokrb5/v8/keytab"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kversion"
+	"github.com/twmb/franz-go/pkg/sasl/kerberos"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
@@ -216,4 +223,107 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	}
 	return config
 
+}
+
+// Create a new Franz-go client from the provided Gafkalo Config
+func CreateFranzKafkaOptsFromKafkaConfig(conf KafkaConfig) []kgo.Opt {
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(conf.Brokers...),
+		kgo.MaxVersions(kversion.V2_4_0()),
+	}
+
+	// If SSL is enabled, add a TLS dialer
+	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
+		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
+		tlsDialer := &tls.Dialer{
+			NetDialer: &net.Dialer{Timeout: 30 * time.Second},
+			Config:    tlsConfig,
+		}
+		opts = append(opts, kgo.Dialer(tlsDialer.DialContext))
+
+	}
+	// If compression is specified, set it. otherwise we use the franz-go default which is snappy
+	if conf.Producer.Compression != "" {
+		switch conf.Producer.Compression {
+		case "snappy":
+			opts = append(opts, kgo.ProducerBatchCompression(kgo.SnappyCompression()))
+		case "gzip":
+			opts = append(opts, kgo.ProducerBatchCompression(kgo.GzipCompression()))
+		case "lz4":
+			opts = append(opts, kgo.ProducerBatchCompression(kgo.Lz4Compression()))
+		case "zstd":
+			opts = append(opts, kgo.ProducerBatchCompression(kgo.ZstdCompression()))
+		case "none":
+			opts = append(opts, kgo.ProducerBatchCompression(kgo.NoCompression()))
+		}
+
+	}
+	// Do SASL
+	if conf.Krb5.Enabled {
+		saslConf := kerberos.Auth{
+			Service: "kafka", // TODO should be configurable
+		}
+
+		krb5conf := Krb5GetConfig("/etc/krb5.conf")
+		keytab := Krb5GetKeytab(conf.Krb5.Keytab)
+
+		saslConf.Client = krb5client.NewWithKeytab(conf.Krb5.Username, conf.Krb5.Realm, keytab, krb5conf)
+		// Login here, or does franz-go login for us?
+		err := saslConf.Client.Login()
+		if err != nil {
+			log.Fatalf("Failed to login to kerberos with error %s", err)
+		}
+		opts = append(opts, kgo.SASL(saslConf.AsMechanism()))
+	}
+	/*
+
+
+			config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
+			config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
+			config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
+			if conf.Krb5.Keytab != "" {
+				config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
+				config.Net.SASL.GSSAPI.KeyTabPath = conf.Krb5.Keytab
+
+			} else {
+				config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
+				config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
+			}
+			if conf.Krb5.ServiceName == "" {
+				config.Net.SASL.GSSAPI.ServiceName = "kafka"
+			} else {
+				config.Net.SASL.GSSAPI.ServiceName = conf.Krb5.ServiceName
+			}
+			if conf.Krb5.KerberosConfigPath == "" {
+				config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
+			} else {
+				config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
+			}
+		}
+	*/
+	// Add Logger
+	// TODO match the global logger instead of a custom kgo specific logger..
+	opts = append(opts, kgo.WithLogger(kgo.BasicLogger(os.Stdout, kgo.LogLevelDebug, nil)))
+	return opts
+}
+
+func Krb5GetConfig(path string) *krb5config.Config {
+	var krb5path string = "/etc/krb5.conf"
+	if path != "" {
+		krb5path = path
+	}
+	newConfig, err := krb5config.Load(krb5path)
+	if err != nil {
+		log.Fatalf("Unable to load krb5 conf from %s with error %s", path, err)
+	}
+	return newConfig
+
+}
+
+func Krb5GetKeytab(path string) *krb5keytab.Keytab {
+	keytab, err := krb5keytab.Load(path)
+	if err != nil {
+		log.Fatalf("Unable to read keytab at %s with error %s", path, err)
+	}
+	return keytab
 }

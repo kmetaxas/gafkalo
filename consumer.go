@@ -19,7 +19,6 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/fatih/color"
 	"github.com/kmetaxas/srclient"
-	log "github.com/sirupsen/logrus"
 )
 
 // Encapsulate a writer (ie stdout) to lock it for serializing writes

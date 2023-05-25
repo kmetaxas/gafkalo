@@ -1,8 +1,6 @@
 package main
 
-import (
-	log "github.com/sirupsen/logrus"
-)
+import ()
 
 type ReplicatorCmd struct {
 	SourceTopic string `required help:"Source topic"`

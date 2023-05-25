@@ -2,7 +2,6 @@ package main
 
 import (
 	//"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"regexp"
 	"text/template"

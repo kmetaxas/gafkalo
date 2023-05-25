@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/kong v0.2.16
 	github.com/fatih/color v1.13.0
 	github.com/google/go-cmp v0.5.8
+	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/kmetaxas/srclient v0.4.3
 	github.com/mitchellh/mapstructure v1.4.3
@@ -14,6 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/twmb/franz-go v1.13.4
 	github.com/twmb/franz-go/pkg/kadm v1.8.1
+	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.mozilla.org/sops/v3 v3.7.3
 	gopkg.in/yaml.v2 v2.4.0
 )

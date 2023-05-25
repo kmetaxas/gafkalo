@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"strings"
