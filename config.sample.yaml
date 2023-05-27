@@ -6,6 +6,7 @@ connections:
     ssl:
       enabled: false
       caPath: "/path/to/ca.crt"
+    # Kerberos (sasl GSSAPI) authentication
     kerberos:
       enabled: true
       keytab: "path_to.key" # Will disable user auth if specified
@@ -17,6 +18,11 @@ connections:
     producer:
       compression: "snappy"
       maxMessageBytes: 4000000
+    # Sasl PLAIN authentication support
+    saslplain:
+      enabled: false
+      username: "username"
+      password: "password"
   schemaregistry:
     url: "http://localhost:8081"
     username: "user"
