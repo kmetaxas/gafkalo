@@ -30,6 +30,7 @@ connections:
       url: http://localhost:8090/security/1.0/authenticate
       # If set to true, this tells Gafkalo to use a token provider that fetches token from a Confluent Metadata service api
       is_confluent_mds: true
+      caPath: /path/to/ca.pem
   schemaregistry:
     url: "http://localhost:8081"
     username: "user"

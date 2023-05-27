@@ -47,6 +47,7 @@ type KafkaConfig struct {
 		Secret         string `yaml:"secret"`
 		TokenUrl       string `yaml:"url"`
 		IsConfluentMDS bool   `yaml:"is_confluent_mds"`
+		CA             string `yaml:"caPath"`
 	} `yaml:"tokenauth"`
 }
 type MDSConfig struct {
@@ -228,7 +229,7 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		config.Net.SASL.Mechanism = sarama.SASLTypeOAuth
 		// We use a special handler if Confluent Metadata service tokens are used.
 		if conf.TokenAuth.IsConfluentMDS {
-			config.Net.SASL.TokenProvider = NewTokenProviderConfluentMDS(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
+			config.Net.SASL.TokenProvider = NewTokenProviderConfluentMDS(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl, conf.TokenAuth.CA)
 
 		} else {
 			config.Net.SASL.TokenProvider = oauthbearer.NewTokenProvider(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
