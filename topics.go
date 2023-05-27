@@ -9,6 +9,7 @@ import (
 	"math/rand"
 
 	"github.com/Shopify/sarama"
+	"github.com/damiannolan/sasl/oauthbearer"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -97,12 +98,34 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
 		}
 	}
-	// Set Sasl plain if configures
+	// Set Sasl plain if configured
 	if conf.SaslPlain.Enabled {
+
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 		config.Net.SASL.User = conf.SaslPlain.Username
 		config.Net.SASL.Password = conf.SaslPlain.Password
+	}
+	// Token auth if configured
+	if conf.TokenAuth.Enabled {
+		if conf.TokenAuth.ClientID == "" {
+			log.Fatal("required 'client' field  not defined in tokenauth section")
+		}
+		if conf.TokenAuth.Secret == "" {
+			log.Fatal("required 'secret' field  not defined in tokenauth section")
+		}
+		if conf.TokenAuth.TokenUrl == "" {
+			log.Fatal("required 'url' field  not defined in tokenauth section")
+		}
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypeOAuth
+		// We use a special handler if Confluent Metadata service tokens are used.
+		if conf.TokenAuth.IsConfluentMDS {
+			config.Net.SASL.TokenProvider = NewTokenProviderConfluentMDS(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
+
+		} else {
+			config.Net.SASL.TokenProvider = oauthbearer.NewTokenProvider(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
+		}
 	}
 	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
 		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
@@ -392,6 +415,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 			}
 		}
 	}
+
 	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }

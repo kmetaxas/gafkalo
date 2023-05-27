@@ -39,6 +39,13 @@ type KafkaConfig struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
 	} `yaml:"saslplain"`
+	TokenAuth struct {
+		Enabled        bool   `yaml:"enabled"`
+		ClientID       string `yaml:"client"`
+		Secret         string `yaml:"secret"`
+		TokenUrl       string `yaml:"url"`
+		IsConfluentMDS bool   `yaml:"is_confluent_mds"`
+	} `yaml:"tokenauth"`
 }
 type MDSConfig struct {
 	Url                     string `yaml:"url"`
