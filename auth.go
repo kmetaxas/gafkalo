@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -14,6 +15,7 @@ type TokenProvider struct {
 	secret   string
 	url      string
 	token    string
+	caPath   string
 }
 
 func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
@@ -23,8 +25,11 @@ func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
 		Token string `json:"auth_token"`
 	}
 	var respObj tokenResponse
+	var tlsConfig *tls.Config
 
-	hClient := http.Client{}
+	tlsConfig = createTlsConfig(t.caPath, false)
+	transport := &http.Transport{TLSClientConfig: tlsConfig}
+	hClient := &http.Client{Transport: transport}
 	req, err := http.NewRequest("GET", t.url, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -54,11 +59,12 @@ func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
 
 	return &token, nil
 }
-func NewTokenProviderConfluentMDS(client, secret, url string) sarama.AccessTokenProvider {
+func NewTokenProviderConfluentMDS(client, secret, url, caPath string) sarama.AccessTokenProvider {
 	tokenprovider := TokenProvider{
 		clientId: client,
 		secret:   secret,
 		url:      url,
+		caPath:   caPath,
 	}
 
 	return &tokenprovider
