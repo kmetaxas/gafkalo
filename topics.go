@@ -97,6 +97,13 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
 		}
 	}
+	// Set Sasl plain if configures
+	if conf.SaslPlain.Enabled {
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = conf.SaslPlain.Username
+		config.Net.SASL.Password = conf.SaslPlain.Password
+	}
 	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
 		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
 		config.Net.TLS.Config = tlsConfig

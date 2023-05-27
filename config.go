@@ -1,16 +1,17 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/decrypt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/decrypt"
+	"gopkg.in/yaml.v2"
 )
 
 type KafkaConfig struct {
@@ -33,6 +34,11 @@ type KafkaConfig struct {
 		MaxMessageBytes int    `yaml:"maxMessageBytes"`
 		Compression     string `yaml:"compression"`
 	} `yaml:"producer"`
+	SaslPlain struct {
+		Enabled  bool   `yaml:"enabled"`
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"saslplain"`
 }
 type MDSConfig struct {
 	Url                     string `yaml:"url"`
