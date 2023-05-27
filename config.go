@@ -334,6 +334,32 @@ func ConfluentClientConfigFromKafkaConfig(conf *KafkaConfig) *kafka.ConfigMap {
 	newConf := make(kafka.ConfigMap)
 	newConf["bootstrap.servers"] = strings.Join(conf.Brokers, ",")
 	newConf["group.id"] = "trololo" // Set consume group XXX
+	//set a default and then override as needed
+	newConf["security.protocol"] = "PLAINTEXT"
+	// Kerberos
+	if conf.Krb5.Enabled {
+		newConf["sasl.mechanism"] = "GSSAPI"
+		newConf["sasl.kerberos.principal"] = "arcanum"
+		newConf["sasl.kerberos.keytab"] = "arcanum.key"
+		if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
+
+			newConf["security.protocol"] = "SASL_SSL"
+		} else {
+			newConf["security.protocol"] = "SASL_PLAINTEXT"
+		}
+	}
+
+	if !conf.Krb5.Enabled && conf.SSL.Enabled {
+		newConf["security.protocol"] = "SSL"
+	}
+
+	// Configure tls params if provided
+	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
+
+		newConf["ssl.ca.location"] = conf.SSL.CA
+		newConf["ssl.ca.location"] = conf.SSL.CA
+		newConf["enable.ssl.certificate.verification"] = !conf.SSL.SkipVerify
+	}
 
 	return &newConf
 }
