@@ -431,5 +431,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 		}
 		// TODO we currently don' update replicationFactor for existing topics. Fix that
 	*/
+
+	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }

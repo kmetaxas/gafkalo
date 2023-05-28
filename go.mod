@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/Shopify/sarama v1.38.0
 	github.com/alecthomas/kong v0.2.16
+	github.com/damiannolan/sasl v1.0.0
 	github.com/fatih/color v1.13.0
 	github.com/google/go-cmp v0.5.8
 	github.com/jcmturner/gokrb5/v8 v8.4.4

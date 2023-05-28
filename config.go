@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/damiannolan/sasl/oauthbearer"
 	krb5client "github.com/jcmturner/gokrb5/v8/client"
 	krb5config "github.com/jcmturner/gokrb5/v8/config"
 	krb5keytab "github.com/jcmturner/gokrb5/v8/keytab"
@@ -42,6 +43,19 @@ type KafkaConfig struct {
 		MaxMessageBytes int    `yaml:"maxMessageBytes"`
 		Compression     string `yaml:"compression"`
 	} `yaml:"producer"`
+	SaslPlain struct {
+		Enabled  bool   `yaml:"enabled"`
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"saslplain"`
+	TokenAuth struct {
+		Enabled        bool   `yaml:"enabled"`
+		ClientID       string `yaml:"client"`
+		Secret         string `yaml:"secret"`
+		TokenUrl       string `yaml:"url"`
+		IsConfluentMDS bool   `yaml:"is_confluent_mds"`
+		CA             string `yaml:"caPath"`
+	} `yaml:"tokenauth"`
 }
 type MDSConfig struct {
 	Url                     string `yaml:"url"`
@@ -169,6 +183,8 @@ func isValidInputFile(filename string) bool {
 	}
 	return true
 }
+
+// Create a Sarama Config struct from a KafkaConfig struct
 func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	config := sarama.NewConfig()
 	config.Metadata.Full = true
@@ -195,6 +211,35 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 			config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
 		} else {
 			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
+		}
+	}
+	// Set Sasl plain if configured
+	if conf.SaslPlain.Enabled {
+
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = conf.SaslPlain.Username
+		config.Net.SASL.Password = conf.SaslPlain.Password
+	}
+	// Token auth if configured
+	if conf.TokenAuth.Enabled {
+		if conf.TokenAuth.ClientID == "" {
+			log.Fatal("required 'client' field  not defined in tokenauth section")
+		}
+		if conf.TokenAuth.Secret == "" {
+			log.Fatal("required 'secret' field  not defined in tokenauth section")
+		}
+		if conf.TokenAuth.TokenUrl == "" {
+			log.Fatal("required 'url' field  not defined in tokenauth section")
+		}
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypeOAuth
+		// We use a special handler if Confluent Metadata service tokens are used.
+		if conf.TokenAuth.IsConfluentMDS {
+			config.Net.SASL.TokenProvider = NewTokenProviderConfluentMDS(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl, conf.TokenAuth.CA)
+
+		} else {
+			config.Net.SASL.TokenProvider = oauthbearer.NewTokenProvider(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
 		}
 	}
 	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
