@@ -43,8 +43,21 @@ func (s *GafkaloRestServer) createTopicHandler(c echo.Context) error {
 	}
 	err = s.adminclient.AdminClient.CreateTopic(topic.Name, &detail, false)
 	if err != nil {
-		log.Errorf("Error from CreateTopic: %s\n", err)
-		return c.JSON(http.StatusInternalServerError, &restApiGenericResponse{Result: "Failed to create topic", Error: err.Error()})
+		switch err {
+		case sarama.ErrTopicAlreadyExists:
+			log.Infof("Topic %s already exists", topic.Name)
+			return c.JSON(http.StatusAlreadyReported, &restApiGenericResponse{Result: "Topic already existss", Error: err.Error()})
+		case sarama.ErrNotEnoughReplicas:
+			log.Infof("Not enough replicas for topic %s, error: ", topic.Name, err)
+			return c.JSON(http.StatusBadRequest, &restApiGenericResponse{Result: "Not enough replicas for topic", Error: err.Error()})
+		case sarama.ErrInvalidConfig:
+			log.Infof("Invalid config for topic %s, error: ", topic.Name, err)
+			return c.JSON(http.StatusBadRequest, &restApiGenericResponse{Result: "Invalud config for topic", Error: err.Error()})
+
+		default:
+			log.Errorf("Error from CreateTopic: %s\n", err)
+			return c.JSON(http.StatusInternalServerError, &restApiGenericResponse{Result: "Failed to create topic", Error: err.Error()})
+		}
 	}
 
 	log.Infof("Created topic %s\n", topic.Name)
