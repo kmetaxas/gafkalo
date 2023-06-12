@@ -69,61 +69,6 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 
 }
 
-func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
-	config := sarama.NewConfig()
-	config.Metadata.Full = true
-	config.Net.TLS.Enable = conf.SSL.Enabled
-	if conf.Krb5.Enabled {
-		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
-		config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
-		config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
-		if conf.Krb5.Keytab != "" {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
-			config.Net.SASL.GSSAPI.KeyTabPath = conf.Krb5.Keytab
-
-		} else {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
-			config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
-		}
-		if conf.Krb5.ServiceName == "" {
-			config.Net.SASL.GSSAPI.ServiceName = "kafka"
-		} else {
-			config.Net.SASL.GSSAPI.ServiceName = conf.Krb5.ServiceName
-		}
-		if conf.Krb5.KerberosConfigPath == "" {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
-		} else {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
-		}
-	}
-	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
-		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
-		config.Net.TLS.Config = tlsConfig
-	}
-	if conf.Producer.MaxMessageBytes != 0 {
-		config.Producer.MaxMessageBytes = conf.Producer.MaxMessageBytes
-	}
-	if conf.Producer.Compression != "" {
-		switch conf.Producer.Compression {
-		case "snappy":
-			config.Producer.Compression = sarama.CompressionSnappy
-		case "gzip":
-			config.Producer.Compression = sarama.CompressionGZIP
-		case "lz4":
-			config.Producer.Compression = sarama.CompressionLZ4
-		case "zstd":
-			config.Producer.Compression = sarama.CompressionZSTD
-		case "none":
-			config.Producer.Compression = sarama.CompressionNone
-		}
-	} else {
-		// Use snappy as default if none other is specified
-		config.Producer.Compression = sarama.CompressionSnappy
-	}
-	return config
-
-}
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
@@ -390,6 +335,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 			}
 		}
 	}
+
 	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }

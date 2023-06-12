@@ -6,6 +6,7 @@ connections:
     ssl:
       enabled: false
       caPath: "/path/to/ca.crt"
+    # Kerberos (sasl GSSAPI) authentication
     kerberos:
       enabled: true
       keytab: "path_to.key" # Will disable user auth if specified
@@ -17,6 +18,19 @@ connections:
     producer:
       compression: "snappy"
       maxMessageBytes: 4000000
+    # Sasl PLAIN authentication support
+    saslplain:
+      enabled: false
+      username: "username"
+      password: "password"
+    tokenauth:
+      enabled: true
+      client: trololo
+      secret: there_is_no_password_only_zuul
+      url: http://localhost:8090/security/1.0/authenticate
+      # If set to true, this tells Gafkalo to use a token provider that fetches token from a Confluent Metadata service api
+      is_confluent_mds: true
+      caPath: /path/to/ca.pem
   schemaregistry:
     url: "http://localhost:8081"
     username: "user"

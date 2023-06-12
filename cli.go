@@ -169,11 +169,14 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
 }
 func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) *Report {
+	var connectResults []ConnectorResult
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
-	connectResults := connectadmin.Reconcile(inputData.Connectors, dryRun)
+	if (*connectadmin != ConnectAdmin{}) {
+		connectResults = connectadmin.Reconcile(inputData.Connectors, dryRun)
+	}
 
 	return NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
 }
