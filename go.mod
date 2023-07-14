@@ -14,7 +14,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nsf/jsondiff v0.0.0-20210303162244-6ea32392771e
 	github.com/sirupsen/logrus v1.8.1
-	github.com/twmb/franz-go v1.13.4
+	github.com/twmb/franz-go v1.14.1
 	github.com/twmb/franz-go/pkg/kadm v1.8.1
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.mozilla.org/sops/v3 v3.7.3
