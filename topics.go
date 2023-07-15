@@ -76,6 +76,60 @@ func (admin *KafkaAdmin) NewContext() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
+func (admin *KafkaAdmin) CreateTopic(topic Topic, dry_run bool) (*TopicResult, error) {
+	var err error = nil
+	var result TopicResult
+	var responses kadm.CreateTopicResponses
+	ctx, cancel := admin.NewContext()
+	defer cancel()
+	if dry_run {
+		responses, err = admin.AdminClient.ValidateCreateTopics(ctx, topic.Partitions, topic.ReplicationFactor, topic.Configs, topic.Name)
+	} else {
+		responses, err = admin.AdminClient.CreateTopics(ctx, topic.Partitions, topic.ReplicationFactor, topic.Configs, topic.Name)
+	}
+	// fill in topic result
+	if topicFranzRespons, exists := responses[topic.Name]; exists {
+		result.FillFromFranzTopicResponse(topicFranzRespons)
+	} else {
+		log.Error("Topic %s not found on Franz TopicResponses", topic.Name)
+		return nil, nil
+	}
+
+	return &result, err
+}
+
+func (admin *KafkaAdmin) AlterTopicConfigs(topic Topic, dry_run bool) (*TopicResult, error) {
+	var newFranzConfigs []kadm.AlterConfig
+	var responses kadm.AlterConfigsResponses
+	var err error = nil
+
+	result := TopicResultFromTopic(topic)
+
+	for key, val := range topic.Configs {
+		franzConfig := kadm.AlterConfig{
+			Op:    kadm.SetConfig,
+			Name:  key,
+			Value: val,
+		}
+		newFranzConfigs = append(newFranzConfigs, franzConfig)
+	}
+	ctx, cancel := admin.NewContext()
+	defer cancel()
+	if dry_run {
+		responses, err = admin.AdminClient.ValidateAlterTopicConfigs(ctx, newFranzConfigs, topic.Name)
+	} else {
+		responses, err = admin.AdminClient.AlterTopicConfigs(ctx, newFranzConfigs, topic.Name)
+	}
+	if err != nil {
+		for _, resp := range responses {
+			if resp.Name == topic.Name && resp.Err != nil {
+				result.Errors = append(result.Errors, resp.Err.Error())
+			}
+		}
+	}
+
+	return &result, err
+}
 func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	// Get system Cert Pool
 	config := &tls.Config{}
@@ -137,8 +191,6 @@ func NewGafkaloTopicsFromFranzTopics(topics kadm.TopicDetails) Topics {
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
-	// XXX replace this with something for franz-go
-	//config := SaramaConfigFromKafkaConfig(conf)
 
 	opts := CreateFranzKafkaOptsFromKafkaConfig(conf)
 	kgoClient, err := kgo.NewClient(opts...)
@@ -372,51 +424,46 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 }
 
 // Reconcile actual with desired state
-func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
+func (admin *KafkaAdmin) ReconcileTopics(topics_m map[string]Topic, dry_run bool) []TopicResult {
 
 	// Get topics which are to be created
 	var topicResults []TopicResult
-	/*
-		existing_topics := admin.ListTopics()
-		newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
-		newTopics := getTopicNamesDiff(&existing_topics, &topics)
-		log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
-		// Initialize newTopicsStatus to false
-		for _, name := range newTopics {
-			newTopicsStatus[name] = false
-		}
+	topics := Topics(topics_m)
 
-		log.Tracef("creating topics (dry_run=%v)", dry_run)
-		// Create new topics
-		for _, topicName := range newTopics {
-			topic := topics[topicName]
-			topicRes := TopicResultFromTopic(topic)
+	existing_topics := admin.ListTopics()
+	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
+	newTopics := getTopicNamesDiff(existing_topics, topics)
+	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
+	// Initialize newTopicsStatus to false
+	for _, name := range newTopics {
+		newTopicsStatus[name] = false
+	}
+
+	log.Tracef("creating topics (dry_run=%v)", dry_run)
+	// Create new topics
+	for _, topicName := range newTopics {
+		topic := topics[topicName]
+		topicRes, err := admin.CreateTopic(topic, dry_run)
+		if err != nil {
+			newTopicsStatus[topicName] = false
+		} else {
 			topicRes.IsNew = true
-			detail := sarama.TopicDetail{NumPartitions: topic.Partitions, ReplicationFactor: topic.ReplicationFactor, ConfigEntries: topic.Configs}
-			err := admin.AdminClient.CreateTopic(topic.Name, &detail, dry_run)
-			if err != nil {
-				topicRes.Errors = append(topicRes.Errors, err.Error())
-				newTopicsStatus[topicName] = false
-			}
-			log.Debugf("Create Topic %s - config %v (Dryrun %v)", topic.Name, detail, dry_run)
-			topicResults = append(topicResults, topicRes)
 			newTopicsStatus[topicName] = true
 		}
-		// Alter configs
-		for topicName, topic := range topics {
-			topicRes := TopicResultFromTopic(topic)
-			topicRes.FillFromOldTopic(existing_topics[topicName])
-			// skip topics we just created or topics that failed creation. So all new ones
-			_, isNew := newTopicsStatus[topicName]
-			if !isNew {
-				if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
-					err := admin.AdminClient.AlterConfig(sarama.TopicResource, topicName, topic.Configs, dry_run)
-					if err != nil {
-						topicRes.Errors = append(topicRes.Errors, err.Error())
-					}
-					topicRes.NewConfigs = topic.Configs
-					topicResults = append(topicResults, topicRes)
-				}
+		log.Debugf("Create Topic %s - config %v (Dryrun %v)", topic.Name, topicRes, dry_run)
+		topicResults = append(topicResults, *topicRes)
+	}
+	// Alter configs
+	for topicName, topic := range topics {
+		// skip topics we just created or topics that failed creation. So all new ones
+		_, isNew := newTopicsStatus[topicName]
+		if !isNew {
+			if topicConfigNeedsUpdate(topic, existing_topics[topicName]) {
+				topicRes, _ := admin.AlterTopicConfigs(topic, dry_run)
+				topicRes.FillFromOldTopic(existing_topics[topicName])
+				topicResults = append(topicResults, *topicRes)
+			}
+			/*
 				if topicPartitionNeedUpdate(topic, existing_topics[topicName]) {
 					newPlan, err := admin.ChangePartitionCount(topicName, topic.Partitions, topic.ReplicationFactor, dry_run)
 					if err != nil {
@@ -427,11 +474,9 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 					topicRes.ReplicaPlan = newPlan
 					topicResults = append(topicResults, topicRes)
 				}
-			}
+			*/
 		}
-		// TODO we currently don' update replicationFactor for existing topics. Fix that
-	*/
-
+	}
 	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }

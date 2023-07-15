@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/twmb/franz-go/pkg/kadm"
 )
 
 type Results struct {
@@ -61,10 +61,24 @@ func TopicResultFromTopic(topic Topic) TopicResult {
 }
 
 // Fill-in
-func (tr *TopicResult) FillFromOldTopic(old sarama.TopicDetail) {
-	tr.OldPartitions = old.NumPartitions
+func (tr *TopicResult) FillFromOldTopic(old Topic) {
+	tr.OldPartitions = old.Partitions
 	tr.OldReplicationFactor = old.ReplicationFactor
-	tr.OldConfigs = old.ConfigEntries
+	tr.OldConfigs = old.Configs
+}
+
+func (tr *TopicResult) FillFromFranzTopicResponse(fResp kadm.CreateTopicResponse) {
+
+	tr.Name = fResp.Topic
+	tr.NewPartitions = fResp.NumPartitions
+	tr.NewReplicationFactor = fResp.ReplicationFactor
+	tr.NewConfigs = make(map[string]*string)
+	for key, val := range fResp.Configs {
+		tr.NewConfigs[key] = val.Value
+	}
+	if fResp.Err != nil {
+		tr.Errors = append(tr.Errors, fResp.Err.Error())
+	}
 }
 
 // A nice , easy way to process changes in configs
