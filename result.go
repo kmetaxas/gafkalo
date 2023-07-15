@@ -74,7 +74,10 @@ func (tr *TopicResult) FillFromFranzTopicResponse(fResp kadm.CreateTopicResponse
 	tr.NewReplicationFactor = fResp.ReplicationFactor
 	tr.NewConfigs = make(map[string]*string)
 	for key, val := range fResp.Configs {
-		tr.NewConfigs[key] = val.Value
+		// if source != DEFAULT_CONFIG, add it to confiugs
+		if val.Source != 5 {
+			tr.NewConfigs[key] = val.Value
+		}
 	}
 	if fResp.Err != nil {
 		tr.Errors = append(tr.Errors, fResp.Err.Error())
