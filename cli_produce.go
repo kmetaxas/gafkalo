@@ -3,11 +3,12 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 )
 
 type ProduceCmd struct {
@@ -57,7 +58,7 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 			*key, *value = splitStrings[0], splitStrings[1]
 		} else {
 			value = &line
-			key = new(string) // TODO maybe generate a sequence here?
+			key = nil
 		}
 		if cmd.Tombstone {
 			// Well if the user specified that they want a tombtstone message, take what they types and make it a key, and set the value to nil
