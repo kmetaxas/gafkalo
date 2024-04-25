@@ -289,6 +289,6 @@ func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition 
 	if valSchemaID > 0 {
 		msg = fmt.Sprintf("%s SchemaID(value)[%d]", msg, valSchemaID)
 	}
-	msg = fmt.Sprintf("%s Topic[%s] Offset[%s] Timestamp[%s]: Key:=%s, Value:%s", msg, topic, fmtOffset(fmt.Sprint(offset)), timestamp, fmtKey(key), fmtValue(value))
+	msg = fmt.Sprintf("%s Topic[%s] Offset[%s] Partition[%d] Timestamp[%s]: Key:=%s, Value:=%s", msg, topic, fmtOffset(fmt.Sprint(offset)), partition, timestamp, fmtKey(key), fmtValue(value))
 	fmt.Println(msg)
 }
