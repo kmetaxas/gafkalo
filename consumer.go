@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,8 @@ func (w *lockedWriter) Write(b []byte) (int, error) {
 
 }
 
+type RecordPrinterFunc func(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int)
+
 // The main consumer struct
 type Consumer struct {
 	Client               sarama.Client
@@ -56,6 +59,7 @@ type Consumer struct {
 	// The NewConsumerGroup will default to itself since Consumer implements this interface by default,
 	// But we want users of Consumer to be able to implement their own handlers
 	consumerGroupHandler sarama.ConsumerGroupHandler
+	recordPrinterFunc    RecordPrinterFunc
 }
 
 type CustomRecordTemplateContext struct {
@@ -124,6 +128,8 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 		log.Fatal(err)
 	}
 
+	consumer.recordPrinterFunc = prettyPrintRecord
+
 	consumer.Client = client
 	consumer.Topics = topics
 	consumer.ConsumerGroup = cGroup
@@ -145,6 +151,9 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 	return &consumer
 }
 
+func (c *Consumer) SetRecordPrinterFunc(f RecordPrinterFunc) {
+	c.recordPrinterFunc = f
+}
 func (c *Consumer) Consume(maxRecords int) error {
 	// wait for ready
 	c.ready = make(chan bool)
@@ -291,4 +300,23 @@ func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition 
 	}
 	msg = fmt.Sprintf("%s Topic[%s] Offset[%s] Partition[%d] Timestamp[%s]: Key:=%s, Value:=%s", msg, topic, fmtOffset(fmt.Sprint(offset)), partition, timestamp, fmtKey(key), fmtValue(value))
 	fmt.Println(msg)
+}
+
+func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
+	recordCtx := CustomRecordTemplateContext{
+		Topic:       topic,
+		Key:         key,
+		Value:       value,
+		Timestamp:   timestamp,
+		Partition:   partition,
+		Offset:      offset,
+		KeySchemaID: keySchemaID,
+		ValSchemaID: valSchemaID,
+	}
+	jsondata, err := json.Marshal(&recordCtx)
+	if err != nil {
+		fmt.Println("Error marshaling %+v to json", recordCtx)
+	} else {
+		fmt.Println(string(jsondata))
+	}
 }

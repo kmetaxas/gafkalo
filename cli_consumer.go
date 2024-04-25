@@ -13,6 +13,7 @@ type ConsumerCmd struct {
 	FromBeginning    bool     `default:"false" help:"Start reading from the beginning of the topic"`
 	SetOffsets       string   `help:"Set offsets for partition on topic. Syntax is: TOPICNAME=partition:offset,partition:offset,.."`
 	RecordTemplate   string   `help:"Path to a golan template to format records"`
+	OutputFormat     string   `help:"Output format. [text,json]"`
 }
 
 func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
@@ -31,6 +32,12 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 	}
 
 	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate, nil)
+	switch cmd.OutputFormat {
+	case "json":
+		consumer.SetRecordPrinterFunc(prettyPrintRecord)
+	default:
+		consumer.SetRecordPrinterFunc(jsonPrintRecord)
+	}
 	err = consumer.Consume(cmd.MaxRecords)
 	if err != nil {
 		log.Fatal(err)
