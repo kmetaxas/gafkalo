@@ -5,10 +5,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
+
+	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 )
 
 type Topic struct {
@@ -62,75 +63,23 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	pem, err := ioutil.ReadFile(CAPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
-		log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+	if CAPath != "" {
+		pem, err := ioutil.ReadFile(CAPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
+			log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+		}
+		log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
 	}
 	config.RootCAs = rootCAs
 	config.InsecureSkipVerify = SkipVerify
-	log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
+	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
 	return config
 
 }
 
-func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
-	config := sarama.NewConfig()
-	config.Metadata.Full = true
-	config.Net.TLS.Enable = conf.SSL.Enabled
-	if conf.Krb5.Enabled {
-		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
-		config.Net.SASL.GSSAPI.Realm = conf.Krb5.Realm
-		config.Net.SASL.GSSAPI.Username = conf.Krb5.Username
-		if conf.Krb5.Keytab != "" {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
-			config.Net.SASL.GSSAPI.KeyTabPath = conf.Krb5.Keytab
-
-		} else {
-			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
-			config.Net.SASL.GSSAPI.Password = conf.Krb5.Password
-		}
-		if conf.Krb5.ServiceName == "" {
-			config.Net.SASL.GSSAPI.ServiceName = "kafka"
-		} else {
-			config.Net.SASL.GSSAPI.ServiceName = conf.Krb5.ServiceName
-		}
-		if conf.Krb5.KerberosConfigPath == "" {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = "/etc/krb5.conf"
-		} else {
-			config.Net.SASL.GSSAPI.KerberosConfigPath = conf.Krb5.KerberosConfigPath
-		}
-	}
-	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
-		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
-		config.Net.TLS.Config = tlsConfig
-	}
-	if conf.Producer.MaxMessageBytes != 0 {
-		config.Producer.MaxMessageBytes = conf.Producer.MaxMessageBytes
-	}
-	if conf.Producer.Compression != "" {
-		switch conf.Producer.Compression {
-		case "snappy":
-			config.Producer.Compression = sarama.CompressionSnappy
-		case "gzip":
-			config.Producer.Compression = sarama.CompressionGZIP
-		case "lz4":
-			config.Producer.Compression = sarama.CompressionLZ4
-		case "zstd":
-			config.Producer.Compression = sarama.CompressionZSTD
-		case "none":
-			config.Producer.Compression = sarama.CompressionNone
-		}
-	} else {
-		// Use snappy as default if none other is specified
-		config.Producer.Compression = sarama.CompressionSnappy
-	}
-	return config
-
-}
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 
 	var admin KafkaAdmin
@@ -348,12 +297,14 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	var topicResults []TopicResult
 	existing_topics := admin.ListTopics()
 	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
-	newTopics := getTopicNamesDiff(existing_topics, &topics)
+	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
 	// Initialize newTopicsStatus to false
 	for _, name := range newTopics {
 		newTopicsStatus[name] = false
 	}
 
+	log.Tracef("creating topics (dry_run=%v)", dry_run)
 	// Create new topics
 	for _, topicName := range newTopics {
 		topic := topics[topicName]
@@ -396,6 +347,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 			}
 		}
 	}
+
 	// TODO we currently don' update replicationFactor for existing topics. Fix that
 	return topicResults
 }

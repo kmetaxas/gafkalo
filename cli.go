@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Make it global so that it can be accessed in callbacks, though its not a great solution
@@ -147,7 +148,10 @@ func GetInputData(config Configuration) DesiredState {
 func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin) {
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	sradmin := NewSRAdmin(&config)
-	mdsadmin := NewMDSAdmin(config.Connections.Mds)
+	mdsadmin := new(MDSAdmin)
+	if config.Connections.Mds != (MDSConfig{}) {
+		mdsadmin = NewMDSAdmin(config.Connections.Mds)
+	}
 	connectAdmin := new(ConnectAdmin)
 	if config.Connections.Connect != (ConnectConfig{}) {
 		newConnectAdmin, err := NewConnectAdmin(&config.Connections.Connect)
@@ -159,11 +163,14 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
 }
 func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) *Report {
+	var connectResults []ConnectorResult
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
-	connectResults := connectadmin.Reconcile(inputData.Connectors, dryRun)
+	if (*connectadmin != ConnectAdmin{}) {
+		connectResults = connectadmin.Reconcile(inputData.Connectors, dryRun)
+	}
 
 	return NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
 }

@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/binary"
+
 	"github.com/Shopify/sarama"
+
 	//"github.com/fatih/color"
+	"io/ioutil"
+
 	"github.com/kmetaxas/srclient"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 )
 
 type Producer struct {
@@ -114,6 +117,7 @@ func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bo
 	msg.Topic = topic
 	var err error
 	var valuePayload []byte
+	var keyPayload []byte
 	if serialize {
 		// Value
 		if value != nil {
@@ -125,9 +129,14 @@ func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bo
 			valuePayload = sarama.ByteEncoder(nil)
 		}
 		msg.Value = sarama.ByteEncoder(valuePayload)
-		keyPayload, err := c.GetSerializedPayload(topic, string(*key), valSchemaPath, "AVRO", true)
-		if err != nil {
-			log.Fatal(err)
+		// Key
+		if key != nil {
+			keyPayload, err = c.GetSerializedPayload(topic, string(*key), valSchemaPath, "AVRO", true)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			keyPayload = sarama.ByteEncoder(nil)
 		}
 		msg.Key = sarama.ByteEncoder(keyPayload)
 	} else {

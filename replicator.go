@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -35,14 +36,18 @@ func (r *Replicator) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 func (r *Replicator) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for message := range claim.Messages() {
-		err := r.producer.SendByteMsg(r.toTopic, message.Key, message.Value)
-		if err != nil {
-			return err
+	for {
+		select {
+		case message := <-claim.Messages():
+			err := r.producer.SendByteMsg(r.toTopic, message.Key, message.Value)
+			if err != nil {
+				return err
+			}
+			session.MarkMessage(message, "")
+		case <-session.Context().Done():
+			return nil
 		}
-		session.MarkMessage(message, "")
 	}
-	return nil
 }
 
 func NewReplicator(consumer *Consumer, producer *Producer, fromTopic, toTopic string) (*Replicator, error) {
