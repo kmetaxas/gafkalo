@@ -315,7 +315,7 @@ func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition in
 	}
 	jsondata, err := json.Marshal(&recordCtx)
 	if err != nil {
-		fmt.Println("Error marshaling %+v to json", recordCtx)
+		fmt.Printf("Error marshaling %+v to json\n", recordCtx)
 	} else {
 		fmt.Println(string(jsondata))
 	}
