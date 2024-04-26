@@ -73,6 +73,17 @@ type CustomRecordTemplateContext struct {
 	ValSchemaID int       `json:"value_schema_id"` // The Schema registry ID of the Value schema
 }
 
+type RecordPrinterContext struct {
+	Topic       string      `json:"topic"`
+	Key         interface{} `json:"key"`
+	Value       interface{} `json:"value"`
+	Timestamp   time.Time   `json:"timestamp"`
+	Partition   int32       `json:"partition"`
+	Offset      int64       `json:"offset"`
+	KeySchemaID int         `json:"key_schema_id"`   // The schema registry ID of the Key schema
+	ValSchemaID int         `json:"value_schema_id"` // The Schema registry ID of the Value schema
+}
+
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -303,7 +314,10 @@ func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition 
 }
 
 func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
-	recordCtx := CustomRecordTemplateContext{
+	var valI interface{}
+	var keyI interface{}
+
+	recordCtx := RecordPrinterContext{
 		Topic:       topic,
 		Key:         key,
 		Value:       value,
@@ -313,6 +327,16 @@ func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition in
 		KeySchemaID: keySchemaID,
 		ValSchemaID: valSchemaID,
 	}
+	// Try to deserialize key + value in order to provide nicer output. If it fails just use as is
+	err := json.Unmarshal([]byte(value), &valI)
+	if err == nil {
+		recordCtx.Value = valI
+	}
+	err = json.Unmarshal([]byte(key), &keyI)
+	if err == nil {
+		recordCtx.Key = keyI
+	}
+
 	jsondata, err := json.Marshal(&recordCtx)
 	if err != nil {
 		fmt.Printf("Error marshaling %+v to json\n", recordCtx)
