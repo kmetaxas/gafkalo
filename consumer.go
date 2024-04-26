@@ -63,14 +63,14 @@ type Consumer struct {
 }
 
 type CustomRecordTemplateContext struct {
-	Topic       string
-	Key         string
-	Value       string
-	Timestamp   time.Time
-	Partition   int32
-	Offset      int64
-	KeySchemaID int // The schema registry ID of the Key schema
-	ValSchemaID int // The Schema registry ID of the Value schema
+	Topic       string    `json:"topic"`
+	Key         string    `json:"key"`
+	Value       string    `json:"value"`
+	Timestamp   time.Time `json:"timestamp"`
+	Partition   int32     `json:"partition"`
+	Offset      int64     `json:"offset"`
+	KeySchemaID int       `json:"key_schema_id"`   // The schema registry ID of the Key schema
+	ValSchemaID int       `json:"value_schema_id"` // The Schema registry ID of the Value schema
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
@@ -263,7 +263,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 			if c.customRecordTemplate != nil {
 				c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
 			} else {
-				prettyPrintRecord(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+				c.recordPrinterFunc(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
 			}
 			session.MarkMessage(message, "")
 			// Do we need to call Commit()?

@@ -33,10 +33,12 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 
 	consumer := NewConsumer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Topics, cmd.GroupID, offsets, useOffsets, cmd.DeserializeKey, cmd.DeserializeValue, cmd.FromBeginning, cmd.RecordTemplate, nil)
 	switch cmd.OutputFormat {
-	case "json":
+	case "text":
 		consumer.SetRecordPrinterFunc(prettyPrintRecord)
-	default:
+	case "json":
 		consumer.SetRecordPrinterFunc(jsonPrintRecord)
+	default:
+		log.Fatal("Unknown output format")
 	}
 	err = consumer.Consume(cmd.MaxRecords)
 	if err != nil {
