@@ -230,7 +230,7 @@ func randNonRepeatingIntSet(brokerIDs []int32, size int) ([]int32, error) {
 
 }
 
-/// Generate a new partitioning plan. If oldPlan is provided then respect that.
+// / Generate a new partitioning plan. If oldPlan is provided then respect that.
 // if oldPlan is nil then it creates a plan for the requested count.
 // if count == len(oldPlan) then a new plan is created (respecting oldPlan if possible). This is typicaly to modify replication factor
 // If count != len(oldPlan) That is an error
@@ -297,7 +297,7 @@ func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) 
 	var topicResults []TopicResult
 	existing_topics := admin.ListTopics()
 	newTopicsStatus := make(map[string]bool) // for each topic name if it failed or succeeded creation
-	newTopics := getTopicNamesDiff(&existing_topics, &topics)
+	newTopics := getTopicNamesDiff(existing_topics, &topics)
 	log.Tracef("Topics to create %v (dry_run=%v)", newTopics, dry_run)
 	// Initialize newTopicsStatus to false
 	for _, name := range newTopics {
