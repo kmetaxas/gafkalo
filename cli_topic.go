@@ -13,10 +13,30 @@ var topicDescribeTmplData string
 
 type TopicCmd struct {
 	Describe DescribeTopicCmd `cmd help:"Describe topic"`
+	List     ListTopicsCmd    `cmd help:"List topics"`
 }
 
 type DescribeTopicCmd struct {
 	Name string `arg required help:"Topic name"`
+}
+
+type ListTopicsCmd struct {
+	Describe bool `help:"Describe topics as well" `
+}
+
+func (cmd *ListTopicsCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
+	topics := kafkadmin.ListTopics()
+	for name, topic := range topics {
+		if cmd.Describe {
+			fmt.Printf("Topic:%s\tPartitions:%d\tReplicationFactor:%d\n", name, topic.Partitions,
+				topic.ReplicationFactor)
+		} else {
+			fmt.Printf("%s\n", name)
+		}
+	}
+	return nil
 }
 
 func (cmd *DescribeTopicCmd) Run(ctx *CLIContext) error {

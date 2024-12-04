@@ -1,9 +1,5 @@
 package main
 
-import (
-	"github.com/Shopify/sarama"
-)
-
 type Results struct {
 	Topics           []TopicResult
 	Schemas          []SchemaResult
@@ -61,10 +57,10 @@ func TopicResultFromTopic(topic Topic) TopicResult {
 }
 
 // Fill-in
-func (tr *TopicResult) FillFromOldTopic(old sarama.TopicDetail) {
-	tr.OldPartitions = old.NumPartitions
+func (tr *TopicResult) FillFromOldTopic(old Topic) {
+	tr.OldPartitions = old.Partitions
 	tr.OldReplicationFactor = old.ReplicationFactor
-	tr.OldConfigs = old.ConfigEntries
+	tr.OldConfigs = old.Configs
 }
 
 // A nice , easy way to process changes in configs
