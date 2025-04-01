@@ -5,11 +5,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/mitchellh/mapstructure"
+	log "github.com/sirupsen/logrus"
 )
 
 type ConnectAdmin struct {
@@ -544,7 +545,8 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 	*/
 	existingConnectorNames, err := admin.ListConnectorsExpanded()
 	if err != nil {
-		log.Fatal("Failed to list connectors")
+		log.Error("Failed to list connectors")
+		return connectorResults
 	}
 	for _, connectorConf := range connectorConfigs {
 		// Do a validate call before creating the ConnectorResult as this will give us more info about potential errors , coming direcly from Connect API itself (and the connector class)
