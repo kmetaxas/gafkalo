@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shopify/sarama"
-	"github.com/damiannolan/sasl/oauthbearer"
+	"github.com/IBM/sarama"
+	"github.com/kmetaxas/sarama-sasl/oauthbearer"
 	log "github.com/sirupsen/logrus"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/decrypt"
@@ -116,7 +116,6 @@ func parseConfig(configFile string) Configuration {
 		log.Fatalf("Failed to read kafkalo config: %s\n", err)
 	}
 	return Config
-
 }
 
 // Get the input patterns to use
@@ -167,11 +166,11 @@ func normalizeSchemaPath(inputFile string) string {
 func isValidInputFile(filename string) bool {
 	fi, err := os.Stat(filename)
 	if err != nil {
-		//log.Printf("Ignoring file %s due to: %s\n", filename, err)
+		// log.Printf("Ignoring file %s due to: %s\n", filename, err)
 		return false
 	}
 	if !fi.Mode().IsRegular() {
-		//log.Printf("Ignoring file %s because its not regular\n", filename)
+		// log.Printf("Ignoring file %s because its not regular\n", filename)
 		return false
 	}
 	return true
@@ -230,7 +229,6 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		// We use a special handler if Confluent Metadata service tokens are used.
 		if conf.TokenAuth.IsConfluentMDS {
 			config.Net.SASL.TokenProvider = NewTokenProviderConfluentMDS(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl, conf.TokenAuth.CA)
-
 		} else {
 			config.Net.SASL.TokenProvider = oauthbearer.NewTokenProvider(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
 		}
@@ -260,5 +258,4 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		config.Producer.Compression = sarama.CompressionSnappy
 	}
 	return config
-
 }
