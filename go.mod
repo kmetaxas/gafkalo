@@ -7,7 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/IBM/sarama v1.46.0
 	github.com/alecthomas/kong v0.2.16
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.16.0
 	github.com/google/go-cmp v0.6.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/kmetaxas/sarama-sasl v0.0.0-20250906140818-cb8eab95359e
@@ -52,11 +52,11 @@ require (
 	github.com/goware/prefixer v0.0.0-20160118172347-395022866408 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-hclog v1.2.0 // indirect
+	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.3 // indirect
@@ -80,7 +80,7 @@ require (
 	github.com/lib/pq v1.10.5 // indirect
 	github.com/linkedin/goavro/v2 v2.11.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
