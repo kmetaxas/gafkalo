@@ -13,7 +13,7 @@ type ConsumerCmd struct {
 	FromBeginning    bool     `default:"false" help:"Start reading from the beginning of the topic"`
 	SetOffsets       string   `help:"Set offsets for partition on topic. Syntax is: TOPICNAME=partition:offset,partition:offset,.."`
 	RecordTemplate   string   `help:"Path to a golan template to format records"`
-	OutputFormat     string   `help:"Output format. [text,json]"`
+	OutputFormat     string   `default:"text" help:"Output format. [text,json]"`
 }
 
 func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
@@ -45,5 +45,4 @@ func (cmd *ConsumerCmd) Run(ctx *CLIContext) error {
 		log.Fatal(err)
 	}
 	return nil
-
 }
