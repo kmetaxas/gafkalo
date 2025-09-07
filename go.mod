@@ -10,7 +10,7 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/google/go-cmp v0.6.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
-	github.com/kmetaxas/sarama-sasl v0.0.0-20250906140818-cb8eab95359
+	github.com/kmetaxas/sarama-sasl v0.0.0-20250906140818-cb8eab95359e
 	github.com/kmetaxas/srclient v0.4.3
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nsf/jsondiff v0.0.0-20210303162244-6ea32392771e
