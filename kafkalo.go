@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/alecthomas/kong"
 	log "github.com/sirupsen/logrus"
 )
@@ -20,7 +20,7 @@ func main() {
 		logLevel = log.ErrorLevel
 	}
 	log.SetLevel(logLevel)
-	//Set sarama logging
+	// Set sarama logging
 	sarama_logger := log.New()
 	sarama_logger.SetReportCaller(true)
 	sarama_logger.SetLevel(logLevel)

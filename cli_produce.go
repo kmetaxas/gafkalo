@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -72,5 +72,4 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 		fmt.Printf(">")
 	}
 	return nil
-
 }

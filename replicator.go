@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,6 +35,7 @@ func (r *Replicator) Setup(session sarama.ConsumerGroupSession) error {
 func (r *Replicator) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
+
 func (r *Replicator) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {

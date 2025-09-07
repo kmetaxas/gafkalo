@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +59,7 @@ func NewSchemaRegistryCache(config *Configuration) (*SchemaRegistryCache, error)
 	srCache.schemas = make(map[int]string)
 	srCache.subjects = make(map[string]map[int]int)
 	srCache.compatPerSubject = make(map[string]string)
-	srCache.globalCompat = "BACKWARD" //default is BACKWARD.
+	srCache.globalCompat = "BACKWARD" // default is BACKWARD.
 	return &srCache, err
 }
 
@@ -129,7 +129,6 @@ func (r *SchemaRegistryCache) Cleanup(session sarama.ConsumerGroupSession) error
 }
 
 func (r *SchemaRegistryCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-
 	for {
 		select {
 		case message := <-claim.Messages():
@@ -174,7 +173,6 @@ func (r *SchemaRegistryCache) processConfigValue(key *SRKey, data []byte) error 
 		log.Debugf("Global compatibility update seen (%s)", value.CompatibilityLevel)
 		r.globalCompat = value.CompatibilityLevel
 	} else {
-
 		r.compatPerSubject[subject] = value.CompatibilityLevel
 	}
 
@@ -233,7 +231,6 @@ func (c *SchemaRegistryCache) GetSubjects() []string {
 
 // This is a debugging method. TODO remove when not needed
 func (c *SchemaRegistryCache) ListSubjects() {
-
 	for key, value := range c.subjects {
 		log.Printf("Subject %s:", key)
 		custom_compat := c.compatPerSubject[key]
@@ -241,5 +238,4 @@ func (c *SchemaRegistryCache) ListSubjects() {
 			log.Printf("Version %d -> ID: %d (custom compatibility: %s", version, schemaID, custom_compat)
 		}
 	}
-
 }

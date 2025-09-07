@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/binary"
+	"io/ioutil"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 
 	//"github.com/fatih/color"
-	"io/ioutil"
 
 	"github.com/kmetaxas/srclient"
 	log "github.com/sirupsen/logrus"
@@ -80,7 +80,6 @@ func (c *Producer) GetOrCreateSchema(topic, schemaData string, format srclient.S
 		return schema, err
 	}
 	return schema, nil
-
 }
 
 func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format srclient.SchemaType, isKey bool) ([]byte, error) {
@@ -108,7 +107,6 @@ func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format s
 		resp = makeBinaryRecordUsingSchema(data, schema)
 	}
 	return resp, nil
-
 }
 
 // Takes care of generating a ProduceMessage.
@@ -149,6 +147,7 @@ func (c *Producer) makeProduceMsg(topic string, key, value *string, serialize bo
 	}
 	return msg
 }
+
 func (c *Producer) Produce(topic string, key, value *string, serialize bool, valSchemaPath, keySchemaPath string) error {
 	msg := c.makeProduceMsg(topic, key, value, serialize, valSchemaPath, keySchemaPath)
 	_, offset, err := c.Client.SendMessage(msg)
@@ -158,7 +157,6 @@ func (c *Producer) Produce(topic string, key, value *string, serialize bool, val
 	}
 	log.Printf("Produced record with offset[%v]\n", offset)
 	return nil
-
 }
 
 // Send a kafka message as bytes. No serializes or schema registry actions are performed. USer is responsible for the payload

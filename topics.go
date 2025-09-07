@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -66,11 +66,9 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	config.InsecureSkipVerify = SkipVerify
 	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
 	return config
-
 }
 
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
-
 	var admin KafkaAdmin
 	config := SaramaConfigFromKafkaConfig(conf)
 
@@ -80,7 +78,6 @@ func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
 	}
 	admin.AdminClient = saramaAdmin
 	return admin
-
 }
 
 // Return a list of Kafka topics and fill cache.
@@ -96,7 +93,6 @@ func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
 
 // Unmarshal yaml callback for Topic
 func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
-
 	type rawTopic Topic
 	raw := rawTopic{}
 	if err := unmarshal(&raw); err != nil {
@@ -203,17 +199,16 @@ func randNonRepeatingIntSet(brokerIDs []int32, size int) ([]int32, error) {
 	if size > len(brokerIDs) {
 		return result, fmt.Errorf("requested set size (%d) bigger than available cluster size of %d", size, len(brokerIDs))
 	}
-	//for i := from; i < to+1; i++ {
+	// for i := from; i < to+1; i++ {
 	rand.Shuffle(len(brokerIDs), func(i, j int) {
 		brokerIDs[i], brokerIDs[j] = brokerIDs[j], brokerIDs[i]
 	})
 	result = brokerIDs[:size]
-	//log.Printf("randNonRepeatingIntSet returning %v from a larger set of %v", result, numSet)
+	// log.Printf("randNonRepeatingIntSet returning %v from a larger set of %v", result, numSet)
 	return result, err
-
 }
 
-/// Generate a new partitioning plan. If oldPlan is provided then respect that.
+// / Generate a new partitioning plan. If oldPlan is provided then respect that.
 // if oldPlan is nil then it creates a plan for the requested count.
 // if count == len(oldPlan) then a new plan is created (respecting oldPlan if possible). This is typicaly to modify replication factor
 // If count != len(oldPlan) That is an error
@@ -275,7 +270,6 @@ func calculatePartitionPlan(count int32, numBrokers int, replicationFactor int16
 
 // Reconcile actual with desired state
 func (admin *KafkaAdmin) ReconcileTopics(topics map[string]Topic, dry_run bool) []TopicResult {
-
 	// Get topics which are to be created
 	var topicResults []TopicResult
 	existing_topics := admin.ListTopics()

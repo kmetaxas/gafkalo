@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 )
 
 type Results struct {
@@ -24,7 +24,6 @@ type TopicResult struct {
 	OldConfigs           map[string]*string // Old configs. Can be compared with NewConfigs.
 	Errors               []string           // List of errors reported
 	IsNew                bool               // NEwly created. Not expected to have anything old
-
 }
 
 type SchemaResult struct {
@@ -98,6 +97,7 @@ func (tr *TopicResult) ChangedConfigs() []ChangedConfig {
 	}
 	return res
 }
+
 func (tr *TopicResult) HasChangedConfigs() bool {
 	return len(tr.ChangedConfigs()) > 0
 }
@@ -110,6 +110,7 @@ func (tr *TopicResult) HasErrors() bool {
 		return false
 	}
 }
+
 func (tr *TopicResult) PartitionsChanged() bool {
 	if (tr.NewPartitions != tr.OldPartitions) && !tr.IsNew {
 		return true

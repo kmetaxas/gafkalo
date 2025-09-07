@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,6 +59,7 @@ func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
 
 	return &token, nil
 }
+
 func NewTokenProviderConfluentMDS(client, secret, url, caPath string) sarama.AccessTokenProvider {
 	tokenprovider := TokenProvider{
 		clientId: client,

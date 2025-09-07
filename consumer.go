@@ -17,7 +17,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/fatih/color"
 	"github.com/kmetaxas/srclient"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +33,6 @@ func (w *lockedWriter) Write(b []byte) (int, error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	return w.writer.Write(b)
-
 }
 
 type RecordPrinterFunc func(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int)
@@ -87,7 +86,7 @@ type RecordPrinterContext struct {
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
 	rand.Seed(time.Now().UTC().UnixNano())
-	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	s := make([]rune, n)
 	for i := range s {
@@ -103,7 +102,6 @@ func loadTemplate(path string) *template.Template {
 	}
 	tmpl := template.Must(template.New("kafkarecord").Parse(string(tplData)))
 	return tmpl
-
 }
 
 func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID string, partitionOffsets map[int32]int64, useOffsets bool, deserializeKey, deserializeValue bool, fromBeginning bool, customTemplateFile string, consumerGroupHandler sarama.ConsumerGroupHandler) *Consumer {
@@ -165,6 +163,7 @@ func NewConsumer(kConf KafkaConfig, srConf *SRConfig, topics []string, groupID s
 func (c *Consumer) SetRecordPrinterFunc(f RecordPrinterFunc) {
 	c.recordPrinterFunc = f
 }
+
 func (c *Consumer) Consume(maxRecords int) error {
 	// wait for ready
 	c.ready = make(chan bool)
@@ -241,7 +240,6 @@ func (c *Consumer) DeserializePayload(payload []byte) (string, int, error) {
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-
 	for {
 		select {
 		case message := <-claim.Messages():
@@ -266,7 +264,6 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 						log.Fatal(err)
 					}
 				}
-
 			} else {
 				val = string(message.Value)
 			}
@@ -289,8 +286,8 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 
 		}
 	}
-
 }
+
 func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID}
 	err := c.customRecordTemplate.Execute(c.serializingWriter, context)
@@ -298,6 +295,7 @@ func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, times
 		log.Fatal(err)
 	}
 }
+
 func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
 	fmtOffset := color.New(color.FgCyan).SprintFunc()
 	fmtValue := color.New(color.FgGreen).SprintFunc()
