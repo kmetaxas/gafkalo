@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/IBM/sarama"
@@ -41,7 +41,7 @@ func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
 		log.Println(err)
 		return nil, err
 	}
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
 	}

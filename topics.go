@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
+	"os"
 
 	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
@@ -53,7 +53,7 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 		rootCAs = x509.NewCertPool()
 	}
 	if CAPath != "" {
-		pem, err := ioutil.ReadFile(CAPath)
+		pem, err := os.ReadFile(CAPath)
 		if err != nil {
 			log.Fatal(err)
 		}

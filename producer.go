@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/binary"
-	"io/ioutil"
+	"os"
 
 	"github.com/IBM/sarama"
 
@@ -86,7 +86,7 @@ func (c *Producer) GetSerializedPayload(topic, data, schemaPath string, format s
 	var resp []byte
 	subject := getSubjectForTopic(topic, isKey)
 	if schemaPath != "" {
-		schemaData, err := ioutil.ReadFile(schemaPath)
+		schemaData, err := os.ReadFile(schemaPath)
 		if err != nil {
 			return resp, err
 		}

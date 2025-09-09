@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -17,7 +16,7 @@ type ClientTopicRole struct {
 	Topic      string `yaml:"topic"`
 	IsLiteral  bool   `yaml:"isLiteral"`
 	Strict     bool   `yaml:"strict"`
-	Idempotent bool   `yaml:"idempotent"` //Only used for roles allowing producer
+	Idempotent bool   `yaml:"idempotent"` // Only used for roles allowing producer
 }
 
 type ClientGroupRole struct {
@@ -46,7 +45,6 @@ func mergeClients(target Client, source Client) Client {
 	target.ResourceownerFor = append(target.ResourceownerFor, source.ResourceownerFor...)
 	target.Groups = append(target.Groups, source.Groups...)
 	return target
-
 }
 
 type MDSAdmin struct {
@@ -113,7 +111,6 @@ func (admin *MDSAdmin) getKafkaClusterID() string {
 
 // Check if a role is present in Cache. Use the ClientResult object to do so
 func (admin *MDSAdmin) roleExists(role ClientResult, existingRoles MDSRolebindings) bool {
-
 	var found bool = false
 	switch role.Role {
 	case "DeveloperRead":
@@ -126,6 +123,7 @@ func (admin *MDSAdmin) roleExists(role ClientResult, existingRoles MDSRolebindin
 	}
 	return found
 }
+
 func compareResultWithResourcePatterns(res ClientResult, patterns []MDSResourcePattern) bool {
 	for _, pattern := range patterns {
 		if (res.ResourceName == pattern.Name) && (res.ResourceType == pattern.ResourceType) && (res.PatternType == pattern.PatternType) {
@@ -167,7 +165,6 @@ func (admin *MDSAdmin) SetRoleBinding(context int, res_type string, res_name str
 }
 
 func (admin *MDSAdmin) doRest(method string, url string, payload io.Reader) ([]byte, error) {
-
 	transport := &http.Transport{TLSClientConfig: admin.TlsConfig}
 	hClient := http.Client{Transport: transport}
 	req, err := http.NewRequest(method, url, payload)
@@ -183,13 +180,11 @@ func (admin *MDSAdmin) doRest(method string, url string, payload io.Reader) ([]b
 		log.Println(err)
 		return nil, err
 	}
-	respBody, err := ioutil.ReadAll(resp.Body)
-
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
 	}
 	return respBody, nil
-
 }
 
 // context is one of CTX_* constants
@@ -214,7 +209,6 @@ func (admin *MDSAdmin) getContext(context int) MDSContext {
 
 // For a given principal name, get the rolebindings assigned
 func (admin *MDSAdmin) getRoleBindingsForPrincipalContext(principal string, context int) MDSRolebindings {
-
 	type MDSRolebindingResponseInner map[string]MDSRolebindings
 	ctx := admin.getContext(context)
 	url := fmt.Sprintf("%s/security/1.0/lookup/principal/%s/resources", admin.Url, principal)
@@ -233,7 +227,6 @@ func (admin *MDSAdmin) getRoleBindingsForPrincipalContext(principal string, cont
 		log.Fatal(err)
 	}
 	return respObj[principal]
-
 }
 
 func getPrefixStr(isLiteral bool) string {
@@ -244,8 +237,8 @@ func getPrefixStr(isLiteral bool) string {
 		rval = "LITERAL"
 	}
 	return rval
-
 }
+
 func (admin *MDSAdmin) getContextValByID(context int) string {
 	var rval string
 	switch context {
@@ -260,8 +253,8 @@ func (admin *MDSAdmin) getContextValByID(context int) string {
 	}
 	return rval
 }
-func (admin *MDSAdmin) getRoleBindingsForPrincipal(principal string) MDSRolebindings {
 
+func (admin *MDSAdmin) getRoleBindingsForPrincipal(principal string) MDSRolebindings {
 	// Check if it is in the Cache and return it, otherwise it can become a very expensive operation
 	if rolebindings, exists := admin.RolebindingsCache[principal]; exists {
 		return rolebindings
@@ -294,7 +287,6 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, isLiteral b
 	existingRoles := admin.getRoleBindingsForPrincipal(principal)
 	if isLiteral {
 		subjects = []string{fmt.Sprintf("%s-value", topic), fmt.Sprintf("%s-key", topic)}
-
 	} else {
 		subjects = []string{topic}
 	}
@@ -323,6 +315,7 @@ func (admin *MDSAdmin) doConsumerFor(topic string, principal string, isLiteral b
 	}
 	return res, nil
 }
+
 func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral, strict, idempotent, dryRun bool) ([]ClientResult, error) {
 	var res []ClientResult
 	var err error
@@ -334,7 +327,6 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral, 
 		subjects = []string{fmt.Sprintf("%s-value", topic), fmt.Sprintf("%s-key", topic)}
 	} else {
 		subjects = []string{topic}
-
 	}
 	if !strict {
 		srRoles = append(srRoles, "DeveloperWrite")
@@ -387,7 +379,6 @@ func (admin *MDSAdmin) doProducerFor(topic string, principal string, isLiteral, 
 	}
 
 	return res, nil
-
 }
 
 func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLiteral, idempotent, dryRun bool) ([]ClientResult, error) {
@@ -400,7 +391,6 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 		subjects = []string{fmt.Sprintf("%s-value", topic), fmt.Sprintf("%s-key", topic)}
 	} else {
 		subjects = []string{topic}
-
 	}
 
 	// Add ResourceOwner on the topic
@@ -445,7 +435,6 @@ func (admin *MDSAdmin) doResourceOwnerFor(topic string, principal string, isLite
 	}
 
 	return res, nil
-
 }
 
 /*
@@ -506,7 +495,6 @@ func (admin *MDSAdmin) doTransactionalIdRole(transactionalIdName, principal stri
 	}
 
 	return res, err
-
 }
 
 func (admin *MDSAdmin) Reconcile(clients map[string]Client, dryRun bool) []ClientResult {

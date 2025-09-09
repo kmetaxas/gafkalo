@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -96,7 +95,7 @@ func RandomString(n int) string {
 }
 
 func loadTemplate(path string) *template.Template {
-	tplData, err := ioutil.ReadFile(path)
+	tplData, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatal(err)
 	}
