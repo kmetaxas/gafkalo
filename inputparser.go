@@ -1,11 +1,12 @@
 package main
 
 import (
+	"os"
+
+	"github.com/getsops/sops/v3"
+	"github.com/getsops/sops/v3/decrypt"
 	log "github.com/sirupsen/logrus"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 )
 
 // This represents the desired state that the user asked for
@@ -35,7 +36,6 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 	for _, client := range data.Clients {
 		if _, exists := state.Clients[client.Principal]; exists {
 			state.Clients[client.Principal] = mergeClients(state.Clients[client.Principal], client)
-
 		} else {
 			state.Clients[client.Principal] = client
 		}
@@ -47,19 +47,19 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 		} else {
 			state.Connectors[connector.Name] = connector
 		}
-
 	}
 	return nil
 }
+
 func Parse(inputFiles []string) DesiredState {
-	var desiredState = DesiredState{
+	desiredState := DesiredState{
 		Topics:     make(map[string]Topic),
 		Clients:    make(map[string]Client, 20),
 		Connectors: make(map[string]Connector),
 	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
-		rawData, err := ioutil.ReadFile(filename)
+		rawData, err := os.ReadFile(filename)
 		if err != nil {
 			log.Warnf("unable to read %s with error %s\n", filename, err)
 		}

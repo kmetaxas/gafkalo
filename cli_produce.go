@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -32,7 +31,7 @@ func (cmd *ProduceCmd) Run(ctx *CLIContext) error {
 	producer := NewProducer(config.Connections.Kafka, &config.Connections.Schemaregistry, cmd.Acks, cmd.Idempotent)
 	// If WholeFile is provided, read the file and produce it.
 	if cmd.WholeFile != "" {
-		data, err := ioutil.ReadFile(cmd.WholeFile)
+		data, err := os.ReadFile(cmd.WholeFile)
 		if err != nil {
 			log.Printf("unable to read %s with error %s\n", cmd.WholeFile, err)
 		}

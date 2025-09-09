@@ -5,11 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
-	"io"
-	"io/ioutil"
-	"net/http"
 )
 
 type ConnectAdmin struct {
@@ -115,7 +115,6 @@ Convenience method to get the errors in a validation request
 Returns a map where the key is the field name and the value is an array of strings with all the errors for that field
 */
 func (v *ConnectorPluginValidateResponse) GetErrors() map[string]([]string) {
-
 	resp := make(map[string]([]string))
 	for _, config := range v.Configs {
 		resp[config.Definition.Name] = append(resp[config.Definition.Name], config.Value.Errors...)
@@ -146,7 +145,7 @@ func (admin *ConnectAdmin) doREST(method, api string, payload io.Reader) ([]byte
 		return nil, httpStatus, err
 	}
 	httpStatus = resp.StatusCode
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, httpStatus, err
 	}
@@ -170,10 +169,10 @@ func (admin *ConnectAdmin) ListConnectors() ([]string, error) {
 
 /*
 Will list connectors and set expanded info for 'status' and 'info', effectively
- Getting all the info for the cluster
+
+	Getting all the info for the cluster
 */
 func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error) {
-
 	type ConnectorResponse struct {
 		Info struct {
 			Name   string            `json:"name" mapstructure:"name"`
@@ -226,7 +225,6 @@ func (admin *ConnectAdmin) ListConnectorsExpanded() (*ConnectClusterState, error
 	}
 	log.Tracef("Returning clusterstate %v\n", clusterState)
 	return &clusterState, nil
-
 }
 
 // Get information about the connector. corresponds to  GET /connectors/(string: name)
@@ -242,7 +240,6 @@ func (admin *ConnectAdmin) GetConnectorInfo(connector string) (*Connector, error
 		return &resp, err
 	}
 	return &resp, nil
-
 }
 
 // Get connector status
@@ -261,6 +258,7 @@ func (admin *ConnectAdmin) GetConnectorStatus(connector string) (*ConnectorStatu
 
 	return &status, nil
 }
+
 func (admin *ConnectAdmin) ListTasksForConnector(connector string) (map[int]*TaskStatus, error) {
 	connectors := make(map[int]*TaskStatus)
 
@@ -295,7 +293,6 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 		taskStatus.isRunning = true
 	}
 	return taskStatus, nil
-
 }
 
 func NewConnectorFromJson(jsonDefinition string) (*Connector, error) {
@@ -305,7 +302,6 @@ func NewConnectorFromJson(jsonDefinition string) (*Connector, error) {
 		return &conn, err
 	}
 	return &conn, nil
-
 }
 
 // Patch an existing connector config.
@@ -349,7 +345,6 @@ func (admin *ConnectAdmin) PatchConnector(conn *Connector) (Connector, bool, err
 	respConnector.Config = response.Config
 	respConnector.Tasks = response.Tasks
 	return respConnector, createdNew, nil
-
 }
 
 // Create a new Connector.
@@ -389,7 +384,6 @@ func (admin *ConnectAdmin) CreateConnector(conn *Connector) (string, error) {
 	}
 	name = response.Name
 	return name, nil
-
 }
 
 /*
@@ -414,7 +408,6 @@ func (admin *ConnectAdmin) ValidateConnectorConfig(connector Connector) (Connect
 	}
 	if httpStatusCode != 200 {
 		return resp, fmt.Errorf("Connector validation for class %s failed with HTTP status code %d and message: %s", class, httpStatusCode, string(respBody))
-
 	}
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
@@ -440,7 +433,6 @@ func (admin *ConnectAdmin) DeleteConnector(connector string) error {
 		return fmt.Errorf("request failed with status code %d\nResponse body: %s", statusCode, respBody)
 	}
 	return nil
-
 }
 
 // Restart task number for connector
@@ -451,11 +443,9 @@ func (admin *ConnectAdmin) RestartTask(connector string, taskID int) error {
 		return err
 	}
 	if statusCode < 200 || statusCode > 400 {
-
 		return fmt.Errorf("railed to restart task %d with status %d (response:%s)", taskID, statusCode, respBody)
 	}
 	return nil
-
 }
 
 // Restart connector
@@ -466,7 +456,6 @@ func (admin *ConnectAdmin) RestartConnector(connector string) error {
 		return err
 	}
 	if statusCode < 200 || statusCode > 400 {
-
 		return fmt.Errorf("railed to restart connector %s (http: %d)(response:%s)", connector, statusCode, respBody)
 	}
 	return nil
@@ -572,7 +561,6 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 				}
 				connectorResults = append(connectorResults, res)
 			}
-
 		} else {
 			if !dryRun {
 				// New connector. Create it

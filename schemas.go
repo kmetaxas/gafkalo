@@ -5,14 +5,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/kmetaxas/srclient"
 	"github.com/nsf/jsondiff"
 	log "github.com/sirupsen/logrus"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"time"
 )
 
 // Schema object to keep track of desired/requested state
@@ -49,7 +50,7 @@ func CreateSchema(SubjectName string, SchemaPath string, Compatibility string, S
 	// Load the schema data
 	pathToSchemaFile := normalizeSchemaPath(SchemaPath)
 	if pathToSchemaFile != "" && SchemaPath != "" {
-		data, err := ioutil.ReadFile(pathToSchemaFile)
+		data, err := os.ReadFile(pathToSchemaFile)
 		if err != nil {
 			log.Fatalf("Unable to create schema with Error: %s\n", err)
 		}
@@ -86,7 +87,7 @@ type SRAdmin struct {
 	user         string
 	pass         string
 	TlsConfig    *tls.Config
-	UseSRCache   bool //Use schema registy cache for requests
+	UseSRCache   bool // Use schema registy cache for requests
 	SRCache      *SchemaRegistryCache
 }
 
@@ -140,7 +141,6 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 }
 
 func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
-
 	// Create a value subject (isKey = false)
 	newSchema, err := admin.Client.CreateSchema(schema.SubjectName, schema.SchemaData, schema.SchemaType)
 	if err != nil {
@@ -169,13 +169,11 @@ func (admin *SRAdmin) makeRestCall(method string, uri string, payload io.Reader)
 		log.Println(err)
 		return nil, err
 	}
-	respBody, err := ioutil.ReadAll(resp.Body)
-
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
 	}
 	return respBody, nil
-
 }
 
 // Lookup a Schema object in the Registry.
@@ -240,7 +238,6 @@ func (admin *SRAdmin) SetCompatibility(schema Schema, compatibility string) erro
 		log.Fatal(err)
 	}
 	respBody, err := admin.makeRestCall("PUT", fmt.Sprintf("%s/config/%s", admin.url, schema.SubjectName), bytes.NewBuffer(request))
-
 	if err != nil {
 		log.Fatalf("Failed alter compatibility for schema %s with error: %s", schema.SubjectName, err)
 	}
@@ -364,7 +361,6 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 	result.NewCompat = newCompat
 	result.Changed = mustRegister || compatChanged
 	return &result
-
 }
 
 // Get the list of topics and reconcile all subjects
@@ -383,7 +379,6 @@ func (admin *SRAdmin) Reconcile(topics map[string]Topic, dryRun bool) []SchemaRe
 	}
 
 	return schemaResults
-
 }
 
 func getSubjectForTopic(topic string, isKey bool) string {

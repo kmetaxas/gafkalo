@@ -3,11 +3,11 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
+
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"os"
 )
 
 type ConnectCmd struct {
@@ -25,8 +25,7 @@ type ListConnectorsCmd struct {
 	Expanded bool `default:"false" help:"Expanded status"`
 }
 
-type HealthCheckCmd struct {
-}
+type HealthCheckCmd struct{}
 type DescribeConnectorCmd struct {
 	Name string `arg required help:"Connector name"`
 }
@@ -46,8 +45,7 @@ type HealCmd struct {
 	Name string `arg  help:"Connector name"`
 }
 
-type ListPluginsCmd struct {
-}
+type ListPluginsCmd struct{}
 
 func (cmd *ListPluginsCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
@@ -111,7 +109,6 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 	tasktb.AppendHeader(table.Row{"ID", "STATUS", "WORKER", "Is running"})
 	for _, task := range tasks {
 		tasktb.AppendRow(table.Row{task.ID, task.Status, task.WorkerID, task.isRunning})
-
 	}
 	tasktb.Render()
 	return nil
@@ -168,7 +165,7 @@ func (cmd *CreateConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	data, err := ioutil.ReadFile(cmd.JsonFile)
+	data, err := os.ReadFile(cmd.JsonFile)
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
 	}
@@ -190,7 +187,7 @@ func (cmd *UpdateConnectorCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	data, err := ioutil.ReadFile(cmd.JsonFile)
+	data, err := os.ReadFile(cmd.JsonFile)
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", cmd.JsonFile, err)
 	}

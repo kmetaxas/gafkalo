@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -9,10 +8,10 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/getsops/sops/v3"
+	"github.com/getsops/sops/v3/decrypt"
 	"github.com/kmetaxas/sarama-sasl/oauthbearer"
 	log "github.com/sirupsen/logrus"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 )
 
@@ -96,7 +95,7 @@ type Configuration struct {
 func parseConfig(configFile string) Configuration {
 	var configData, data []byte
 	var err error
-	data, err = ioutil.ReadFile(configFile)
+	data, err = os.ReadFile(configFile)
 	if err != nil {
 		log.Printf("unable to read %s with error %s\n", configFile, err)
 	}

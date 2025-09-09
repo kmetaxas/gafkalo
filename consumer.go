@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -85,18 +84,19 @@ type RecordPrinterContext struct {
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
-	rand.Seed(time.Now().UTC().UnixNano())
+	// rand.Seed(time.Now().UTC().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	s := make([]rune, n)
 	for i := range s {
-		s[i] = letters[rand.Intn(len(letters))]
+		s[i] = letters[r.Intn(len(letters))]
 	}
 	return string(s)
 }
 
 func loadTemplate(path string) *template.Template {
-	tplData, err := ioutil.ReadFile(path)
+	tplData, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatal(err)
 	}
