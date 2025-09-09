@@ -84,12 +84,13 @@ type RecordPrinterContext struct {
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
 func RandomString(n int) string {
-	rand.Seed(time.Now().UTC().UnixNano())
+	// rand.Seed(time.Now().UTC().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	s := make([]rune, n)
 	for i := range s {
-		s[i] = letters[rand.Intn(len(letters))]
+		s[i] = letters[r.Intn(len(letters))]
 	}
 	return string(s)
 }
