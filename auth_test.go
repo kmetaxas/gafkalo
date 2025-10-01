@@ -38,6 +38,15 @@ func createTempDir(t *testing.T, prefix string) string {
 	return tempDir
 }
 
+// Clean tempDir, but make sure we don't do that if we are using github actions runner temp
+func cleanUpTempDir(tempDir string) {
+	if runnerTemp := os.Getenv("RUNNER_TEMP"); runnerTemp != "" {
+		return
+	} else {
+		os.RemoveAll(tempDir)
+	}
+}
+
 // Helper function to generate self-signed certificates and Java keystores for mTLS testing
 func generateTestCertificates(t *testing.T, tempDir string) (string, string, string) {
 	// Generate CA private key
@@ -276,7 +285,7 @@ func TestMTLSAuthentication(t *testing.T) {
 
 	// Create temporary directory for certificates
 	tempDir := createTempDir(t, "kafka-mtls-test")
-	defer os.RemoveAll(tempDir)
+	defer cleanUpTempDir(tempDir)
 
 	// Generate unified certificates for both server and client using the same CA
 	caPath, clientCertPath, clientKeyPath := createUnifiedCertificates(t, tempDir)
