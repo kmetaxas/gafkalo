@@ -23,6 +23,21 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// Helper function to create temporary directory, using RUNNER_TEMP if available (for GitHub Actions)
+func createTempDir(t *testing.T, prefix string) string {
+	var tempDir string
+	var err error
+	
+	if runnerTemp := os.Getenv("RUNNER_TEMP"); runnerTemp != "" {
+		tempDir, err = os.MkdirTemp(runnerTemp, prefix)
+	} else {
+		tempDir, err = os.MkdirTemp("", prefix)
+	}
+	
+	require.NoError(t, err)
+	return tempDir
+}
+
 // Helper function to generate self-signed certificates and Java keystores for mTLS testing
 func generateTestCertificates(t *testing.T, tempDir string) (string, string, string) {
 	// Generate CA private key
@@ -140,82 +155,6 @@ func generateTestCertificates(t *testing.T, tempDir string) (string, string, str
 	require.NoError(t, err)
 
 	return caPath, clientCertPath, clientKeyPath
-}
-
-// Helper function to create Java keystores for Kafka SSL using the same CA as the client certificates
-func createJavaKeystores(t *testing.T, tempDir string, caCertPath string) (string, string) {
-	// Create a simple script to generate keystores using the existing CA
-	keystoreScript := `#!/bin/bash
-set -e
-
-# Use the existing CA certificate
-cp ca.crt ca-cert
-
-# Generate server key and certificate using the same CA
-openssl genrsa -out server-key 2048
-openssl req -new -key server-key -out server-req -subj "/C=US/ST=CA/L=SF/O=Test/CN=localhost"
-
-# Create a config file for the server certificate with SAN
-cat > server.conf << EOF
-[req]
-distinguished_name = req_distinguished_name
-req_extensions = v3_req
-prompt = no
-
-[req_distinguished_name]
-C = US
-ST = CA
-L = SF
-O = Test
-CN = localhost
-
-[v3_req]
-keyUsage = keyEncipherment, dataEncipherment
-extendedKeyUsage = serverAuth
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = localhost
-IP.1 = 127.0.0.1
-EOF
-
-# Sign the server certificate with our CA
-openssl x509 -req -in server-req -CA ca-cert -CAkey ca-key -CAcreateserial -out server-cert -days 365 -extensions v3_req -extfile server.conf
-
-# Create PKCS12 keystore for server
-openssl pkcs12 -export -in server-cert -inkey server-key -out server.p12 -name localhost -password pass:confluent
-
-# Convert to JKS keystore
-keytool -importkeystore -deststorepass confluent -destkeypass confluent -destkeystore kafka.keystore.jks -srckeystore server.p12 -srcstoretype PKCS12 -srcstorepass confluent -alias localhost
-
-# Create truststore with CA certificate
-keytool -keystore kafka.truststore.jks -alias CARoot -import -file ca-cert -storepass confluent -keypass confluent -noprompt
-`
-
-	scriptPath := filepath.Join(tempDir, "create_keystores.sh")
-	err := os.WriteFile(scriptPath, []byte(keystoreScript), 0755)
-	require.NoError(t, err)
-
-	// Execute the script
-	cmd := exec.Command("bash", scriptPath)
-	cmd.Dir = tempDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("Keystore creation output: %s", string(output))
-		t.Skip("Skipping SSL test - requires openssl and keytool")
-	}
-
-	keystorePath := filepath.Join(tempDir, "kafka.keystore.jks")
-	truststorePath := filepath.Join(tempDir, "kafka.truststore.jks")
-
-	// Create a confluent file to satisfy the container's path check
-	confluentFile := filepath.Join(tempDir, "confluent")
-	err = os.WriteFile(confluentFile, []byte("confluent"), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create confluent file: %v", err)
-	}
-
-	return keystorePath, truststorePath
 }
 
 // Helper function to create unified certificates for both server and client using the same CA
@@ -336,8 +275,7 @@ func TestMTLSAuthentication(t *testing.T) {
 	ctx := context.Background()
 
 	// Create temporary directory for certificates
-	tempDir, err := os.MkdirTemp("", "kafka-mtls-test")
-	require.NoError(t, err)
+	tempDir := createTempDir(t, "kafka-mtls-test")
 	defer os.RemoveAll(tempDir)
 
 	// Generate unified certificates for both server and client using the same CA
@@ -531,8 +469,7 @@ func TestTLSConfigCreation(t *testing.T) {
 
 func TestMutualTLSConfigCreation(t *testing.T) {
 	// Create temporary directory for certificates
-	tempDir, err := os.MkdirTemp("", "kafka-mtls-config-test")
-	require.NoError(t, err)
+	tempDir := createTempDir(t, "kafka-mtls-config-test")
 	defer os.RemoveAll(tempDir)
 
 	// Generate test certificates
