@@ -319,6 +319,7 @@ echo "confluent" > confluent
 	cmd := exec.Command("bash", scriptPath)
 	cmd.Dir = tempDir
 	output, err := cmd.CombinedOutput()
+	t.Logf("Script output: %s", output)
 	if err != nil {
 		t.Logf("Certificate creation output: %s", string(output))
 		t.Skip("Skipping SSL test - requires openssl and keytool")
