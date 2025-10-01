@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,6 +23,8 @@ type KafkaConfig struct {
 		Enabled    bool   `yaml:"enabled"`
 		CA         string `yaml:"caPath"`
 		SkipVerify bool   `yaml:"skipVerify"`
+		ClientCert string `yaml:"clientCert"`
+		ClientKey  string `yaml:"clientKey"`
 	} `yaml:"ssl"`
 	Krb5 struct {
 		Enabled            bool   `yaml:"enabled"`
@@ -232,8 +236,11 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 			config.Net.SASL.TokenProvider = oauthbearer.NewTokenProvider(conf.TokenAuth.ClientID, conf.TokenAuth.Secret, conf.TokenAuth.TokenUrl)
 		}
 	}
-	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify) {
+	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify || conf.SSL.ClientCert != "" || conf.SSL.ClientKey != "") {
 		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
+		if conf.SSL.ClientCert != "" && conf.SSL.ClientKey != "" {
+			tlsConfig = createMutualTlsConfig(tlsConfig, conf.SSL.ClientCert, conf.SSL.ClientKey)
+		}
 		config.Net.TLS.Config = tlsConfig
 	}
 	if conf.Producer.MaxMessageBytes != 0 {
@@ -257,4 +264,45 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		config.Producer.Compression = sarama.CompressionSnappy
 	}
 	return config
+}
+
+func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
+	// Get system Cert Pool
+	config := &tls.Config{}
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if CAPath != "" {
+		pem, err := os.ReadFile(CAPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
+			log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
+		}
+		log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
+	}
+	config.RootCAs = rootCAs
+	config.InsecureSkipVerify = SkipVerify
+	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
+	return config
+}
+
+func createMutualTlsConfig(tlsConfig *tls.Config, clientCertPath, clientKeyPath string) *tls.Config {
+	if clientCertPath == "" || clientKeyPath == "" {
+		return tlsConfig
+	}
+
+	cert, err := tls.LoadX509KeyPair(clientCertPath, clientKeyPath)
+	if err != nil {
+		log.Fatalf("Failed to load client certificate and key: %s", err)
+	}
+
+	tlsConfig.Certificates = []tls.Certificate{cert}
+	log.Tracef("Added client certificate from %s and key from %s", clientCertPath, clientKeyPath)
+	return tlsConfig
 }

@@ -1,12 +1,9 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 
 	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
@@ -40,32 +37,6 @@ type KafkaAdmin struct {
 	TopicCache  map[string]sarama.TopicDetail
 	DryRun      bool
 	DryRunPlan  []TopicPlan
-}
-
-func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
-	// Get system Cert Pool
-	config := &tls.Config{}
-	rootCAs, err := x509.SystemCertPool()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-	if CAPath != "" {
-		pem, err := os.ReadFile(CAPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(pem); !ok {
-			log.Fatalf("Could not append cert %s to CertPool\n", CAPath)
-		}
-		log.Tracef("Created TLS Config from PEM %s (InsecureSkipVerify=%v)", pem, SkipVerify)
-	}
-	config.RootCAs = rootCAs
-	config.InsecureSkipVerify = SkipVerify
-	log.Tracef("Setting InsecureSkipVerify=%v", SkipVerify)
-	return config
 }
 
 func NewKafkaAdmin(conf KafkaConfig) KafkaAdmin {
