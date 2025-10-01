@@ -24,6 +24,12 @@ Config yaml structure:
          enabled: false
          # Path to a CA file to add to the truststore.
          caPath: "/home/user/ca.crt"
+         # Skip SSL certificate verification (not recommended for production)
+         skipVerify: false
+         # Path to client certificate for mutual TLS authentication
+         clientCert: "/home/user/client.crt"
+         # Path to client private key for mutual TLS authentication
+         clientKey: "/home/user/client.key"
        kerberos:
          # Enable/Disable Kerberos authentication
          enabled: false
@@ -50,6 +56,45 @@ Config yaml structure:
        password: "password"
        # Path a CA file to add to trust store
        caPath: "/home/user/ca.crt"
+
+SSL and Mutual TLS Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Gafkalo supports both standard SSL/TLS and mutual TLS (mTLS) authentication for secure connections to Kafka brokers.
+
+**Standard SSL/TLS:**
+
+To enable SSL/TLS, set ``ssl.enabled: true`` and optionally provide a custom CA certificate:
+
+.. code-block:: YAML
+
+   ssl:
+     enabled: true
+     caPath: "/path/to/ca.crt"
+     skipVerify: false  # Set to true only for testing
+
+**Mutual TLS (mTLS):**
+
+For mutual TLS authentication, provide both client certificate and private key in addition to the SSL configuration:
+
+.. code-block:: YAML
+
+   ssl:
+     enabled: true
+     caPath: "/path/to/ca.crt"
+     clientCert: "/path/to/client.crt"
+     clientKey: "/path/to/client.key"
+     skipVerify: false
+
+The client certificate and key must be signed by a Certificate Authority that the Kafka broker trusts. When both ``clientCert`` and ``clientKey`` are provided, gafkalo will automatically configure mutual TLS authentication.
+
+**SSL Configuration Options:**
+
+- ``enabled``: Enable or disable SSL/TLS connections
+- ``caPath``: Path to a custom CA certificate file to add to the trust store
+- ``skipVerify``: Skip SSL certificate verification (use only for testing)
+- ``clientCert``: Path to client certificate file for mutual TLS
+- ``clientKey``: Path to client private key file for mutual TLS
        # When you set skipRegistryForReads to true, it will read the _schemas topic directly and build an internal representation of schemas/subjects and configs. It will then use that in-memory cache for queries that would other go to Schema registry REST API. Mutating requests still go to Schema registry REST endpoint.
        # This can provide a huge speed benefit when there are many subjects/schemas.
        skipRegistryForReads: false
