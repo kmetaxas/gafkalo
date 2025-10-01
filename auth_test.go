@@ -27,13 +27,13 @@ import (
 func createTempDir(t *testing.T, prefix string) string {
 	var tempDir string
 	var err error
-	
+
 	if runnerTemp := os.Getenv("RUNNER_TEMP"); runnerTemp != "" {
-		tempDir, err = os.MkdirTemp(runnerTemp, prefix)
+		return runnerTemp
 	} else {
 		tempDir, err = os.MkdirTemp("", prefix)
 	}
-	
+
 	require.NoError(t, err)
 	return tempDir
 }
