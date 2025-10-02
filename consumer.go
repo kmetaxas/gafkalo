@@ -34,7 +34,7 @@ func (w *lockedWriter) Write(b []byte) (int, error) {
 	return w.writer.Write(b)
 }
 
-type RecordPrinterFunc func(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int)
+type RecordPrinterFunc func(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int, headers []*sarama.RecordHeader)
 
 // The main consumer struct
 type Consumer struct {
@@ -61,25 +61,27 @@ type Consumer struct {
 }
 
 type CustomRecordTemplateContext struct {
-	Topic       string    `json:"topic"`
-	Key         string    `json:"key"`
-	Value       string    `json:"value"`
-	Timestamp   time.Time `json:"timestamp"`
-	Partition   int32     `json:"partition"`
-	Offset      int64     `json:"offset"`
-	KeySchemaID int       `json:"key_schema_id"`   // The schema registry ID of the Key schema
-	ValSchemaID int       `json:"value_schema_id"` // The Schema registry ID of the Value schema
+	Topic       string            `json:"topic"`
+	Key         string            `json:"key"`
+	Value       string            `json:"value"`
+	Timestamp   time.Time         `json:"timestamp"`
+	Partition   int32             `json:"partition"`
+	Offset      int64             `json:"offset"`
+	KeySchemaID int               `json:"key_schema_id"`   // The schema registry ID of the Key schema
+	ValSchemaID int               `json:"value_schema_id"` // The Schema registry ID of the Value schema
+	Headers     map[string]string `json:"headers"`
 }
 
 type RecordPrinterContext struct {
-	Topic       string      `json:"topic"`
-	Key         interface{} `json:"key"`
-	Value       interface{} `json:"value"`
-	Timestamp   time.Time   `json:"timestamp"`
-	Partition   int32       `json:"partition"`
-	Offset      int64       `json:"offset"`
-	KeySchemaID int         `json:"key_schema_id"`   // The schema registry ID of the Key schema
-	ValSchemaID int         `json:"value_schema_id"` // The Schema registry ID of the Value schema
+	Topic       string            `json:"topic"`
+	Key         interface{}       `json:"key"`
+	Value       interface{}       `json:"value"`
+	Timestamp   time.Time         `json:"timestamp"`
+	Partition   int32             `json:"partition"`
+	Offset      int64             `json:"offset"`
+	KeySchemaID int               `json:"key_schema_id"`   // The schema registry ID of the Key schema
+	ValSchemaID int               `json:"value_schema_id"` // The Schema registry ID of the Value schema
+	Headers     map[string]string `json:"headers"`
 }
 
 // Naive random string implementation ( https://golangdocs.com/generate-random-string-in-golang )
@@ -269,9 +271,9 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 			}
 			// Print the record. Either with a user provided template or our own "prettyprint" function
 			if c.customRecordTemplate != nil {
-				c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+				c.printRecordWithCustomTemplate(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID, message.Headers)
 			} else {
-				c.recordPrinterFunc(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID)
+				c.recordPrinterFunc(message.Topic, key, val, message.Timestamp, message.Partition, message.Offset, keySchemaID, valSchemaID, message.Headers)
 			}
 			session.MarkMessage(message, "")
 			// Do we need to call Commit()?
@@ -288,32 +290,49 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	}
 }
 
-func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
-	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID}
+func (c *Consumer) printRecordWithCustomTemplate(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int, headers []*sarama.RecordHeader) {
+	headersMap := make(map[string]string)
+	for _, header := range headers {
+		headersMap[string(header.Key)] = string(header.Value)
+	}
+	context := CustomRecordTemplateContext{Topic: topic, Key: key, Value: value, Timestamp: timestamp, Partition: partition, Offset: offset, KeySchemaID: keySchemaID, ValSchemaID: valSchemaID, Headers: headersMap}
 	err := c.customRecordTemplate.Execute(c.serializingWriter, context)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
+func prettyPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int, headers []*sarama.RecordHeader) {
 	fmtOffset := color.New(color.FgCyan).SprintFunc()
 	fmtValue := color.New(color.FgGreen).SprintFunc()
 	fmtKey := color.New(color.FgBlue).SprintFunc()
+	fmtHeaders := color.New(color.FgYellow).SprintFunc()
 	var msg string
+	if len(headers) > 0 {
+		var headerPairs []string
+		for _, header := range headers {
+			headerPairs = append(headerPairs, fmt.Sprintf("%s:%s", string(header.Key), string(header.Value)))
+		}
+		msg = fmt.Sprintf("Headers[%s] ", fmtHeaders(fmt.Sprintf("%v", headerPairs)))
+	}
 	if keySchemaID > 0 {
-		msg = fmt.Sprintf("SchemaID(key)[%d]", keySchemaID)
+		msg = fmt.Sprintf("%s SchemaID(key)[%d] ", msg, keySchemaID)
 	}
 	if valSchemaID > 0 {
-		msg = fmt.Sprintf("%s SchemaID(value)[%d]", msg, valSchemaID)
+		msg = fmt.Sprintf("%s SchemaID(value)[%d] ", msg, valSchemaID)
 	}
 	msg = fmt.Sprintf("%s Topic[%s] Offset[%s] Partition[%d] Timestamp[%s]: Key:=%s, Value:=%s", msg, topic, fmtOffset(fmt.Sprint(offset)), partition, timestamp, fmtKey(key), fmtValue(value))
 	fmt.Println(msg)
 }
 
-func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int) {
+func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition int32, offset int64, keySchemaID, valSchemaID int, headers []*sarama.RecordHeader) {
 	var valI interface{}
 	var keyI interface{}
+
+	headersMap := make(map[string]string)
+	for _, header := range headers {
+		headersMap[string(header.Key)] = string(header.Value)
+	}
 
 	recordCtx := RecordPrinterContext{
 		Topic:       topic,
@@ -324,6 +343,7 @@ func jsonPrintRecord(topic, key, value string, timestamp time.Time, partition in
 		Offset:      offset,
 		KeySchemaID: keySchemaID,
 		ValSchemaID: valSchemaID,
+		Headers:     headersMap,
 	}
 	// Try to deserialize key + value in order to provide nicer output. If it fails just use as is
 	err := json.Unmarshal([]byte(value), &valI)
