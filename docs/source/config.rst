@@ -190,6 +190,23 @@ App settings
 ``schema_dir``:
   Base directory for relative schema paths. If schema path is ``schemas/user.avsc`` and ``schema_dir`` is ``data/``, final path is ``data/schemas/user.avsc``.
 
+``connectors_sensitive_keys``:
+  Regex pattern to hide sensitive connector config keys in plan/apply output.
+
+Hiding sensitive keys
+---------------------
+
+Redact passwords and credentials from plan output:
+
+.. code-block:: yaml
+
+   kafkalo:
+     connectors_sensitive_keys: '^.*(auth|password|credential|secret|key).*$'
+
+Connector configs matching the regex are replaced with ``(Sensitive info redacted)`` in output.
+
+Useful for CI/CD logs and shared outputs.
+
 Encryption (SOPS)
 -----------------
 

@@ -299,3 +299,8 @@ Limitations
 - No converter/transform validation
 
 For complex deployments, consider Confluent Control Center or custom automation.
+
+Security
+--------
+
+Hide sensitive config keys in output. See :ref:`config:Hiding sensitive keys`.
