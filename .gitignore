@@ -2,3 +2,10 @@ docs/build/
 gafkalo
 *.swp
 tmp/
+coverage.out
+configs/
+ui/
+data/
+build_docker.sh
+plan.txt
+.aider*
