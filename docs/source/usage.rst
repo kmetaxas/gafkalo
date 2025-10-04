@@ -145,9 +145,36 @@ The context passed to that template is a `CustomRecordTemplateContext` with this
       Timestamp   time.Time
       Partition   int32
       Offset      int64
-      KeySchemaID int // The schema registry ID of the Key schema
-      ValSchemaID int // The Schema registry ID of the Value schema
+      KeySchemaID int               // The schema registry ID of the Key schema
+      ValSchemaID int               // The Schema registry ID of the Value schema
+      Headers     map[string]string // Kafka message headers
    }
+
+Message Headers
+~~~~~~~~~~~~~~~
+
+When consuming messages, Kafka message headers are automatically displayed in both TEXT and JSON output formats.
+
+**TEXT format example:**
+
+.. code-block:: console
+
+   Headers[[content-type:application/json trace-id:abc123]] Topic[mytopic] Offset[42] ...
+
+**JSON format example:**
+
+.. code-block:: json
+
+   {
+     "headers": {
+       "content-type": "application/json",
+       "trace-id": "abc123"
+     },
+     "topic": "mytopic",
+     ...
+   }
+
+Headers are also available in custom record templates via the `.Headers` field.
 
 
 
@@ -165,6 +192,90 @@ Topics
 ------
 
 `topic` command allows you to manage topics.
+
+List Topics
+~~~~~~~~~~~
+
+List all topics in the cluster with various output formats.
+
+.. code-block:: console
+
+   # List all topics (plain format, one per line)
+   ./gafkalo --config mycluster.yaml topic list
+
+   # List topics in table format
+   ./gafkalo --config mycluster.yaml topic list --output-format table
+
+   # List topics as JSON
+   ./gafkalo --config mycluster.yaml topic list --output-format json
+
+   # List topics with detailed information
+   ./gafkalo --config mycluster.yaml topic list --output-format detailed
+
+   # Filter topics by regex pattern
+   ./gafkalo --config mycluster.yaml topic list --pattern '^prod-'
+
+   # Show internal topics (those starting with _)
+   ./gafkalo --config mycluster.yaml topic list --show-internal
+
+Available output formats:
+
+- **plain**: Topic names only, one per line (default)
+- **table**: Formatted table with partitions and replication factor
+- **json**: Structured JSON with all metadata
+- **detailed**: Human-readable detailed view
+
+Create Topics
+~~~~~~~~~~~~~
+
+
+The purpose of this tool is to created and manage topics using a source YAML file.
+This creates a more comprehensive flow, with a plan and validateion stage.
+However, it is also possible to create topics directly from the CLI.
+This is generally useful for testing and quick topic creation:
+
+.. code-block:: console
+
+   # Create a basic topic with defaults (1 partition, 1 replica)
+   ./gafkalo --config mycluster.yaml topic create -n my-topic
+
+   # Create a production topic with custom settings
+   ./gafkalo --config mycluster.yaml topic create -n prod-events \
+     --partitions 12 \
+     --replication-factor 3 \
+     -c retention.ms=604800000 \
+     -c min.insync.replicas=2
+
+   # Create a compacted topic
+   ./gafkalo --config mycluster.yaml topic create -n user-state \
+     --partitions 6 \
+     --replication-factor 3 \
+     -c cleanup.policy=compact
+
+   # Validate topic configuration without creating
+   ./gafkalo --config mycluster.yaml topic create -n test-topic \
+     --partitions 5 \
+     --replication-factor 3 \
+     --validate-only
+
+Options:
+
+- **-n, --name**: Topic name (required)
+- **--partitions**: Number of partitions (default: 1)
+- **--replication-factor**: Replication factor (default: 1)
+- **-c**: Topic configuration (can be repeated: -c key=value)
+- **--validate-only**: Validate without creating
+
+Common topic configurations:
+
+- **retention.ms**: Message retention time in milliseconds
+- **cleanup.policy**: "delete", "compact", or "compact,delete"
+- **compression.type**: "snappy", "lz4", "gzip", or "zstd"
+- **min.insync.replicas**: Minimum in-sync replicas for ack=all
+- **segment.ms**: Time before rolling to a new segment
+
+Describe Topics
+~~~~~~~~~~~~~~~
 
 `describe` subcommand outputs the description of a Topic (partitions, replication, configuration).
 

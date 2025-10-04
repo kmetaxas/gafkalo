@@ -21,6 +21,7 @@ var topicDescribeTmplData string
 type TopicCmd struct {
 	Describe DescribeTopicCmd `cmd help:"Describe topic"`
 	List     ListTopicsCmd    `cmd help:"List topics"`
+	Create   CreateTopicCmd   `cmd help:"Create topic"`
 }
 
 type DescribeTopicCmd struct {
@@ -166,4 +167,68 @@ func (cmd *ListTopicsCmd) renderDetailed(topics []TopicListItem) {
 			}
 		}
 	}
+}
+
+type CreateTopicCmd struct {
+	Name              string            `short:"n" required help:"Topic name"`
+	Partitions        int32             `default:"1" help:"Number of partitions"`
+	ReplicationFactor int16             `name:"replication-factor" default:"1" help:"Replication factor"`
+	Configs           map[string]string `short:"c" help:"Topic configurations (can be specified multiple times: -c key=value)"`
+	ValidateOnly      bool              `default:"false" help:"Only validate the request without creating the topic"`
+}
+
+func (cmd *CreateTopicCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
+
+	if cmd.Partitions < 1 {
+		return fmt.Errorf("partitions must be at least 1, got %d", cmd.Partitions)
+	}
+	if cmd.ReplicationFactor < 1 {
+		return fmt.Errorf("replication factor must be at least 1, got %d", cmd.ReplicationFactor)
+	}
+
+	existingTopics := kafkadmin.ListTopics()
+	if _, exists := existingTopics[cmd.Name]; exists {
+		return fmt.Errorf("topic '%s' already exists", cmd.Name)
+	}
+
+	configEntries := make(map[string]*string)
+	for key, value := range cmd.Configs {
+		v := value
+		configEntries[key] = &v
+	}
+
+	topicDetail := &Topic{
+		Name:              cmd.Name,
+		Partitions:        cmd.Partitions,
+		ReplicationFactor: cmd.ReplicationFactor,
+		Configs:           configEntries,
+	}
+
+	err := kafkadmin.CreateTopic(topicDetail, cmd.ValidateOnly)
+	if err != nil {
+		return fmt.Errorf("failed to create topic: %w", err)
+	}
+
+	if cmd.ValidateOnly {
+		fmt.Printf("Topic '%s' configuration is valid (not created due to --validate-only)\n", cmd.Name)
+	} else {
+		fmt.Printf("Successfully created topic '%s'\n", cmd.Name)
+		fmt.Printf("  Partitions: %d\n", cmd.Partitions)
+		fmt.Printf("  Replication Factor: %d\n", cmd.ReplicationFactor)
+		if len(cmd.Configs) > 0 {
+			fmt.Println("  Configs:")
+			var configKeys []string
+			for key := range cmd.Configs {
+				configKeys = append(configKeys, key)
+			}
+			sort.Strings(configKeys)
+			for _, key := range configKeys {
+				fmt.Printf("    %s: %s\n", key, cmd.Configs[key])
+			}
+		}
+	}
+
+	return nil
 }
