@@ -226,6 +226,10 @@ Use encrypted config:
 
 SOPS metadata required in YAML. Plaintext YAML works without SOPS.
 
+This also applies to input YAML for topics or connectors.
+
+This is especially useful when there are secrets inside connectors.
+
 Refer to `SOPS documentation <https://github.com/mozilla/sops>`_ for setup.
 
 Complete example
