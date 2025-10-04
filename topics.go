@@ -62,6 +62,21 @@ func (admin *KafkaAdmin) ListTopics() map[string]sarama.TopicDetail {
 	return topics
 }
 
+// Create a single topic
+func (admin *KafkaAdmin) CreateTopic(topic *Topic, validateOnly bool) error {
+	detail := sarama.TopicDetail{
+		NumPartitions:     topic.Partitions,
+		ReplicationFactor: topic.ReplicationFactor,
+		ConfigEntries:     topic.Configs,
+	}
+	log.Debugf("Creating topic %s - partitions: %d, replication: %d, validateOnly: %v", topic.Name, topic.Partitions, topic.ReplicationFactor, validateOnly)
+	err := admin.AdminClient.CreateTopic(topic.Name, &detail, validateOnly)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Unmarshal yaml callback for Topic
 func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawTopic Topic
