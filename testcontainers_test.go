@@ -332,22 +332,47 @@ func generateKafkaContainerWithSCRAM(t *testing.T, ctx context.Context, extraMou
 	req := testcontainers.ContainerRequest{
 		Image:        "confluentinc/cp-kafka:latest",
 		ExposedPorts: []string{"9092/tcp", "9093/tcp"},
-		// TODO configure SCRAM
 		Env: map[string]string{
-			"KAFKA_NODE_ID":                                       "1",
-			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":                "CONTROLLER:PLAINTEXT,OUTSIDE:SASL_PLAINTEXT,INTERNAL:PLAINTEXT",
-			"KAFKA_ADVERTISED_LISTENERS":                          "OUTSIDE://localhost:9092,INTERNAL://localhost:9093",
-			"KAFKA_PROCESS_ROLES":                                 "broker,controller",
-			"KAFKA_CONTROLLER_QUORUM_VOTERS":                      "1@localhost:29093",
-			"KAFKA_LISTENERS":                                     "OUTSIDE://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,INTERNAL://0.0.0.0:9093",
-			"KAFKA_INTER_BROKER_LISTENER_NAME":                    "INTERNAL",
-			"KAFKA_CONTROLLER_LISTENER_NAMES":                     "CONTROLLER",
-			"KAFKA_LOG_DIRS":                                      "/tmp/kraft-combined-logs",
-			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR":              "1",
-			"CLUSTER_ID":                                          "MkU3OEVBNTcwNTJENDM2Qk",
-			"KAFKA_LISTENER_NAME_OUTSIDE_SASL_ENABLED_MECHANISMS": "SCRAM-SHA-256",
-			"KAFKA_SASL_ENABLED_MECHANISMS":                       "SCRAM-SHA-256",
-			//"KAFKA_LISTENER_NAME_OUTSIDE_SCRAM___SHA___256_SASL_JAAS_CONFIG": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\"password=\"admin-secret\" ;",
+			"KAFKA_NODE_ID":                                                  "1",
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":                           "CONTROLLER:PLAINTEXT,OUTSIDE:SASL_PLAINTEXT,INTERNAL:PLAINTEXT",
+			"KAFKA_ADVERTISED_LISTENERS":                                     "OUTSIDE://localhost:9092,INTERNAL://localhost:9093",
+			"KAFKA_PROCESS_ROLES":                                            "broker,controller",
+			"KAFKA_CONTROLLER_QUORUM_VOTERS":                                 "1@localhost:29093",
+			"KAFKA_LISTENERS":                                                "OUTSIDE://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,INTERNAL://0.0.0.0:9093",
+			"KAFKA_INTER_BROKER_LISTENER_NAME":                               "INTERNAL",
+			"KAFKA_CONTROLLER_LISTENER_NAMES":                                "CONTROLLER",
+			"KAFKA_LOG_DIRS":                                                 "/tmp/kraft-combined-logs",
+			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR":                         "1",
+			"CLUSTER_ID":                                                     "MkU3OEVBNTcwNTJENDM2Qk",
+			"KAFKA_LISTENER_NAME_OUTSIDE_SASL_ENABLED_MECHANISMS":            "SCRAM-SHA-256",
+			"KAFKA_SASL_ENABLED_MECHANISMS":                                  "SCRAM-SHA-256",
+			"KAFKA_LISTENER_NAME_OUTSIDE_SCRAM___SHA___256_SASL_JAAS_CONFIG": "org.apache.kafka.common.security.scram.ScramLoginModule required;",
+		},
+		Cmd: []string{
+			"bash",
+			"-c",
+			`
+			. /etc/confluent/docker/bash-config
+			
+			echo "===> User"
+			id
+			
+			echo "===> Configuring ..."
+			/etc/confluent/docker/configure
+			
+			echo "===> Running preflight checks with SCRAM ... "
+			export KAFKA_DATA_DIRS=${KAFKA_DATA_DIRS:-"/var/lib/kafka/data"}
+			echo "===> Check if $KAFKA_DATA_DIRS is writable ..."
+			dub path "$KAFKA_DATA_DIRS" writable
+			
+			echo "===> Using provided cluster id $CLUSTER_ID with SCRAM credentials..."
+			result=$(kafka-storage format --cluster-id=$CLUSTER_ID -c /etc/kafka/kafka.properties --add-scram 'SCRAM-SHA-256=[name=admin,password=admin-secret]' 2>&1) || \
+				echo $result | grep -i "already formatted" || \
+				{ echo $result && (exit 1) }
+			
+			echo "===> Launching ... "
+			exec /etc/confluent/docker/launch
+			`,
 		},
 		WaitingFor: wait.ForLog("Kafka Server started").WithStartupTimeout(60 * time.Second),
 	}

@@ -71,10 +71,9 @@ func TestSCRAMAuthentication(t *testing.T) {
 
 	defer kafkaContainer.Terminate(ctx)
 
-	// Test that SCRAM configuration is properly created (without actual SASL connection)
-	kafkaConfigScram := KafkaConfig{
-		Brokers: []string{fmt.Sprintf("localhost:%s", port.Port())},
-		SaslPlain: struct {
+	kafkaConfigSCRAM := KafkaConfig{
+		Brokers: []string{"localhost:9094"},
+		Scram: struct {
 			Enabled  bool   `yaml:"enabled"`
 			Username string `yaml:"username"`
 			Password string `yaml:"password"`
@@ -85,8 +84,8 @@ func TestSCRAMAuthentication(t *testing.T) {
 		},
 	}
 
-	saramaConfigScram := SaramaConfigFromKafkaConfig(kafkaConfigScram)
-	client, err := sarama.NewClient(kafkaConfigScram.Brokers, saramaConfigScram)
+	saramaConfig := SaramaConfigFromKafkaConfig(kafkaConfigSCRAM)
+	client, err := sarama.NewClient([]string{fmt.Sprintf("localhost:%s", port.Port())}, saramaConfig)
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -94,6 +93,7 @@ func TestSCRAMAuthentication(t *testing.T) {
 	topics, err := client.Topics()
 	assert.NoError(t, err)
 	assert.NotNil(t, topics)
+	t.Logf("Successfully connected to Kafka with SCRAM-SHA-256 and retrieved %d topics", len(topics))
 }
 
 func TestTLSConfigCreation(t *testing.T) {
@@ -163,7 +163,7 @@ func TestSaramaConfigFromKafkaConfig(t *testing.T) {
 	// Test SASL Plain configuration
 	kafkaConfigSASL := KafkaConfig{
 		Brokers: []string{"localhost:9094"},
-		SaslPlain: struct {
+		Scram: struct {
 			Enabled  bool   `yaml:"enabled"`
 			Username string `yaml:"username"`
 			Password string `yaml:"password"`
@@ -176,7 +176,7 @@ func TestSaramaConfigFromKafkaConfig(t *testing.T) {
 
 	saramaConfigSASL := SaramaConfigFromKafkaConfig(kafkaConfigSASL)
 	assert.True(t, saramaConfigSASL.Net.SASL.Enable)
-	assert.Equal(t, string(sarama.SASLTypePlaintext), string(saramaConfigSASL.Net.SASL.Mechanism))
+	assert.Equal(t, string(sarama.SASLTypeSCRAMSHA256), string(saramaConfigSASL.Net.SASL.Mechanism))
 	assert.Equal(t, "testuser", saramaConfigSASL.Net.SASL.User)
 	assert.Equal(t, "testpass", saramaConfigSASL.Net.SASL.Password)
 }
