@@ -39,11 +39,11 @@ type KafkaConfig struct {
 		MaxMessageBytes int    `yaml:"maxMessageBytes"`
 		Compression     string `yaml:"compression"`
 	} `yaml:"producer"`
-	SaslPlain struct {
+	Scram struct {
 		Enabled  bool   `yaml:"enabled"`
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
-	} `yaml:"saslplain"`
+	} `yaml:"scram"`
 	TokenAuth struct {
 		Enabled        bool   `yaml:"enabled"`
 		ClientID       string `yaml:"client"`
@@ -209,12 +209,13 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		}
 	}
 	// Set Sasl plain if configured
-	if conf.SaslPlain.Enabled {
+	if conf.Scram.Enabled {
 
 		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-		config.Net.SASL.User = conf.SaslPlain.Username
-		config.Net.SASL.Password = conf.SaslPlain.Password
+		config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+		config.Net.SASL.User = conf.Scram.Username
+		config.Net.SASL.Password = conf.Scram.Password
+		config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
 	}
 	// Token auth if configured
 	if conf.TokenAuth.Enabled {
