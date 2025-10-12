@@ -138,8 +138,8 @@ func TestKerberos5Authentication(t *testing.T) {
 	sarama_logger := log.New()
 	// saramaConfig.ApiVersionsRequest = false
 	sarama_logger.SetReportCaller(true)
-	sarama_logger.SetLevel(log.TraceLevel)
-	sarama.Logger = sarama_logger
+	// sarama_logger.SetLevel(log.TraceLevel)
+	// sarama.Logger = sarama_logger
 
 	client, err := sarama.NewClient([]string{fmt.Sprintf("localhost:%s", port.Port())}, saramaConfig)
 	require.NoError(t, err)

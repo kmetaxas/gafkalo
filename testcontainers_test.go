@@ -523,25 +523,28 @@ tail -f /dev/null
 	})
 	require.NoError(t, err)
 
-	go func() {
-		logs, err := kdcContainer.Logs(ctx)
-		if err != nil {
-			t.Logf("Failed to get KDC logs: %v", err)
-			return
-		}
-		defer logs.Close()
-
-		buf := make([]byte, 8192)
-		for {
-			n, err := logs.Read(buf)
-			if n > 0 {
-				t.Logf("[KDC] %s", string(buf[:n]))
-			}
+	// Uncomment to get KDC container logs for debugging
+	/*
+		go func() {
+			logs, err := kdcContainer.Logs(ctx)
 			if err != nil {
-				break
+				t.Logf("Failed to get KDC logs: %v", err)
+				return
 			}
-		}
-	}()
+			defer logs.Close()
+
+			buf := make([]byte, 8192)
+			for {
+				n, err := logs.Read(buf)
+				if n > 0 {
+					t.Logf("[KDC] %s", string(buf[:n]))
+				}
+				if err != nil {
+					break
+				}
+			}
+		}()
+	*/
 
 	time.Sleep(5 * time.Second)
 
@@ -623,7 +626,7 @@ KafkaClient {
 			"KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND":                "true",
 			"KAFKA_SUPER_USERS":                                   "User:kafkaclient",
 			"KAFKA_OPTS":                                          "-Djava.security.krb5.conf=/etc/kafka/secrets/krb5.conf -Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf -Dsun.security.krb5.debug=true",
-			"KAFKA_LOG4J_ROOT_LOGLEVEL":                           "TRACE",
+			//"KAFKA_LOG4J_ROOT_LOGLEVEL":                           "TRACE",
 		},
 		Mounts: testcontainers.ContainerMounts{
 			testcontainers.BindMount(keytabsDir, "/etc/kafka/secrets"),
@@ -639,25 +642,28 @@ KafkaClient {
 	})
 	require.NoError(t, err)
 
-	go func() {
-		logs, err := kafkaContainer.Logs(ctx)
-		if err != nil {
-			t.Logf("Failed to get Kafka logs: %v", err)
-			return
-		}
-		defer logs.Close()
-
-		buf := make([]byte, 8192)
-		for {
-			n, err := logs.Read(buf)
-			if n > 0 {
-				t.Logf("[KAFKA] %s", string(buf[:n]))
-			}
+	// Uncomment to get Kafka container logs for debugging
+	/*
+		go func() {
+			logs, err := kafkaContainer.Logs(ctx)
 			if err != nil {
-				break
+				t.Logf("Failed to get Kafka logs: %v", err)
+				return
 			}
-		}
-	}()
+			defer logs.Close()
+
+			buf := make([]byte, 8192)
+			for {
+				n, err := logs.Read(buf)
+				if n > 0 {
+					t.Logf("[KAFKA] %s", string(buf[:n]))
+				}
+				if err != nil {
+					break
+				}
+			}
+		}()
+	*/
 
 	mappedPort, err := kafkaContainer.MappedPort(ctx, "9092")
 	require.NoError(t, err)
