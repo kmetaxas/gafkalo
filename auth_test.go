@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/IBM/sarama"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,6 +95,60 @@ func TestSCRAMAuthentication(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, topics)
 	t.Logf("Successfully connected to Kafka with SCRAM-SHA-256 and retrieved %d topics", len(topics))
+}
+
+func TestKerberos5Authentication(t *testing.T) {
+	ctx := context.Background()
+	tempDir := createTempDir(t, "kafka-krb5-test")
+	defer cleanUpTempDir(tempDir)
+
+	kafkaContainer, kdcContainer, port, clientKeytabPath, krb5ConfPath := generateKafkaContainerWithKrb5(t, ctx, tempDir)
+	defer kafkaContainer.Terminate(ctx)
+	defer kdcContainer.Terminate(ctx)
+
+	// Verify keytab exists
+	if _, err := os.Stat(clientKeytabPath); os.IsNotExist(err) {
+		t.Fatalf("Client keytab not found at %s", clientKeytabPath)
+	}
+	t.Logf("Using client keytab: %s", clientKeytabPath)
+	t.Logf("Using krb5.conf: %s", krb5ConfPath)
+
+	// Verify files exist
+	if _, err := os.Stat(clientKeytabPath); os.IsNotExist(err) {
+		t.Fatalf("Client keytab does not exist: %s", clientKeytabPath)
+	}
+	if _, err := os.Stat(krb5ConfPath); os.IsNotExist(err) {
+		t.Fatalf("krb5.conf does not exist: %s", krb5ConfPath)
+	}
+	t.Logf("Using client keytab: %s", clientKeytabPath)
+	t.Logf("Using krb5.conf: %s", krb5ConfPath)
+
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Net.SASL.Enable = true
+	saramaConfig.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
+	saramaConfig.Net.SASL.GSSAPI.ServiceName = "kafka"
+	saramaConfig.Net.SASL.GSSAPI.Realm = "EXAMPLE.COM"
+	saramaConfig.Net.SASL.GSSAPI.Username = "kafkaclient"
+	saramaConfig.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
+	saramaConfig.Net.SASL.GSSAPI.KeyTabPath = clientKeytabPath
+	saramaConfig.Net.SASL.GSSAPI.KerberosConfigPath = krb5ConfPath
+	saramaConfig.Net.SASL.GSSAPI.DisablePAFXFAST = true
+	saramaConfig.Net.SASL.GSSAPI.CCachePath = "/tmp/krb5cc_sarama_123"
+	saramaConfig.Metadata.Full = true
+	sarama_logger := log.New()
+	// saramaConfig.ApiVersionsRequest = false
+	sarama_logger.SetReportCaller(true)
+	sarama_logger.SetLevel(log.TraceLevel)
+	sarama.Logger = sarama_logger
+
+	client, err := sarama.NewClient([]string{fmt.Sprintf("localhost:%s", port.Port())}, saramaConfig)
+	require.NoError(t, err)
+	defer client.Close()
+
+	topics, err := client.Topics()
+	assert.NoError(t, err)
+	assert.NotNil(t, topics)
+	t.Logf("Successfully connected to Kafka with Kerberos and retrieved %d topics", len(topics))
 }
 
 func TestTLSConfigCreation(t *testing.T) {

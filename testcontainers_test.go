@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -387,4 +388,280 @@ func generateKafkaContainerWithSCRAM(t *testing.T, ctx context.Context, extraMou
 	mappedPort, err := kafkaContainer.MappedPort(ctx, "9092")
 	require.NoError(t, err)
 	return kafkaContainer, mappedPort
+}
+
+func generateKafkaContainerWithKrb5(t *testing.T, ctx context.Context, tempDir string) (testcontainers.Container, testcontainers.Container, nat.Port, string, string) {
+	realm := "EXAMPLE.COM"
+	kdcHost := "kdc"
+
+	networkName := fmt.Sprintf("kafka-krb5-network-%d", time.Now().UnixNano())
+	_, err := testcontainers.GenericNetwork(ctx, testcontainers.GenericNetworkRequest{
+		NetworkRequest: testcontainers.NetworkRequest{
+			Name:           networkName,
+			CheckDuplicate: false,
+		},
+	})
+	require.NoError(t, err)
+
+	kdcSetupScript := `#!/bin/bash
+set -e
+
+# Create KDC database
+kdb5_util create -s -P krbmaster123
+
+# Start KDC and kadmin
+krb5kdc
+kadmind
+
+# Create service principals for Kafka (both hostnames)
+kadmin.local -q "addprinc -randkey kafka/kafka.example.com@EXAMPLE.COM"
+kadmin.local -q "addprinc -randkey kafka/localhost@EXAMPLE.COM"
+
+# Create client principal with fixed password
+kadmin.local -q "addprinc -pw kafkaclient-secret kafkaclient@EXAMPLE.COM"
+
+# Export keytabs
+kadmin.local -q "ktadd -k /keytabs/kafka.keytab kafka/kafka.example.com@EXAMPLE.COM"
+kadmin.local -q "ktadd -k /keytabs/kafka.keytab kafka/localhost@EXAMPLE.COM"
+kadmin.local -q "ktadd -k /keytabs/client.keytab kafkaclient@EXAMPLE.COM"
+
+# Set permissions
+chmod 644 /keytabs/*.keytab
+
+echo "KDC setup complete"
+tail -f /dev/null
+`
+
+	krb5ConfContent := fmt.Sprintf(`[libdefaults]
+    default_realm = %s
+    dns_lookup_realm = false
+		dns_lookup_kdc = false
+    ticket_lifetime = 24h
+    renew_lifetime = 7d
+    forwardable = true
+		default_ccache_name = FILE:/tmp/krb5cc_%%{uid}
+
+[realms]
+    %s = {
+				kdc = %s:8888
+        admin_server = %s
+    }
+
+[domain_realm]
+    .example.com = %s
+    example.com = %s
+`, realm, realm, kdcHost, kdcHost, realm, realm)
+
+	kdcConfContent := `[kdcdefaults]
+    kdc_ports = 8888
+    kdc_tcp_ports = 8888
+
+[realms]
+    EXAMPLE.COM = {
+        acl_file = /var/kerberos/krb5kdc/kadm5.acl
+        dict_file = /usr/share/dict/words
+        admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+        supported_enctypes = aes256-cts:normal aes128-cts:normal
+        max_renewable_life = 7d
+    }
+`
+
+	kadmAclContent := "*/admin@EXAMPLE.COM *\n"
+
+	setupScriptPath := filepath.Join(tempDir, "kdc-setup.sh")
+	err = os.WriteFile(setupScriptPath, []byte(kdcSetupScript), 0755)
+	require.NoError(t, err)
+
+	krb5ConfPath := filepath.Join(tempDir, "krb5.conf")
+	err = os.WriteFile(krb5ConfPath, []byte(krb5ConfContent), 0644)
+	require.NoError(t, err)
+
+	kdcConfPath := filepath.Join(tempDir, "kdc.conf")
+	err = os.WriteFile(kdcConfPath, []byte(kdcConfContent), 0644)
+	require.NoError(t, err)
+
+	kadmAclPath := filepath.Join(tempDir, "kadm5.acl")
+	err = os.WriteFile(kadmAclPath, []byte(kadmAclContent), 0644)
+	require.NoError(t, err)
+
+	keytabsDir := filepath.Join(tempDir, "keytabs")
+	err = os.MkdirAll(keytabsDir, 0755)
+	require.NoError(t, err)
+
+	kdcReq := testcontainers.ContainerRequest{
+		Image:        "ubuntu:22.04",
+		ExposedPorts: []string{"8888/tcp", "8888/udp", "749/tcp"},
+		Hostname:     kdcHost,
+		Networks:     []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {kdcHost},
+		},
+		Mounts: testcontainers.ContainerMounts{
+			testcontainers.BindMount(setupScriptPath, "/kdc-setup.sh"),
+			testcontainers.BindMount(krb5ConfPath, "/etc/krb5.conf"),
+			testcontainers.BindMount(kdcConfPath, "/var/kerberos/krb5kdc/kdc.conf"),
+			testcontainers.BindMount(kadmAclPath, "/var/kerberos/krb5kdc/kadm5.acl"),
+			testcontainers.BindMount(keytabsDir, "/keytabs"),
+		},
+		Cmd: []string{
+			"bash",
+			"-c",
+			`
+			apt-get update && apt-get install -y krb5-kdc krb5-admin-server krb5-user dnsutils
+			mkdir -p /var/kerberos/krb5kdc
+			cp /var/kerberos/krb5kdc/kdc.conf /etc/krb5kdc/ || true
+			/kdc-setup.sh
+			systemctl restart krb5-kdc
+			`,
+		},
+		WaitingFor: wait.ForLog("KDC setup complete").WithStartupTimeout(120 * time.Second),
+	}
+
+	kdcContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: kdcReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	go func() {
+		logs, err := kdcContainer.Logs(ctx)
+		if err != nil {
+			t.Logf("Failed to get KDC logs: %v", err)
+			return
+		}
+		defer logs.Close()
+
+		buf := make([]byte, 8192)
+		for {
+			n, err := logs.Read(buf)
+			if n > 0 {
+				t.Logf("[KDC] %s", string(buf[:n]))
+			}
+			if err != nil {
+				break
+			}
+		}
+	}()
+
+	time.Sleep(5 * time.Second)
+
+	kdcPort, err := kdcContainer.MappedPort(ctx, "8888/tcp")
+	require.NoError(t, err)
+
+	clientKrb5ConfContent := fmt.Sprintf(`[libdefaults]
+    default_realm = %s
+    dns_lookup_realm = false
+    dns_lookup_kdc = false
+    ticket_lifetime = 24h
+    renew_lifetime = 7d
+    forwardable = true
+    udp_preference_limit = 1
+		default_ccache_name = FILE:/tmp/krb5cc_%%{uid}
+
+[realms]
+    %s = {
+				kdc = localhost:%s
+        admin_server = localhost:%s
+    }
+
+[domain_realm]
+    .example.com = %s
+    example.com = %s
+`, realm, realm, kdcPort.Port(), kdcPort.Port(), realm, realm)
+
+	clientKrb5ConfPath := filepath.Join(tempDir, "client-krb5.conf")
+	err = os.WriteFile(clientKrb5ConfPath, []byte(clientKrb5ConfContent), 0644)
+	require.NoError(t, err)
+
+	localhostPrincipal := "kafka/localhost@EXAMPLE.COM"
+
+	jaasConfig := fmt.Sprintf(`KafkaServer {
+    com.sun.security.auth.module.Krb5LoginModule required
+    useKeyTab=true
+    storeKey=true
+    keyTab="/etc/kafka/secrets/kafka.keytab"
+    principal="%s";
+};
+
+KafkaClient {
+    com.sun.security.auth.module.Krb5LoginModule required
+    useKeyTab=true
+    storeKey=true
+    keyTab="/etc/kafka/secrets/kafka.keytab"
+    principal="%s";
+};
+`, localhostPrincipal, localhostPrincipal)
+
+	jaasPath := filepath.Join(tempDir, "kafka_server_jaas.conf")
+	err = os.WriteFile(jaasPath, []byte(jaasConfig), 0644)
+	require.NoError(t, err)
+
+	kafkaReq := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-kafka:latest",
+		ExposedPorts: []string{"9092/tcp", "9093/tcp"},
+		Hostname:     "kafka.example.com",
+		Networks:     []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {"kafka.example.com"},
+		},
+		Env: map[string]string{
+			"KAFKA_NODE_ID":                                       "1",
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":                "CONTROLLER:PLAINTEXT,OUTSIDE:SASL_PLAINTEXT,INTERNAL:PLAINTEXT",
+			"KAFKA_ADVERTISED_LISTENERS":                          "OUTSIDE://localhost:9092,INTERNAL://kafka.example.com:9093",
+			"KAFKA_PROCESS_ROLES":                                 "broker,controller",
+			"KAFKA_CONTROLLER_QUORUM_VOTERS":                      "1@kafka.example.com:29093",
+			"KAFKA_LISTENERS":                                     "OUTSIDE://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,INTERNAL://0.0.0.0:9093",
+			"KAFKA_INTER_BROKER_LISTENER_NAME":                    "INTERNAL",
+			"KAFKA_CONTROLLER_LISTENER_NAMES":                     "CONTROLLER",
+			"KAFKA_LOG_DIRS":                                      "/tmp/kraft-combined-logs",
+			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR":              "1",
+			"CLUSTER_ID":                                          "MkU3OEVBNTcwNTJENDM2Qk",
+			"KAFKA_LISTENER_NAME_OUTSIDE_SASL_ENABLED_MECHANISMS": "GSSAPI",
+			"KAFKA_SASL_ENABLED_MECHANISMS":                       "GSSAPI",
+			"KAFKA_SASL_KERBEROS_SERVICE_NAME":                    "kafka",
+			"KAFKA_LISTENER_NAME_OUTSIDE_GSSAPI_SASL_JAAS_CONFIG": fmt.Sprintf(`com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="/etc/kafka/secrets/kafka.keytab" principal="%s";`, localhostPrincipal),
+			"KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND":                "true",
+			"KAFKA_SUPER_USERS":                                   "User:kafkaclient",
+			"KAFKA_OPTS":                                          "-Djava.security.krb5.conf=/etc/kafka/secrets/krb5.conf -Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf -Dsun.security.krb5.debug=true",
+			"KAFKA_LOG4J_ROOT_LOGLEVEL":                           "TRACE",
+		},
+		Mounts: testcontainers.ContainerMounts{
+			testcontainers.BindMount(keytabsDir, "/etc/kafka/secrets"),
+			testcontainers.BindMount(krb5ConfPath, "/etc/kafka/secrets/krb5.conf"),
+			testcontainers.BindMount(jaasPath, "/etc/kafka/secrets/kafka_server_jaas.conf"),
+		},
+		WaitingFor: wait.ForLog("Kafka Server started").WithStartupTimeout(90 * time.Second),
+	}
+
+	kafkaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: kafkaReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	go func() {
+		logs, err := kafkaContainer.Logs(ctx)
+		if err != nil {
+			t.Logf("Failed to get Kafka logs: %v", err)
+			return
+		}
+		defer logs.Close()
+
+		buf := make([]byte, 8192)
+		for {
+			n, err := logs.Read(buf)
+			if n > 0 {
+				t.Logf("[KAFKA] %s", string(buf[:n]))
+			}
+			if err != nil {
+				break
+			}
+		}
+	}()
+
+	mappedPort, err := kafkaContainer.MappedPort(ctx, "9092")
+	require.NoError(t, err)
+
+	clientKeytabPath := filepath.Join(keytabsDir, "client.keytab")
+	return kafkaContainer, kdcContainer, mappedPort, clientKeytabPath, clientKrb5ConfPath
 }
