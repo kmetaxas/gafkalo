@@ -279,6 +279,37 @@ echo "confluent" > confluent
 	return caPath, clientCertPath, clientKeyPath
 }
 
+func generateKafkaContainerSimple(t *testing.T, ctx context.Context) (testcontainers.Container, nat.Port) {
+	req := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-kafka:latest",
+		ExposedPorts: []string{"9092/tcp"},
+		Env: map[string]string{
+			"KAFKA_NODE_ID":                          "1",
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":   "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",
+			"KAFKA_ADVERTISED_LISTENERS":             "PLAINTEXT://localhost:9092",
+			"KAFKA_PROCESS_ROLES":                    "broker,controller",
+			"KAFKA_CONTROLLER_QUORUM_VOTERS":         "1@localhost:29093",
+			"KAFKA_LISTENERS":                        "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093",
+			"KAFKA_INTER_BROKER_LISTENER_NAME":       "PLAINTEXT",
+			"KAFKA_CONTROLLER_LISTENER_NAMES":        "CONTROLLER",
+			"KAFKA_LOG_DIRS":                         "/tmp/kraft-combined-logs",
+			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+			"CLUSTER_ID":                             "MkU3OEVBNTcwNTJENDM2Qk",
+		},
+		WaitingFor: wait.ForLog("Kafka Server started").WithStartupTimeout(60 * time.Second),
+	}
+
+	kafkaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	mappedPort, err := kafkaContainer.MappedPort(ctx, "9092")
+	require.NoError(t, err)
+	return kafkaContainer, mappedPort
+}
+
 func generateKafkaContainerWithMTLS(t *testing.T, ctx context.Context, tempDir string, extraMounts []string) (testcontainers.Container, nat.Port, string, string, string) {
 	// Generate unified certificates for both server and client using the same CA
 	caPath, clientCertPath, clientKeyPath := createUnifiedCertificates(t, tempDir)
