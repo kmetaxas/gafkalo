@@ -142,6 +142,51 @@ Output shows:
 - All topic configurations
 - Partition leaders and replicas
 
+Change partitions
+~~~~~~~~~~~~~~~~~
+
+Modify partition count and replication factor for existing topics:
+
+.. code-block:: bash
+
+   # Plan changes (dry-run)
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --plan
+
+   # Execute changes
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --execute
+
+Options:
+
+``--count``
+  New partition count (must be >= current count)
+
+``--factor``
+  Replication factor for new partitions
+
+``--plan``
+  Show execution plan without applying changes (dry-run)
+
+``--execute``
+  Apply the partition changes
+
+Limitations:
+
+- Cannot decrease partition count (Kafka limitation)
+- Must specify either ``--plan`` or ``--execute``
+- Topic must exist
+
+The plan output shows:
+
+- Current and new partition counts
+- Replication factor
+- Replica assignments for new partitions
+
 Topic linter
 ------------
 
@@ -220,14 +265,16 @@ Supported changes:
 
 - Increase partition count
 - Update topic configurations
+- Change replication factor for new partitions
 
 Unsupported:
 
 - Decrease partitions (Kafka limitation)
 - Delete topics (by design)
-- Change replication factor (use Kafka tools)
 
-Example update:
+**Declarative approach (recommended)**
+
+Update your YAML definition:
 
 .. code-block:: yaml
 
@@ -244,3 +291,21 @@ Then run:
 
    gafkalo plan --config config.yaml   # Review changes
    gafkalo apply --config config.yaml  # Apply
+
+**Imperative approach**
+
+For ad-hoc partition changes:
+
+.. code-block:: bash
+
+   # Preview changes
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --plan
+
+   # Apply changes
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --execute

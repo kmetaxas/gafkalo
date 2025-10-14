@@ -19,9 +19,10 @@ import (
 var topicDescribeTmplData string
 
 type TopicCmd struct {
-	Describe DescribeTopicCmd `cmd help:"Describe topic"`
-	List     ListTopicsCmd    `cmd help:"List topics"`
-	Create   CreateTopicCmd   `cmd help:"Create topic"`
+	Describe   DescribeTopicCmd   `cmd help:"Describe topic"`
+	List       ListTopicsCmd      `cmd help:"List topics"`
+	Create     CreateTopicCmd     `cmd help:"Create topic"`
+	Partitions PartitionsTopicCmd `cmd help:"Change partition count and replication factor"`
 }
 
 type DescribeTopicCmd struct {
@@ -228,6 +229,68 @@ func (cmd *CreateTopicCmd) Run(ctx *CLIContext) error {
 				fmt.Printf("    %s: %s\n", key, cmd.Configs[key])
 			}
 		}
+	}
+
+	return nil
+}
+
+type PartitionsTopicCmd struct {
+	Name    string `arg required help:"Topic name"`
+	Count   int32  `required help:"New partition count"`
+	Factor  int16  `required help:"Replication factor"`
+	Plan    bool   `help:"Show plan without executing (dry run)"`
+	Execute bool   `help:"Execute the partition change"`
+}
+
+func (cmd *PartitionsTopicCmd) Run(ctx *CLIContext) error {
+	if !cmd.Plan && !cmd.Execute {
+		return fmt.Errorf("must specify either --plan or --execute")
+	}
+	if cmd.Plan && cmd.Execute {
+		return fmt.Errorf("cannot specify both --plan and --execute")
+	}
+
+	config := LoadConfig(ctx.Config)
+	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
+
+	topics := kafkadmin.ListTopics()
+	topicDetail, exists := topics[cmd.Name]
+	if !exists {
+		return fmt.Errorf("topic '%s' does not exist", cmd.Name)
+	}
+
+	if cmd.Count < topicDetail.NumPartitions {
+		return fmt.Errorf("cannot decrease partition count from %d to %d (Kafka does not support decreasing partitions)", topicDetail.NumPartitions, cmd.Count)
+	}
+
+	if cmd.Count < 1 {
+		return fmt.Errorf("partition count must be at least 1, got %d", cmd.Count)
+	}
+	if cmd.Factor < 1 {
+		return fmt.Errorf("replication factor must be at least 1, got %d", cmd.Factor)
+	}
+
+	dryRun := cmd.Plan
+	newPlan, err := kafkadmin.ChangePartitionCount(cmd.Name, cmd.Count, cmd.Factor, dryRun)
+	if err != nil {
+		return fmt.Errorf("failed to change partition count: %w", err)
+	}
+
+	if cmd.Plan {
+		fmt.Printf("Plan for topic '%s':\n", cmd.Name)
+		fmt.Printf("  Current partitions: %d\n", topicDetail.NumPartitions)
+		fmt.Printf("  New partitions: %d\n", cmd.Count)
+		fmt.Printf("  Replication factor: %d\n", cmd.Factor)
+		fmt.Println("\nNew partition assignments:")
+		for i, replicas := range newPlan {
+			fmt.Printf("  Partition %d: %v\n", int(topicDetail.NumPartitions)+i, replicas)
+		}
+		fmt.Println("\nTo execute this plan, run with --execute instead of --plan")
+	} else {
+		fmt.Printf("Successfully changed partitions for topic '%s'\n", cmd.Name)
+		fmt.Printf("  Previous partitions: %d\n", topicDetail.NumPartitions)
+		fmt.Printf("  New partitions: %d\n", cmd.Count)
+		fmt.Printf("  Replication factor: %d\n", cmd.Factor)
 	}
 
 	return nil

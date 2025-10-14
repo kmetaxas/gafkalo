@@ -268,6 +268,59 @@ Reset offsets
 
 Sets partition 0 to offset 100, partition 1 to offset 200.
 
+Topic management
+----------------
+
+List topics
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Plain list
+   gafkalo --config config.yaml topic list
+
+   # Table format with metadata
+   gafkalo --config config.yaml topic list --output-format table
+
+   # Filter by pattern
+   gafkalo --config config.yaml topic list --pattern '^events-'
+
+Create topic
+~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   gafkalo --config config.yaml topic create -n my-topic \
+     --partitions 12 \
+     --replication-factor 3 \
+     -c retention.ms=604800000
+
+Describe topic
+~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   gafkalo --config config.yaml topic describe events.orders
+
+Change partitions
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Plan changes (dry-run)
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --plan
+
+   # Execute changes
+   gafkalo --config config.yaml topic partitions events.orders \
+     --count 24 \
+     --factor 3 \
+     --execute
+
+See `topics` documentation for detailed usage.
+
 Topic linting
 -------------
 
