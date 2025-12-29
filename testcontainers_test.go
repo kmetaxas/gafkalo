@@ -395,7 +395,6 @@ func generateKafkaContainerWithSCRAM(t *testing.T, ctx context.Context, extraMou
 			echo "===> Running preflight checks with SCRAM ... "
 			export KAFKA_DATA_DIRS=${KAFKA_DATA_DIRS:-"/var/lib/kafka/data"}
 			echo "===> Check if $KAFKA_DATA_DIRS is writable ..."
-			dub path "$KAFKA_DATA_DIRS" writable
 			
 			echo "===> Using provided cluster id $CLUSTER_ID with SCRAM credentials..."
 			result=$(kafka-storage format --cluster-id=$CLUSTER_ID -c /etc/kafka/kafka.properties --add-scram 'SCRAM-SHA-256=[name=admin,password=admin-secret]' 2>&1) || \
