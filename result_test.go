@@ -92,3 +92,45 @@ func TestPartitionsChanged(t *testing.T) {
 		t.Error("Partitions NOT should be detected as changed")
 	}
 }
+
+func TestConnectorChangedConfigs(t *testing.T) {
+	cr := ConnectorResult{
+		Name: "test-connector",
+		NewConfigs: map[string]string{
+			"config1": "newvalue1",
+			"config2": "newvalue2",
+			"config3": "samevalue",
+		},
+		OldConfigs: map[string]string{
+			"config1": "oldvalue1",
+			"config2": "oldvalue2",
+			"config3": "samevalue",
+		},
+		SensitiveFields: map[string]bool{
+			"config1": true,
+		},
+	}
+
+	changed := cr.ChangedConfigs()
+	if len(changed) != 2 {
+		t.Errorf("Expected 2 changed configs, got %d", len(changed))
+	}
+
+	foundSensitive := false
+	foundNonSensitive := false
+	for _, c := range changed {
+		if c.Name == "config1" && c.IsSensitive {
+			foundSensitive = true
+		}
+		if c.Name == "config2" && !c.IsSensitive {
+			foundNonSensitive = true
+		}
+	}
+
+	if !foundSensitive {
+		t.Error("Expected config1 to be marked as sensitive")
+	}
+	if !foundNonSensitive {
+		t.Error("Expected config2 to be marked as non-sensitive")
+	}
+}
