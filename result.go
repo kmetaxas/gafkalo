@@ -46,7 +46,8 @@ type ConnectorResult struct {
 	NewConfigs map[string]string // New Configs
 	OldConfigs map[string]string // Previous configs
 	// key is field name, value is list of strings with errors returned by Validate API
-	Errors map[string][]string
+	Errors          map[string][]string
+	SensitiveFields map[string]bool // Fields that are sensitive (returned as asterisks from API)
 }
 
 func TopicResultFromTopic(topic Topic) TopicResult {
@@ -129,4 +130,40 @@ func (res *SchemaResult) HasNewVersion() bool {
 	} else {
 		return false
 	}
+}
+
+type ChangedConnectorConfig struct {
+	Name        string
+	OldVal      string
+	NewVal      string
+	IsSensitive bool
+}
+
+func (cr *ConnectorResult) ChangedConfigs() []ChangedConnectorConfig {
+	var res []ChangedConnectorConfig
+
+	for confName, confVal := range cr.NewConfigs {
+		oldVal, exists := cr.OldConfigs[confName]
+		if !exists {
+			oldVal = ""
+		}
+
+		if confVal == oldVal {
+			continue
+		}
+
+		isSensitive := false
+		if cr.SensitiveFields != nil {
+			isSensitive = cr.SensitiveFields[confName]
+		}
+
+		changedConf := ChangedConnectorConfig{
+			Name:        confName,
+			NewVal:      confVal,
+			OldVal:      oldVal,
+			IsSensitive: isSensitive,
+		}
+		res = append(res, changedConf)
+	}
+	return res
 }

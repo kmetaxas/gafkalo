@@ -38,11 +38,10 @@ Subject {{ .SubjectName }}:
 ## Connectors
 {{ range $connector := .Connectors }}
 {{- if $.IsPlan }}[PLAN] Will create/update{{ else }}Created/updated{{ end }} connector {{ $connector.Name }}. Configs:
-{{ range $confKey, $confVal := $connector.NewConfigs }}
-{{- $oldValue := index $connector.OldConfigs $confKey -}}
-{{"\t"}}{{ $confKey }}: {{ HideSensitive $confKey $confVal (index $.ExtraContextKeys "sensitive_regex")  }}{{ if ne $oldValue $confVal }} (Old value: {{ $oldValue }}){{ end }}
-{{- if index $connector.Errors $confKey -}}
-{{ range (index $connector.Errors $confKey) }} {{"\n\t\t"}}- Validation ERROR: "{{.}}" {{ end }}
+{{ range $changed := $connector.ChangedConfigs }}
+{{"\t"}}{{ $changed.Name }}: {{ HideSensitive $changed.Name $changed.NewVal (index $.ExtraContextKeys "sensitive_regex") }}{{ if $changed.IsSensitive }} (Sensitive value can't be compared and will always be pushed to the cluster){{ else }} (Old value: {{ $changed.OldVal }}){{ end }}
+{{- if index $connector.Errors $changed.Name -}}
+{{ range (index $connector.Errors $changed.Name) }} {{"\n\t\t"}}- Validation ERROR: "{{.}}" {{ end }}
 {{- end -}} {{/* If errors */}}
-{{ end }} {{/*End range over NewConfigs */}}
+{{ end }} {{/*End range over ChangedConfigs */}}
 {{- end }}

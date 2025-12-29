@@ -510,11 +510,45 @@ func (c *ConnectClusterState) NeedsPatch(connector Connector) bool {
 		return true
 	}
 	for confName, confVal := range connector.Config {
-		if existingConnector.Config[confName] != confVal {
+		existingVal := existingConnector.Config[confName]
+		if existingVal != confVal {
+			// Confluent changed the REST API (without notice or changelog entry) to return sensitive fields as asterisks.
+			if isSensitiveField(existingVal) {
+				log.Debugf("Connector %s: Field %s is sensitive (returned as asterisks), update will be pushed to Conenect", connector.Name, confName)
+				return true
+			}
 			return true
 		}
 	}
 	return false
+}
+
+/*
+* Confluent Connect REST API started returning asterisks for "Sensitive" fields.
+* To detect that behavior, we check if a field value consists only of asterisks.
+ */
+func isSensitiveField(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, char := range value {
+		// Confluent says they return asterisks but in practice i also see '•' being returned. (unicode 2022)
+		// Let's check for both
+		if (char != '*') && char != '•' {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Connector) detectSensitiveFields() map[string]bool {
+	sensitiveFields := make(map[string]bool)
+	for confName, confVal := range c.Config {
+		if isSensitiveField(confVal) {
+			sensitiveFields[confName] = true
+		}
+	}
+	return sensitiveFields
 }
 
 // Status of a task as returned by /task/<num>/status endpoint
@@ -544,7 +578,7 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 		}
 
 		// IF the connector exists already we use the Patch API endpoint, otherwise the PUT
-		if _, exists := existingConnectorNames.Connectors[connectorConf.Name]; exists {
+		if oldConnector, exists := existingConnectorNames.Connectors[connectorConf.Name]; exists {
 			if existingConnectorNames.NeedsPatch(connectorConf) {
 				log.Debugf("Connector '%v' exists already. New conf %v", connectorConf, connectorConf)
 				if !dryRun {
@@ -553,11 +587,16 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 						log.Fatalf("Failed to create connector %v - error: %v", newConn, err)
 					}
 				}
+				sensitiveFields := oldConnector.detectSensitiveFields()
+				if len(sensitiveFields) > 0 {
+					log.Infof("Connector %s: Detected %d sensitive field(s) that can't be compared (returned as asterisks from API). These fields will always be pushed to the cluster.", connectorConf.Name, len(sensitiveFields))
+				}
 				res := ConnectorResult{
-					Name:       connectorConf.Name,
-					NewConfigs: connectorConf.Config,
-					OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
-					Errors:     validateRes.GetErrors(),
+					Name:            connectorConf.Name,
+					NewConfigs:      connectorConf.Config,
+					OldConfigs:      oldConnector.Config,
+					Errors:          validateRes.GetErrors(),
+					SensitiveFields: sensitiveFields,
 				}
 				connectorResults = append(connectorResults, res)
 			}
@@ -570,10 +609,11 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 				}
 			}
 			res := ConnectorResult{
-				Name:       connectorConf.Name,
-				NewConfigs: connectorConf.Config,
-				OldConfigs: existingConnectorNames.Connectors[connectorConf.Name].Config,
-				Errors:     validateRes.GetErrors(),
+				Name:            connectorConf.Name,
+				NewConfigs:      connectorConf.Config,
+				OldConfigs:      existingConnectorNames.Connectors[connectorConf.Name].Config,
+				Errors:          validateRes.GetErrors(),
+				SensitiveFields: make(map[string]bool),
 			}
 			connectorResults = append(connectorResults, res)
 		}
