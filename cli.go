@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	kongcompletion "github.com/jotaen/kong-completion"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,27 +23,27 @@ type PlanCmd struct {
 type ApplyCmd struct {
 	Dryrun bool `default:"false" hidden`
 }
-type LintCmd struct {
-}
+type LintCmd struct{}
 
 type LintBrokersCmd struct {
 	OnlyErrors bool `flag default:"false" `
 }
 
-var CLI struct {
-	Config        string           `required help:"configuration file"`
-	Verbosity     string           `help:"Verbosity level. error,info,debug,trace" default:"error"`
-	Apply         ApplyCmd         `cmd help:"Apply the changes"`
-	Plan          PlanCmd          `cmd help:"Produce a plan of changes"`
-	Consumer      ConsumerCmd      `cmd help:"Consume from topics"`
-	Produce       ProduceCmd       `cmd help:"Produce to a topic"`
-	Schema        SchemaCmd        `cmd help:"Manage schemas"`
-	Lint          LintCmd          `cmd help:"Run a linter against topic definitions"`
-	Topic         TopicCmd         `cmd help:"Manage topics"`
-	LintBroker    LintBrokersCmd   `cmd help:"Run a linter against topics in a running brokers"`
-	Connect       ConnectCmd       `cmd help:"manage connectors"`
-	Consumergroup ConsumerGroupCmd `cmd help:"manage and view consumer groups"`
-	Replicator    ReplicatorCmd    `cmd helm:"Replicator topics"`
+type CliApp struct {
+	Config        string                    `required help:"configuration file" env:"GAFKALO_CONFIG_PATH"`
+	Verbosity     string                    `help:"Verbosity level. error,info,debug,trace" default:"error"`
+	Apply         ApplyCmd                  `cmd help:"Apply the changes"`
+	Plan          PlanCmd                   `cmd help:"Produce a plan of changes"`
+	Consumer      ConsumerCmd               `cmd help:"Consume from topics"`
+	Produce       ProduceCmd                `cmd help:"Produce to a topic"`
+	Schema        SchemaCmd                 `cmd help:"Manage schemas"`
+	Lint          LintCmd                   `cmd help:"Run a linter against topic definitions"`
+	Topic         TopicCmd                  `cmd help:"Manage topics"`
+	LintBroker    LintBrokersCmd            `cmd help:"Run a linter against topics in a running brokers"`
+	Connect       ConnectCmd                `cmd help:"manage connectors"`
+	Consumergroup ConsumerGroupCmd          `cmd help:"manage and view consumer groups"`
+	Replicator    ReplicatorCmd             `cmd helm:"Replicator topics"`
+	Completion    kongcompletion.Completion `cmd:"" help:"Outputs shell code for initialising tab completions"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
@@ -54,6 +55,7 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	report.Render(os.Stdout)
 	return nil
 }
+
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
@@ -63,6 +65,7 @@ func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	report.Render(os.Stdout)
 	return nil
 }
+
 func parseOffsetsArg(arg *string) (map[int32]int64, error) {
 	offsets := make(map[int32]int64)
 	splitStrings := strings.Split(*arg, "=")
@@ -89,7 +92,6 @@ func parseOffsetsArg(arg *string) (map[int32]int64, error) {
 		offsets[int32(partition)] = offset
 	}
 	return offsets, nil
-
 }
 
 func (cmd *LintCmd) Run(ctx *CLIContext) error {
@@ -134,6 +136,7 @@ func (cmd *LintBrokersCmd) Run(ctx *CLIContext) error {
 	PrettyPrintLintResults(results)
 	return nil
 }
+
 func LoadConfig(config string) Configuration {
 	configuration := parseConfig(config)
 	// set global variable
@@ -167,6 +170,7 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 	}
 	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
 }
+
 func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) *Report {
 	var connectResults []ConnectorResult
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
