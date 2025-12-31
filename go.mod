@@ -10,6 +10,7 @@ require (
 	github.com/getsops/sops/v3 v3.11.0
 	github.com/google/go-cmp v0.7.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
+	github.com/jotaen/kong-completion v0.0.7
 	github.com/kmetaxas/sarama-sasl v0.0.0-20250906140818-cb8eab95359e
 	github.com/kmetaxas/srclient v0.7.5
 	github.com/mitchellh/mapstructure v1.5.0
@@ -145,8 +146,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/posener/complete v1.2.3 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
+	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
