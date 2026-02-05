@@ -14,9 +14,16 @@ import (
 	"github.com/getsops/sops/v3/decrypt"
 	"github.com/kmetaxas/sarama-sasl/oauthbearer"
 	log "github.com/sirupsen/logrus"
+	"github.com/xdg-go/scram"
 	"gopkg.in/yaml.v2"
 )
 
+type SCRAMConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	Mechanism string `yaml:"mechanism"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+}
 type KafkaConfig struct {
 	Brokers []string `yaml:"bootstrapBrokers"`
 	SSL     struct {
@@ -39,11 +46,7 @@ type KafkaConfig struct {
 		MaxMessageBytes int    `yaml:"maxMessageBytes"`
 		Compression     string `yaml:"compression"`
 	} `yaml:"producer"`
-	Scram struct {
-		Enabled  bool   `yaml:"enabled"`
-		Username string `yaml:"username"`
-		Password string `yaml:"password"`
-	} `yaml:"scram"`
+	Scram     SCRAMConfig `yaml:"scram"`
 	TokenAuth struct {
 		Enabled        bool   `yaml:"enabled"`
 		ClientID       string `yaml:"client"`
@@ -210,12 +213,22 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	}
 	// Set Sasl plain if configured
 	if conf.Scram.Enabled {
-
+		var generatorFunc scram.HashGeneratorFcn
+		if conf.Scram.Mechanism == "SCRAM-SHA-256" {
+			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+			generatorFunc = SHA256
+		} else if conf.Scram.Mechanism == "SCRAM-SHA-512" {
+			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			generatorFunc = SHA512
+		} else {
+			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+			generatorFunc = SHA256
+			log.Warnf("Undefined Scram mechanism: %s, defaulting to SCRAM-SHA-256\n", conf.Scram.Mechanism)
+		}
 		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
 		config.Net.SASL.User = conf.Scram.Username
 		config.Net.SASL.Password = conf.Scram.Password
-		config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+		config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: generatorFunc} }
 	}
 	// Token auth if configured
 	if conf.TokenAuth.Enabled {

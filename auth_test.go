@@ -74,14 +74,11 @@ func TestSCRAMAuthentication(t *testing.T) {
 
 	kafkaConfigSCRAM := KafkaConfig{
 		Brokers: []string{"localhost:9094"},
-		Scram: struct {
-			Enabled  bool   `yaml:"enabled"`
-			Username string `yaml:"username"`
-			Password string `yaml:"password"`
-		}{
-			Enabled:  true,
-			Username: "admin",
-			Password: "admin-secret",
+		Scram: SCRAMConfig{
+			Enabled:   true,
+			Mechanism: "SCRAM-SHA-256",
+			Username:  "admin",
+			Password:  "admin-secret",
 		},
 	}
 
@@ -218,14 +215,11 @@ func TestSaramaConfigFromKafkaConfig(t *testing.T) {
 	// Test SASL Plain configuration
 	kafkaConfigSASL := KafkaConfig{
 		Brokers: []string{"localhost:9094"},
-		Scram: struct {
-			Enabled  bool   `yaml:"enabled"`
-			Username string `yaml:"username"`
-			Password string `yaml:"password"`
-		}{
-			Enabled:  true,
-			Username: "testuser",
-			Password: "testpass",
+		Scram: SCRAMConfig{
+			Enabled:   true,
+			Mechanism: "SCRAM-SHA-256",
+			Username:  "testuser",
+			Password:  "testpass",
 		},
 	}
 
