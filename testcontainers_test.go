@@ -701,3 +701,234 @@ KafkaClient {
 	clientKeytabPath := filepath.Join(keytabsDir, "client.keytab")
 	return kafkaContainer, kdcContainer, mappedPort, clientKeytabPath, clientKrb5ConfPath
 }
+
+func generateKafkaAndSchemaRegistryContainers(t *testing.T, ctx context.Context) (testcontainers.Container, testcontainers.Container, nat.Port, string) {
+	networkName := fmt.Sprintf("schema-test-network-%d", time.Now().UnixNano())
+
+	network, err := testcontainers.GenericNetwork(ctx, testcontainers.GenericNetworkRequest{
+		NetworkRequest: testcontainers.NetworkRequest{
+			Name:           networkName,
+			CheckDuplicate: false,
+		},
+	})
+	require.NoError(t, err)
+	defer network.Remove(ctx)
+
+	kafkaReq := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-kafka:latest",
+		ExposedPorts: []string{"9092/tcp", "9093/tcp"},
+		Env: map[string]string{
+			"KAFKA_NODE_ID":                          "1",
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":   "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT",
+			"KAFKA_ADVERTISED_LISTENERS":             "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093",
+			"KAFKA_PROCESS_ROLES":                    "broker,controller",
+			"KAFKA_CONTROLLER_QUORUM_VOTERS":         "1@localhost:29093",
+			"KAFKA_LISTENERS":                        "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093,CONTROLLER://0.0.0.0:29093",
+			"KAFKA_INTER_BROKER_LISTENER_NAME":       "PLAINTEXT",
+			"KAFKA_CONTROLLER_LISTENER_NAMES":        "CONTROLLER",
+			"KAFKA_LOG_DIRS":                         "/tmp/kraft-combined-logs",
+			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+			"CLUSTER_ID":                             "MkU3OEVBNTcwNTJENDM2Qk",
+		},
+		Networks: []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {"kafka"},
+		},
+		WaitingFor: wait.ForLog("Kafka Server started").WithStartupTimeout(60 * time.Second),
+	}
+
+	kafkaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: kafkaReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	mappedKafkaPort, err := kafkaContainer.MappedPort(ctx, "9093")
+	require.NoError(t, err)
+
+	time.Sleep(5 * time.Second)
+
+	srReq := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-schema-registry:latest",
+		ExposedPorts: []string{"8081/tcp"},
+		Env: map[string]string{
+			"SCHEMA_REGISTRY_HOST_NAME":                    "schema-registry",
+			"SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS": "kafka:9092",
+			"SCHEMA_REGISTRY_LISTENERS":                    "http://0.0.0.0:8081",
+		},
+		Networks: []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {"schema-registry"},
+		},
+		WaitingFor: wait.ForLog("Server started, listening for requests").WithStartupTimeout(60 * time.Second),
+	}
+
+	srContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: srReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	mappedSRPort, err := srContainer.MappedPort(ctx, "8081")
+	require.NoError(t, err)
+
+	srURL := fmt.Sprintf("http://localhost:%s", mappedSRPort.Port())
+
+	time.Sleep(3 * time.Second)
+
+	return kafkaContainer, srContainer, mappedKafkaPort, srURL
+}
+
+func TestSchemaRegistryCompatibilityCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+
+	kafkaContainer, srContainer, _, srURL := generateKafkaAndSchemaRegistryContainers(t, ctx)
+	defer func() {
+		if err := kafkaContainer.Terminate(ctx); err != nil {
+			t.Logf("Failed to terminate Kafka container: %v", err)
+		}
+		if err := srContainer.Terminate(ctx); err != nil {
+			t.Logf("Failed to terminate Schema Registry container: %v", err)
+		}
+	}()
+
+	config := &Configuration{}
+	config.Connections.Schemaregistry.Url = srURL
+	config.Connections.Schemaregistry.CheckCompatibility = true
+	config.Connections.Schemaregistry.Timeout = 30
+
+	admin := NewSRAdmin(config)
+
+	initialSchema := Schema{
+		SubjectName:   "test-compatibility-subject",
+		Compatibility: "BACKWARD",
+		SchemaData:    `{"type": "record", "name": "User", "fields": [{"name": "name", "type": "string"}, {"name": "age", "type": "int"}]}`,
+		SchemaType:    "AVRO",
+	}
+
+	_, err := admin.RegisterSubject(initialSchema)
+	require.NoError(t, err, "Failed to register initial schema")
+
+	t.Run("Compatible schema change", func(t *testing.T) {
+		compatibleSchema := Schema{
+			SubjectName:   "test-compatibility-subject",
+			Compatibility: "BACKWARD",
+			SchemaData:    `{"type": "record", "name": "User", "fields": [{"name": "name", "type": "string"}, {"name": "age", "type": "int"}, {"name": "email", "type": ["null", "string"], "default": null}]}`,
+			SchemaType:    "AVRO",
+		}
+
+		isCompatible, compatLevel, errors, err := admin.TestCompatibilityBeforeRegister(compatibleSchema)
+		require.NoError(t, err, "Compatibility check should not fail")
+		require.True(t, isCompatible, "Schema should be compatible (added optional field)")
+		require.Equal(t, "BACKWARD", compatLevel, "Compatibility level should be BACKWARD")
+		require.Empty(t, errors, "Should have no compatibility errors")
+	})
+
+	t.Run("Incompatible schema change", func(t *testing.T) {
+		incompatibleSchema := Schema{
+			SubjectName:   "test-compatibility-subject",
+			Compatibility: "BACKWARD",
+			SchemaData:    `{"type": "record", "name": "User", "fields": [{"name": "name", "type": "int"}]}`,
+			SchemaType:    "AVRO",
+		}
+
+		isCompatible, compatLevel, errors, err := admin.TestCompatibilityBeforeRegister(incompatibleSchema)
+		require.NoError(t, err, "Compatibility check should not fail")
+		require.False(t, isCompatible, "Schema should be incompatible (incompatible type change)")
+		require.Equal(t, "BACKWARD", compatLevel, "Compatibility level should be BACKWARD")
+		require.NotEmpty(t, errors, "Should have compatibility error messages")
+
+		t.Logf("Compatibility errors: %v", errors)
+	})
+
+	t.Run("ReconcileSchema with compatibility check enabled", func(t *testing.T) {
+		newCompatibleSchema := Schema{
+			SubjectName:   "test-reconcile-subject",
+			Compatibility: "BACKWARD",
+			SchemaData:    `{"type": "record", "name": "Product", "fields": [{"name": "id", "type": "string"}]}`,
+			SchemaType:    "AVRO",
+		}
+
+		result := admin.ReconcileSchema(newCompatibleSchema, false)
+		require.NotNil(t, result, "Result should not be nil")
+		require.True(t, result.HasNewVersion(), "Should have new version (first registration)")
+		require.False(t, result.HasCompatibilityCheck(), "Should not check compatibility for first version")
+	})
+
+	t.Run("ReconcileSchema prevents incompatible registration", func(t *testing.T) {
+		baseSchema := Schema{
+			SubjectName:   "test-prevent-incompatible",
+			Compatibility: "BACKWARD",
+			SchemaData:    `{"type": "record", "name": "Order", "fields": [{"name": "orderId", "type": "string"}, {"name": "amount", "type": "double"}]}`,
+			SchemaType:    "AVRO",
+		}
+
+		result1 := admin.ReconcileSchema(baseSchema, false)
+		require.NotNil(t, result1)
+		require.True(t, result1.HasNewVersion(), "Should register initial schema")
+
+		// Refresh the subject cache after first registration
+		if admin.UseSRCache {
+			admin.SubjectCache = admin.SRCache.GetSubjects()
+		} else {
+			subjects, err := admin.Client.GetSubjects()
+			require.NoError(t, err)
+			admin.SubjectCache = subjects
+		}
+
+		incompatibleSchema := Schema{
+			SubjectName:   "test-prevent-incompatible",
+			Compatibility: "BACKWARD",
+			SchemaData:    `{"type": "record", "name": "Order", "fields": [{"name": "orderId", "type": "int"}]}`,
+			SchemaType:    "AVRO",
+		}
+
+		result2 := admin.ReconcileSchema(incompatibleSchema, false)
+		require.NotNil(t, result2)
+		require.True(t, result2.HasCompatibilityCheck(), "Should have compatibility check")
+		require.False(t, result2.IsSchemaCompatible(), "Should be incompatible")
+		require.True(t, result2.HasCompatibilityErrors(), "Should have error messages")
+		require.False(t, result2.HasNewVersion(), "Should NOT register incompatible schema")
+	})
+}
+
+func TestSchemaRegistryCompatibilityCheckDisabled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+
+	kafkaContainer, srContainer, _, srURL := generateKafkaAndSchemaRegistryContainers(t, ctx)
+	defer func() {
+		if err := kafkaContainer.Terminate(ctx); err != nil {
+			t.Logf("Failed to terminate Kafka container: %v", err)
+		}
+		if err := srContainer.Terminate(ctx); err != nil {
+			t.Logf("Failed to terminate Schema Registry container: %v", err)
+		}
+	}()
+
+	config := &Configuration{}
+	config.Connections.Schemaregistry.Url = srURL
+	config.Connections.Schemaregistry.CheckCompatibility = false
+	config.Connections.Schemaregistry.Timeout = 30
+
+	admin := NewSRAdmin(config)
+
+	schema := Schema{
+		SubjectName:   "test-no-compat-check",
+		Compatibility: "BACKWARD",
+		SchemaData:    `{"type": "record", "name": "Item", "fields": [{"name": "id", "type": "string"}]}`,
+		SchemaType:    "AVRO",
+	}
+
+	result := admin.ReconcileSchema(schema, false)
+	require.NotNil(t, result)
+	require.True(t, result.HasNewVersion(), "Should register schema")
+	require.False(t, result.HasCompatibilityCheck(), "Should NOT check compatibility when disabled")
+}

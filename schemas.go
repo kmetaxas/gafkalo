@@ -302,9 +302,9 @@ func (admin *SRAdmin) GetCompatibilityGlobal() (string, error) {
 	return respObj.Compatibility, nil
 }
 
-// TestCompatibilityBeforeRegister tests schema compatibility before registration
+// Call Schema registry REST API to test the compatibility of this schema against previous version
 // Returns compatibility status, compatibility level used, and detailed error messages
-func (admin *SRAdmin) TestCompatibilityBeforeRegister(schema Schema) (bool, string, []string, error) {
+func (admin *SRAdmin) DoCompatibilityTest(schema Schema) (bool, string, []string, error) {
 	type CompatibilityRequest struct {
 		Schema     string              `json:"schema"`
 		SchemaType srclient.SchemaType `json:"schemaType,omitempty"`
@@ -314,17 +314,12 @@ func (admin *SRAdmin) TestCompatibilityBeforeRegister(schema Schema) (bool, stri
 		Messages     []string `json:"messages,omitempty"`
 	}
 
-	// Get the compatibility level that will be used for this check
+	// Get the currentl compatiblity level. Not really needed for the API call but we want it for the reporting system.
 	compatLevel, err := admin.GetCompatibility(schema)
-	if err != nil || compatLevel == "" {
-		// Fall back to global compatibility if subject-level is not set
-		compatLevel, err = admin.GetCompatibilityGlobal()
-		if err != nil {
-			return false, "", nil, fmt.Errorf("failed to get compatibility level: %w", err)
-		}
+	if err != nil {
+		return false, compatLevel, nil, fmt.Errorf("failed to get compatibility level for subject %s: %w", schema.SubjectName, err)
 	}
 
-	// Prepare the request
 	reqObj := CompatibilityRequest{
 		Schema: schema.SchemaData,
 	}
@@ -338,6 +333,7 @@ func (admin *SRAdmin) TestCompatibilityBeforeRegister(schema Schema) (bool, stri
 	}
 
 	// Make the REST call with verbose=true to get detailed error messages
+	// Note: This endpoint is available in Confluent Platform 7.0+
 	uri := fmt.Sprintf("%s/compatibility/subjects/%s/versions?verbose=true", admin.url, schema.SubjectName)
 	respBody, err := admin.makeRestCall("POST", uri, bytes.NewBuffer(request))
 	if err != nil {
@@ -377,37 +373,52 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 			log.Debugf("Must register schema %v , (existingID:%d) dryRun:%v", schema, existingID, dryRun)
 
 			// Check compatibility before registration if enabled
+			// Only check if there are existing versions (subject exists)
+			subjectExists := false
 			if admin.CheckCompatibility {
-				isCompatible, compatLevel, errors, err := admin.TestCompatibilityBeforeRegister(schema)
-				result.CompatibilityChecked = true
-				result.IsCompatible = isCompatible
-				result.CompatibilityLevel = compatLevel
-				result.CompatibilityErrors = errors
+				// Check if subject already has versions
+				subjects := admin.SubjectCache
+				for _, s := range subjects {
+					if s == schema.SubjectName {
+						subjectExists = true
+						break
+					}
+				}
 
-				if err != nil {
-					log.Warnf("Compatibility check failed for %s: %s", schema.SubjectName, err)
-				} else {
-					log.Debugf("Compatibility check for %s: compatible=%v, level=%s",
-						schema.SubjectName, isCompatible, compatLevel)
+				if subjectExists {
+					isCompatible, compatLevel, errors, err := admin.DoCompatibilityTest(schema)
+					result.CompatibilityChecked = true
+					result.IsCompatible = isCompatible
+					result.CompatibilityLevel = compatLevel
+					result.CompatibilityErrors = errors
 
-					if !isCompatible {
-						if len(errors) > 0 {
-							log.Warnf("Schema %s is not compatible (level: %s). Reasons:",
-								schema.SubjectName, compatLevel)
-							for _, errMsg := range errors {
-								log.Warnf("  - %s", errMsg)
+					if err != nil {
+						log.Warnf("Compatibility check failed for %s: %s", schema.SubjectName, err)
+					} else {
+						log.Debugf("Compatibility check for %s: compatible=%v, level=%s",
+							schema.SubjectName, isCompatible, compatLevel)
+
+						if !isCompatible {
+							if len(errors) > 0 {
+								log.Warnf("Schema %s is not compatible (level: %s). Reasons:",
+									schema.SubjectName, compatLevel)
+								for _, errMsg := range errors {
+									log.Warnf("  - %s", errMsg)
+								}
+							} else {
+								log.Warnf("Schema %s is not compatible with compatibility level: %s",
+									schema.SubjectName, compatLevel)
 							}
-						} else {
-							log.Warnf("Schema %s is not compatible with compatibility level: %s",
-								schema.SubjectName, compatLevel)
-						}
 
-						// Don't register if not compatible (unless dry-run)
-						if !dryRun {
-							log.Errorf("Skipping registration of incompatible schema: %s", schema.SubjectName)
-							return &result
+							// Don't register if not compatible (unless dry-run)
+							if !dryRun {
+								log.Errorf("Skipping registration of incompatible schema: %s", schema.SubjectName)
+								return &result
+							}
 						}
 					}
+				} else {
+					log.Debugf("Skipping compatibility check for %s - no existing versions", schema.SubjectName)
 				}
 			}
 
