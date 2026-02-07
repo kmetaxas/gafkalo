@@ -314,10 +314,12 @@ func (admin *SRAdmin) DoCompatibilityTest(schema Schema) (bool, string, []string
 		Messages     []string `json:"messages,omitempty"`
 	}
 
-	// Get the currentl compatiblity level. Not really needed for the API call but we want it for the reporting system.
+	// Get the effective compatibility level for reporting purposes
+	// The API will use the effective compatibility (subject or global) automatically
 	compatLevel, err := admin.GetCompatibility(schema)
-	if err != nil {
-		return false, compatLevel, nil, fmt.Errorf("failed to get compatibility level for subject %s: %w", schema.SubjectName, err)
+	if err != nil || compatLevel == "" {
+		// If no subject-level compatibility, try to get global for reporting
+		compatLevel, _ = admin.GetCompatibilityGlobal()
 	}
 
 	reqObj := CompatibilityRequest{
@@ -412,7 +414,7 @@ func (admin *SRAdmin) ReconcileSchema(schema Schema, dryRun bool) *SchemaResult 
 
 							// Don't register if not compatible (unless dry-run)
 							if !dryRun {
-								log.Errorf("Skipping registration of incompatible schema: %s", schema.SubjectName)
+								log.Warnf("Skipping registration of incompatible schema: %s", schema.SubjectName)
 								return &result
 							}
 						}

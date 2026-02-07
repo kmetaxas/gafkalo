@@ -810,8 +810,10 @@ func TestSchemaRegistryCompatibilityCheck(t *testing.T) {
 		SchemaType:    "AVRO",
 	}
 
-	_, err := admin.RegisterSubject(initialSchema)
-	require.NoError(t, err, "Failed to register initial schema")
+	// Use ReconcileSchema to both register the schema AND set the compatibility level
+	result := admin.ReconcileSchema(initialSchema, false)
+	require.NotNil(t, result, "Failed to register initial schema")
+	require.True(t, result.HasNewVersion(), "Should have registered initial schema")
 
 	t.Run("Compatible schema change", func(t *testing.T) {
 		compatibleSchema := Schema{
@@ -821,7 +823,7 @@ func TestSchemaRegistryCompatibilityCheck(t *testing.T) {
 			SchemaType:    "AVRO",
 		}
 
-		isCompatible, compatLevel, errors, err := admin.TestCompatibilityBeforeRegister(compatibleSchema)
+		isCompatible, compatLevel, errors, err := admin.DoCompatibilityTest(compatibleSchema)
 		require.NoError(t, err, "Compatibility check should not fail")
 		require.True(t, isCompatible, "Schema should be compatible (added optional field)")
 		require.Equal(t, "BACKWARD", compatLevel, "Compatibility level should be BACKWARD")
@@ -836,7 +838,7 @@ func TestSchemaRegistryCompatibilityCheck(t *testing.T) {
 			SchemaType:    "AVRO",
 		}
 
-		isCompatible, compatLevel, errors, err := admin.TestCompatibilityBeforeRegister(incompatibleSchema)
+		isCompatible, compatLevel, errors, err := admin.DoCompatibilityTest(incompatibleSchema)
 		require.NoError(t, err, "Compatibility check should not fail")
 		require.False(t, isCompatible, "Schema should be incompatible (incompatible type change)")
 		require.Equal(t, "BACKWARD", compatLevel, "Compatibility level should be BACKWARD")
