@@ -55,25 +55,6 @@ func TestGetPrefixStr(t *testing.T) {
 	}
 }
 
-func DoCompatibilityTest(t *testing.T) {
-	result1 := ClientResult{Principal: "User:test", ResourceType: "Topic", ResourceName: "TestTopic", Role: "DeveloperRead", PatternType: "PREFIXED"}
-	var existsPatterns []MDSResourcePattern
-	pat1 := MDSResourcePattern{ResourceType: "Subject", Name: "TestTopic", PatternType: "PREFIXED"}
-	patsame := MDSResourcePattern{ResourceType: "Topic", Name: "TestTopic", PatternType: "PREFIXED"}
-	existsPatterns = append(existsPatterns, pat1)
-	existsPatterns = append(existsPatterns, patsame)
-	found := compareResultWithResourcePatterns(result1, existsPatterns)
-	if !found {
-		t.Error("Result not found in MDSResourcePattern list")
-	}
-	var notExistsPatterns []MDSResourcePattern
-	notExistsPatterns = append(notExistsPatterns, pat1)
-	found = compareResultWithResourcePatterns(result1, notExistsPatterns)
-	if found {
-		t.Error("Result should not be in MDSResourcePattern list")
-	}
-}
-
 func Test_roleExists(t *testing.T) {
 	admin := getTestAdmin()
 	result := getTestClientResult()
