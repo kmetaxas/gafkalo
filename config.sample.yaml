@@ -37,6 +37,7 @@ connections:
     password: "password!"
     caPath: "/home/arcanum/Downloads/ca.crt" # Add a CA to trust store
     skipVerify: true # Skip TLS verify
+    checkCompatibility: true # Check schema compatibility before registration (default: false)
   mds:
     url: "http://localhost:8090"
     username: "username"

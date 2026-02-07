@@ -134,3 +134,91 @@ func TestConnectorChangedConfigs(t *testing.T) {
 		t.Error("Expected config2 to be marked as non-sensitive")
 	}
 }
+
+func getTestSchemaResult(compatible bool, withErrors bool) SchemaResult {
+	sr := SchemaResult{
+		SubjectName:          "test-subject",
+		NewVersion:           1,
+		Changed:              true,
+		NewCompat:            "BACKWARD",
+		CompatibilityChecked: true,
+		IsCompatible:         compatible,
+		CompatibilityLevel:   "BACKWARD",
+	}
+	if withErrors {
+		sr.CompatibilityErrors = []string{
+			"Field removed: field1",
+			"Incompatible type change: field2",
+		}
+	}
+	return sr
+}
+
+func TestSchemaResultHasCompatibilityCheck(t *testing.T) {
+	sr := getTestSchemaResult(true, false)
+	if !sr.HasCompatibilityCheck() {
+		t.Error("SchemaResult should have compatibility check")
+	}
+
+	sr.CompatibilityChecked = false
+	if sr.HasCompatibilityCheck() {
+		t.Error("SchemaResult should not have compatibility check")
+	}
+}
+
+func TestSchemaResultIsSchemaCompatible(t *testing.T) {
+	sr := getTestSchemaResult(true, false)
+	if !sr.IsSchemaCompatible() {
+		t.Error("SchemaResult should be compatible")
+	}
+
+	sr = getTestSchemaResult(false, false)
+	if sr.IsSchemaCompatible() {
+		t.Error("SchemaResult should not be compatible")
+	}
+}
+
+func TestSchemaResultHasCompatibilityErrors(t *testing.T) {
+	sr := getTestSchemaResult(false, false)
+	if sr.HasCompatibilityErrors() {
+		t.Error("SchemaResult should not have compatibility errors")
+	}
+
+	sr = getTestSchemaResult(false, true)
+	if !sr.HasCompatibilityErrors() {
+		t.Error("SchemaResult should have compatibility errors")
+	}
+	if len(sr.CompatibilityErrors) != 2 {
+		t.Errorf("Expected 2 compatibility errors, got %d", len(sr.CompatibilityErrors))
+	}
+}
+
+func TestSchemaResultHasNewCompatibility(t *testing.T) {
+	sr := SchemaResult{
+		SubjectName: "test-subject",
+		NewCompat:   "FULL",
+	}
+	if !sr.HasNewCompatibility() {
+		t.Error("SchemaResult should have new compatibility")
+	}
+
+	sr.NewCompat = ""
+	if sr.HasNewCompatibility() {
+		t.Error("SchemaResult should not have new compatibility")
+	}
+}
+
+func TestSchemaResultHasNewVersion(t *testing.T) {
+	sr := SchemaResult{
+		SubjectName: "test-subject",
+		NewVersion:  2,
+	}
+	if !sr.HasNewVersion() {
+		t.Error("SchemaResult should have new version")
+	}
+
+	sr.NewVersion = 0
+	if sr.HasNewVersion() {
+		t.Error("SchemaResult should not have new version")
+	}
+}

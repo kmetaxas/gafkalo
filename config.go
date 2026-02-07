@@ -84,6 +84,8 @@ type SRConfig struct {
 	// When this is true, Gafkalo will read the _schemas topic directly and
 	// use an internal cache for read operations, bypassign the REST API
 	SkipRestForReads bool `yaml:"skipRegistryForReads"`
+	// When this is true, Gafkalo will check schema compatibility before registration
+	CheckCompatibility bool `yaml:"checkCompatibility"`
 }
 type Configuration struct {
 	Connections struct {
