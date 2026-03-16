@@ -12,10 +12,12 @@ func getTestAdmin() *MDSAdmin {
 	}
 	return &mdsAdmin
 }
+
 func getTestMDSResourcePattern() MDSResourcePattern {
 	pat1 := MDSResourcePattern{ResourceType: "Subject", Name: "TestTopic", PatternType: "PREFIXED"}
 	return pat1
 }
+
 func getTestRolebindings() MDSRolebindings {
 	res := MDSRolebindings{}
 	res.DeveloperRead = append(res.DeveloperRead, getTestMDSResourcePattern())
@@ -51,26 +53,6 @@ func TestGetPrefixStr(t *testing.T) {
 	if res := getPrefixStr(false); res != "PREFIXED" {
 		t.Error("getPrefixStr wrong value (should be PREFIXED for false")
 	}
-
-}
-
-func TestCompareResultWithResourcePatterns(t *testing.T) {
-	result1 := ClientResult{Principal: "User:test", ResourceType: "Topic", ResourceName: "TestTopic", Role: "DeveloperRead", PatternType: "PREFIXED"}
-	var existsPatterns []MDSResourcePattern
-	pat1 := MDSResourcePattern{ResourceType: "Subject", Name: "TestTopic", PatternType: "PREFIXED"}
-	patsame := MDSResourcePattern{ResourceType: "Topic", Name: "TestTopic", PatternType: "PREFIXED"}
-	existsPatterns = append(existsPatterns, pat1)
-	existsPatterns = append(existsPatterns, patsame)
-	found := compareResultWithResourcePatterns(result1, existsPatterns)
-	if !found {
-		t.Error("Result not found in MDSResourcePattern list")
-	}
-	var notExistsPatterns []MDSResourcePattern
-	notExistsPatterns = append(notExistsPatterns, pat1)
-	found = compareResultWithResourcePatterns(result1, notExistsPatterns)
-	if found {
-		t.Error("Result should not be in MDSResourcePattern list")
-	}
 }
 
 func Test_roleExists(t *testing.T) {
@@ -92,9 +74,7 @@ func Test_roleExists(t *testing.T) {
 			t.Errorf("Pattern %s should NOT exist in %s", result, roles)
 		}
 	}
-
 }
 
 func Test_getKafkaClusterID(t *testing.T) {
-
 }

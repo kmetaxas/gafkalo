@@ -27,10 +27,14 @@ type TopicResult struct {
 }
 
 type SchemaResult struct {
-	SubjectName string
-	NewVersion  int    // New Version registered
-	Changed     bool   // Will be true of subject was created or updated
-	NewCompat   string // Will be set if compatibility changed for this Subjec
+	SubjectName          string
+	NewVersion           int      // New Version registered
+	Changed              bool     // Will be true of subject was created or updated
+	NewCompat            string   // Will be set if compatibility changed for this Subjec
+	CompatibilityChecked bool     // Whether compatibility was checked before registration
+	IsCompatible         bool     // Result of compatibility check
+	CompatibilityLevel   string   // Compatibility level used for the check
+	CompatibilityErrors  []string // Detailed reasons for incompatibility
 }
 
 type ClientResult struct {
@@ -130,6 +134,18 @@ func (res *SchemaResult) HasNewVersion() bool {
 	} else {
 		return false
 	}
+}
+
+func (res *SchemaResult) HasCompatibilityCheck() bool {
+	return res.CompatibilityChecked
+}
+
+func (res *SchemaResult) IsSchemaCompatible() bool {
+	return res.IsCompatible
+}
+
+func (res *SchemaResult) HasCompatibilityErrors() bool {
+	return len(res.CompatibilityErrors) > 0
 }
 
 type ChangedConnectorConfig struct {

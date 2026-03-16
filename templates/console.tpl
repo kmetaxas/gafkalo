@@ -21,16 +21,32 @@ Partitions {{ if $.IsPlan }}will be {{end}}changed to {{.NewPartitions}} from {{
 {{- end }}
 ## Schemas
 {{ range .Schemas -}}
-{{ if or .Changed .HasNewCompatibility -}} 
+{{ if or .Changed .HasNewCompatibility .HasCompatibilityCheck -}} 
 {{ if $.IsPlan -}}
 [PLAN] -  Subject {{ .SubjectName }} {{ if .Changed }}will be registered with a new version.{{- end }} {{ if .HasNewCompatibility }} Compatibility will be set to {{ .NewCompat }}{{- end }}
+{{ if .HasCompatibilityCheck -}}
+  Compatibility Check ({{ .CompatibilityLevel }}): {{ if .IsSchemaCompatible }}PASS - Schema is compatible{{else}}FAIL - Schema is NOT compatible{{end}}
+{{ if .HasCompatibilityErrors }}  Reasons:
+{{- range .CompatibilityErrors }}
+    - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{ else -}}
 Subject {{ .SubjectName }}: 
 {{- if .HasNewVersion -}} Registered with new version {{ .NewVersion }}. {{- end -}}
 {{if .HasNewCompatibility }} Changed Compatibility to {{ .NewCompat }}.{{end}}
+{{ if .HasCompatibilityCheck -}}
+  Compatibility Check ({{ .CompatibilityLevel }}): {{ if .IsSchemaCompatible }}PASS - Schema is compatible{{else}}FAIL - Schema is NOT compatible{{end}}
+{{ if .HasCompatibilityErrors }}  Reasons:
+{{- range .CompatibilityErrors }}
+    - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{ end -}}
 {{- end -}}
-{{- end }}{{/* .Changed .HasNewCompatibility  */}}
+{{- end }}{{/* .Changed .HasNewCompatibility .HasCompatibilityCheck */}}
 ## Roles and Clients
 {{ range .Clients -}}
 {{ if $.IsPlan }}[PLAN]. Will add{{ else }} Added {{ end }} role {{ .Role }} to principal {{ .Principal }} for {{ .ResourceType }}:{{ .ResourceName }} with type {{ .PatternType }}

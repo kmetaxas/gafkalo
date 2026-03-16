@@ -701,3 +701,80 @@ KafkaClient {
 	clientKeytabPath := filepath.Join(keytabsDir, "client.keytab")
 	return kafkaContainer, kdcContainer, mappedPort, clientKeytabPath, clientKrb5ConfPath
 }
+
+func generateKafkaAndSchemaRegistryContainers(t *testing.T, ctx context.Context) (testcontainers.Container, testcontainers.Container, nat.Port, string) {
+	networkName := fmt.Sprintf("schema-test-network-%d", time.Now().UnixNano())
+
+	network, err := testcontainers.GenericNetwork(ctx, testcontainers.GenericNetworkRequest{
+		NetworkRequest: testcontainers.NetworkRequest{
+			Name:           networkName,
+			CheckDuplicate: false,
+		},
+	})
+	require.NoError(t, err)
+	defer network.Remove(ctx)
+
+	kafkaReq := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-kafka:latest",
+		ExposedPorts: []string{"9092/tcp", "9093/tcp"},
+		Env: map[string]string{
+			"KAFKA_NODE_ID":                          "1",
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":   "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT",
+			"KAFKA_ADVERTISED_LISTENERS":             "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093",
+			"KAFKA_PROCESS_ROLES":                    "broker,controller",
+			"KAFKA_CONTROLLER_QUORUM_VOTERS":         "1@localhost:29093",
+			"KAFKA_LISTENERS":                        "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093,CONTROLLER://0.0.0.0:29093",
+			"KAFKA_INTER_BROKER_LISTENER_NAME":       "PLAINTEXT",
+			"KAFKA_CONTROLLER_LISTENER_NAMES":        "CONTROLLER",
+			"KAFKA_LOG_DIRS":                         "/tmp/kraft-combined-logs",
+			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+			"CLUSTER_ID":                             "MkU3OEVBNTcwNTJENDM2Qk",
+		},
+		Networks: []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {"kafka"},
+		},
+		WaitingFor: wait.ForLog("Kafka Server started").WithStartupTimeout(60 * time.Second),
+	}
+
+	kafkaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: kafkaReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	mappedKafkaPort, err := kafkaContainer.MappedPort(ctx, "9093")
+	require.NoError(t, err)
+
+	time.Sleep(5 * time.Second)
+
+	srReq := testcontainers.ContainerRequest{
+		Image:        "confluentinc/cp-schema-registry:latest",
+		ExposedPorts: []string{"8081/tcp"},
+		Env: map[string]string{
+			"SCHEMA_REGISTRY_HOST_NAME":                    "schema-registry",
+			"SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS": "kafka:9092",
+			"SCHEMA_REGISTRY_LISTENERS":                    "http://0.0.0.0:8081",
+		},
+		Networks: []string{networkName},
+		NetworkAliases: map[string][]string{
+			networkName: {"schema-registry"},
+		},
+		WaitingFor: wait.ForLog("Server started, listening for requests").WithStartupTimeout(60 * time.Second),
+	}
+
+	srContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: srReq,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	mappedSRPort, err := srContainer.MappedPort(ctx, "8081")
+	require.NoError(t, err)
+
+	srURL := fmt.Sprintf("http://localhost:%s", mappedSRPort.Port())
+
+	time.Sleep(3 * time.Second)
+
+	return kafkaContainer, srContainer, mappedKafkaPort, srURL
+}
