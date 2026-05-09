@@ -14,8 +14,8 @@ func (cmd *ListClusterLinksCmd) Run(ctx *CLIContext) error {
 	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
 	links, err := admin.ListClusterLinks()
 	if err != nil {
-		panic(err)
+		fmt.Printf("encountered Oos %s\n", err)
 	}
-	fmt.Printf("Links = %+v", links)
+	fmt.Printf("Links = %+v\n", links)
 	return nil
 }

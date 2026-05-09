@@ -27,9 +27,9 @@ type ClusterLinkAdmin struct {
 
 // Confluent REST API types
 type RestClusterLinkListResponse struct {
-	Kind     string               `json:"kind"`
-	Metadata RestMetadata         `json:"metadata"`
-	Data     *RestClusterLinkItem `json:"data"`
+	Kind     string                `json:"kind"`
+	Metadata RestMetadata          `json:"metadata"`
+	Data     []RestClusterLinkItem `json:"data"`
 }
 type RestClusterLinkItem struct {
 	Kind             string       `json:"kind"`
@@ -139,7 +139,7 @@ func (admin *ClusterLinkAdmin) ListClusterLinks() (map[string]ClusterLink, error
 		return resp, err
 	}
 	err = json.Unmarshal(respBody, &clinkItems)
-	fmt.Printf("Links=%v+\n")
+	// fmt.Printf("Links=%v+\n")
 	return resp, err
 }
 
