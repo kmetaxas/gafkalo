@@ -42,15 +42,16 @@ type CliApp struct {
 	LintBroker    LintBrokersCmd            `cmd help:"Run a linter against topics in a running brokers"`
 	Connect       ConnectCmd                `cmd help:"manage connectors"`
 	Consumergroup ConsumerGroupCmd          `cmd help:"manage and view consumer groups"`
-	Replicator    ReplicatorCmd             `cmd helm:"Replicator topics"`
+	Replicator    ReplicatorCmd             `cmd help:"Replicator topics"`
+	Clusterlink   CLinkCmd                  `cmd help:"Cluster Link management"`
 	Completion    kongcompletion.Completion `cmd:"" help:"Outputs shell code for initialising tab completions"`
 }
 
 func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
-	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
-	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, false)
+	kafkadmin, sradmin, mdsadmin, connectAdmin, clusterLinkAdmin := GetAdminClients(config)
+	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &clusterLinkAdmin, &inputData, false)
 	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
 	report.Render(os.Stdout)
 	return nil
@@ -59,8 +60,8 @@ func (cmd *ApplyCmd) Run(ctx *CLIContext) error {
 func (cmd *PlanCmd) Run(ctx *CLIContext) error {
 	config := LoadConfig(ctx.Config)
 	inputData := GetInputData(config)
-	kafkadmin, sradmin, mdsadmin, connectAdmin := GetAdminClients(config)
-	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &inputData, true)
+	kafkadmin, sradmin, mdsadmin, connectAdmin, clusterLinkAdmin := GetAdminClients(config)
+	report := DoSync(&kafkadmin, &sradmin, &mdsadmin, &connectAdmin, &clusterLinkAdmin, &inputData, true)
 	report.SetExtraContextKey("sensitive_regex", config.Kafkalo.ConnectorsSensitiveKeysRegex)
 	report.Render(os.Stdout)
 	return nil
@@ -153,7 +154,7 @@ func GetInputData(config Configuration) DesiredState {
 	return inputData
 }
 
-func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin) {
+func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin, ClusterLinkAdmin) {
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	sradmin := NewSRAdmin(&config)
 	mdsadmin := new(MDSAdmin)
@@ -168,11 +169,18 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 			log.Fatalf("Failed to create ConnectAdmin instance: %s", err)
 		}
 	}
-	return kafkadmin, sradmin, *mdsadmin, *connectAdmin
+	clusterLinkAdmin := new(ClusterLinkAdmin)
+	if config.Connections.RestProxy != (RestProxyConfig{}) {
+		clusterLinkAdmin = NewClusterLinkAdmin(config.Connections.RestProxy)
+	} else {
+		clusterLinkAdmin = nil
+	}
+	return kafkadmin, sradmin, *mdsadmin, *connectAdmin, *clusterLinkAdmin
 }
 
-func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, inputData *DesiredState, dryRun bool) *Report {
+func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, clusterLinkAdmin *ClusterLinkAdmin, inputData *DesiredState, dryRun bool) *Report {
 	var connectResults []ConnectorResult
+	var clusterLinkResults []ClusterLinkResult
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
 	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
 	// Do MDS
@@ -180,6 +188,9 @@ func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connect
 	if (*connectadmin != ConnectAdmin{}) {
 		connectResults = connectadmin.Reconcile(inputData.Connectors, dryRun)
 	}
+	if clusterLinkAdmin != nil {
+		clusterLinkResults = clusterLinkAdmin.Reconcile(inputData.ClusterLinks, dryRun)
+	}
 
-	return NewReport(topicResults, schemaResults, roleResults, connectResults, dryRun)
+	return NewReport(topicResults, schemaResults, roleResults, connectResults, clusterLinkResults, dryRun)
 }

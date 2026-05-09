@@ -9,8 +9,17 @@ type Results struct {
 	Schemas          []SchemaResult
 	Clients          []ClientResult
 	Connectors       []ConnectorResult
+	ClusterLinks     []ClusterLinkResult
 	IsPlan           bool
 	ExtraContextKeys map[string]string // Used to pass extra context keys for use by templates
+}
+
+type ClusterLinkResult struct {
+	Name       string
+	Status     string // "Created", "Updated", "NoChange", "Error"
+	Configs    map[string]string
+	OldConfigs map[string]string
+	Error      error
 }
 
 type TopicResult struct {

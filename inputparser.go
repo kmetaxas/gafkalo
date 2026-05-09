@@ -12,16 +12,18 @@ import (
 // This represents the desired state that the user asked for
 // It a merge of all individual input files
 type DesiredState struct {
-	Topics     map[string]Topic
-	Clients    map[string]Client
-	Connectors map[string]Connector
+	Topics       map[string]Topic
+	Clients      map[string]Client
+	Connectors   map[string]Connector
+	ClusterLinks map[string]ClusterLink
 }
 
 // This is the input Yaml file schema
 type InputYaml struct {
-	Topics     []Topic     `yaml:"topics"`
-	Clients    []Client    `yaml:"clients"`
-	Connectors []Connector `yaml:"connectors"`
+	Topics       []Topic       `yaml:"topics"`
+	Clients      []Client      `yaml:"clients"`
+	Connectors   []Connector   `yaml:"connectors"`
+	ClusterLinks []ClusterLink `yaml:"clusterlinks"`
 }
 
 func (state *DesiredState) mergeInput(data *InputYaml) error {

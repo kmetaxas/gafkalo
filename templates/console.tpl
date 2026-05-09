@@ -61,3 +61,17 @@ Subject {{ .SubjectName }}:
 {{- end -}} {{/* If errors */}}
 {{ end }} {{/*End range over ChangedConfigs */}}
 {{- end }}
+## Cluster Links
+{{ range .ClusterLinks }}
+{{- if .Error -}}
+[ERROR] Failed to process link {{ .Name }}: {{ .Error }}
+{{- else -}}
+{{ if eq .Status "NoChange" }}Link {{ .Name }} is up to date.{{ else }}{{ if $.IsPlan }}[PLAN] Will {{ .Status }}{{ else }}{{ .Status }}{{ end }} link {{ .Name }}.{{ end }}
+{{- end }}
+{{- if .Configs }}
+  Configs:
+  {{- range $key, $val := .Configs }}
+  - {{ $key }}: {{ $val }}
+  {{- end }}
+{{- end }}
+{{ end }}

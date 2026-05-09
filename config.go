@@ -74,6 +74,17 @@ type ConnectConfig struct {
 	CAPath     string `yaml:"caPath"` // Add a trusted CA
 	SkipVerify bool   `yaml:"skipVerify"`
 }
+
+type RestProxyConfig struct {
+	Url        string `yaml:"url"`
+	Username   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	CAPath     string `yaml:"caPath"` // Add a trusted CA
+	SkipVerify bool   `yaml:"skipVerify"`
+	BasePath   string `yaml:"basePath"` // will default to "/kafka/v3/".
+	ClusterID  string `yaml:"clusterID"`
+}
+
 type SRConfig struct {
 	Url        string        `yaml:"url"`
 	Timeout    time.Duration `yaml:"timeout"` // Allow setting custom timeout for API calls
@@ -89,10 +100,11 @@ type SRConfig struct {
 }
 type Configuration struct {
 	Connections struct {
-		Kafka          KafkaConfig   `yaml:"kafka"`
-		Schemaregistry SRConfig      `yaml:"schemaregistry"`
-		Mds            MDSConfig     `yaml:"mds"`
-		Connect        ConnectConfig `yaml:"connect"`
+		Kafka          KafkaConfig     `yaml:"kafka"`
+		Schemaregistry SRConfig        `yaml:"schemaregistry"`
+		Mds            MDSConfig       `yaml:"mds"`
+		Connect        ConnectConfig   `yaml:"connect"`
+		RestProxy      RestProxyConfig `yaml:"restproxy"`
 	} `yaml:"connections"`
 	Kafkalo struct {
 		InputDirs                    []string `yaml:"input_dirs"`
