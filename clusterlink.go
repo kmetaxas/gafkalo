@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/nsf/jsondiff"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -358,6 +359,36 @@ func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *Clu
 // Some configs are not default, not read only, not documented , not specified by us and still pop up in the describe configs.
 // ( Example: remote.link.connection.mode )
 // We document any config that should be removed from the ChangedConfigs in the diff here.
+// compareConfigValues compares two config values, using JSON normalization if they appear to be JSON.
+// This prevents false positives when comparing JSON configs with different formatting but same content.
+func compareConfigValues(key, value1, value2 string) bool {
+	// First try to parse both as JSON to check if they're valid JSON
+	var json1, json2 interface{}
+	err1 := json.Unmarshal([]byte(value1), &json1)
+	err2 := json.Unmarshal([]byte(value2), &json2)
+	
+	// If both are valid JSON, use jsondiff for semantic comparison
+	if err1 == nil && err2 == nil {
+		opts := jsondiff.DefaultConsoleOptions()
+		diff, _ := jsondiff.Compare([]byte(value1), []byte(value2), &opts)
+		isEqual := (diff == jsondiff.FullMatch)
+		
+		if !isEqual {
+			log.Debugf("Config '%s' JSON values differ semantically", key)
+		} else {
+			log.Debugf("Config '%s' JSON values are semantically equal despite formatting differences", key)
+		}
+		return isEqual
+	}
+	
+	// If only one is JSON or neither is JSON, do string comparison
+	isEqual := value1 == value2
+	if !isEqual {
+		log.Debugf("Config '%s' values differ (string comparison)", key)
+	}
+	return isEqual
+}
+
 func GetClusterLinkExcludeConfigsFromDiff() map[string]bool {
 	resp := make(map[string]bool)
 	resp["remote.link.connection.mode"] = true
@@ -387,7 +418,8 @@ func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLin
 			diff.ChangedConfigs[key] = change
 			hasChanged = true
 		} else {
-			if value != newValue {
+			// Use compareConfigValues to handle JSON comparison intelligently
+			if !compareConfigValues(key, value, newValue) {
 				change := ClusterLinkChangedConfig{
 					OldValue: &value,
 					NewValue: &newValue,
