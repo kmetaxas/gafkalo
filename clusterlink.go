@@ -355,13 +355,27 @@ func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *Clu
 	return hasChanged, diff, err
 }
 
+// Some configs are not default, not read only, not documented , not specified by us and still pop up in the describe configs.
+// ( Example: remote.link.connection.mode )
+// We document any config that should be removed from the ChangedConfigs in the diff here.
+func GetClusterLinkExcludeConfigsFromDiff() map[string]bool {
+	resp := make(map[string]bool)
+	resp["remote.link.connection.mode"] = true
+	return resp
+}
+
 func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLink) (bool, *ClusterLinkConfigDiff, error) {
 	var hasChanged bool = false
 	var diff ClusterLinkConfigDiff
+	ignoreFields := GetClusterLinkExcludeConfigsFromDiff()
+
 	diff.ChangedConfigs = make(map[string]ClusterLinkChangedConfig)
 	var err error = nil
 	diff.Name = current.Name
 	for key, value := range current.Configs {
+		if _, exists := ignoreFields[key]; exists {
+			continue
+		}
 		newValue, exists := new.Configs[key]
 		if !exists {
 			change := ClusterLinkChangedConfig{
