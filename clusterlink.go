@@ -293,9 +293,27 @@ func (admin *ClusterLinkAdmin) DeleteClusterLink(name string, force bool, dryRun
 
 // Alter a specific config for a cluster link. Maps to API:
 // PUT /clusters/{cluster_id}/links/{link_name}/configs/{config_name}
-func (admin *ClusterLinkAdmin) AlterClusterLinkConfig(linkName, configName, configValue string) error {
+// if ConfigValue is nil it will perform a DELETE,
+func (admin *ClusterLinkAdmin) AlterClusterLinkConfig(linkName, configName string, configValue *string) error {
+	var respBody []byte
+	var statusCode int
+	var err error
+
 	url := fmt.Sprintf("%s/clusters/%s/links/%s/configs/%s", admin.Config.BasePath, admin.Config.ClusterID, linkName, configName)
-	respBody, statusCode, err := admin.doREST("GET", url, nil)
+
+	if configValue == nil {
+		respBody, statusCode, err = admin.doREST("DELETE", url, nil)
+	} else {
+		// Create the request body with the config value
+		requestBody := map[string]string{
+			"value": *configValue,
+		}
+		payload, err := json.Marshal(requestBody)
+		if err != nil {
+			return err
+		}
+		respBody, statusCode, err = admin.doREST("PUT", url, bytes.NewBuffer(payload))
+	}
 	if err != nil {
 		return err
 	}
@@ -303,8 +321,10 @@ func (admin *ClusterLinkAdmin) AlterClusterLinkConfig(linkName, configName, conf
 		errorResp := RestErrorResponse{}
 		err = json.Unmarshal(respBody, &errorResp)
 		log.Debugf("Failed to update config %s for link: %+v", configName, errorResp)
-		return fmt.Errorf("Failed to update config %s to %s for cluster link: %s with error: %s", configName, configValue, linkName, errorResp.String())
+		return fmt.Errorf("Failed to update config for cluster link: %s with error: %s", linkName, errorResp.String())
 	}
+
+	fmt.Println("Returning from AlterClusterLinkConfig")
 	return nil
 }
 
@@ -325,6 +345,13 @@ func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *Clu
 	oldConfig.ConfigsFromKafkaLinkConfigDataList(oldConfigList)
 	hasChanged, diff, err = admin.NeedsUpdate(&oldConfig, newConfig)
 	fmt.Printf("NeedsUpdateByLinkName: Returning hasChanged=%+v , diff %+v\n", hasChanged, diff)
+	for key, value := range diff.ChangedConfigs {
+		oldValue := value.OldValue
+		newValue := value.NewValue
+		if newValue == nil {
+		}
+		fmt.Printf("Key %s changed from %+v to %+v\n", key, *oldValue, SafeNullStr(newValue))
+	}
 	return hasChanged, diff, err
 }
 
@@ -347,11 +374,23 @@ func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLin
 			if value != newValue {
 				change := ClusterLinkChangedConfig{
 					OldValue: &value,
-					NewValue: nil,
+					NewValue: &newValue,
 				}
 				diff.ChangedConfigs[key] = change
 				hasChanged = true
 			}
+		}
+	}
+	// Check for new configs that don't exist in current
+	for key, value := range new.Configs {
+		_, exists := current.Configs[key]
+		if !exists {
+			change := ClusterLinkChangedConfig{
+				OldValue: nil,
+				NewValue: &value,
+			}
+			diff.ChangedConfigs[key] = change
+			hasChanged = true
 		}
 	}
 	return hasChanged, &diff, err
@@ -369,7 +408,8 @@ func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLin
 	if needsUpdate {
 		// For each key that needs updating ,perform a REST API CAll
 		for key, changes := range diff.ChangedConfigs {
-			err = admin.AlterClusterLinkConfig(name, key, *changes.NewValue)
+			newValue := changes.NewValue
+			err = admin.AlterClusterLinkConfig(name, key, newValue)
 			if err != nil {
 				return err
 			}
