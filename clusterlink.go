@@ -373,10 +373,12 @@ func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLin
 	var err error = nil
 	diff.Name = current.Name
 	for key, value := range current.Configs {
+		// Ignore any field in the ignorefields list
 		if _, exists := ignoreFields[key]; exists {
 			continue
 		}
 		newValue, exists := new.Configs[key]
+		// Is config key deleted in new config set?
 		if !exists {
 			change := ClusterLinkChangedConfig{
 				OldValue: &value,
