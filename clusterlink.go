@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -13,12 +14,37 @@ import (
 
 // ClusterLink represents a cluster link configuration from input YAML
 type ClusterLink struct {
-	Name      string            `yaml:"name"`
-	ClusterID string            `yaml:"cluster_id"` // Remote cluster ID
-	Configs   map[string]string `yaml:"configs"`
+	Name      string            `yaml:"name" json:"-"`
+	ClusterID string            `yaml:"cluster_id" json:"remote_cluster_id"` // Remote cluster ID
+	Configs   map[string]string `yaml:"configs" json:"configs"`
 	// List of matching topics. This is used when listing/describing a cluster link.
 	// Not when creating one.
-	MatchedTopics []string
+	MatchedTopics []string `json:"-"`
+}
+
+type ClusterLinkRequest struct {
+	ClusterID string              `yaml:"cluster_id" json:"remote_cluster_id"` // Remote cluster ID
+	Configs   []ClusterLinkConfig `yaml:"configs" json:"configs"`
+}
+type ClusterLinkConfig struct {
+	Name  string `yaml:"name" json:"name"`
+	Value string `yaml:"value" json:"value"`
+}
+
+// Emit a ClusterLink to JSON for passign to API
+func (link *ClusterLink) AsJSON() ([]byte, error) {
+	newLink := ClusterLinkRequest{
+		ClusterID: link.ClusterID,
+	}
+	for name, value := range link.Configs {
+		newConfig := ClusterLinkConfig{
+			Name:  name,
+			Value: value,
+		}
+		newLink.Configs = append(newLink.Configs, newConfig)
+	}
+	resp, err := json.Marshal(&newLink)
+	return resp, err
 }
 
 // Populate the configs map from KafkaLinkConfigDataList object
@@ -103,11 +129,8 @@ type RestErrorResponse struct {
 	ErrorMessage string `json:"message,omitempty"`
 }
 
-/* The request payload of REST API for a Cluster Link */
-type RestLinkPayload struct {
-	LinkName  string            `json:"link_name,omitempty"`
-	ClusterID string            `json:"cluster_id,omitempty"` // Remote cluster ID
-	Configs   map[string]string `json:"configs,omitempty"`
+func (e *RestErrorResponse) String() string {
+	return fmt.Sprintf("Error code: %d, Error message: %s", e.ErrorCode, e.ErrorMessage)
 }
 
 /* The response payload of REST API for a Cluster Link */
@@ -213,15 +236,24 @@ func (admin *ClusterLinkAdmin) DescribeLinkConfig(linkName string) (*KafkaLinkCo
 
 func (admin *ClusterLinkAdmin) CreateClusterLink(name string, config *ClusterLink, dryRun bool) error {
 	url := fmt.Sprintf("%s/clusters/%s/links?link_name=%s", admin.Config.BasePath, admin.Config.ClusterID, name)
-	respBody, statusCode, err := admin.doREST("GET", url, nil)
+	if dryRun {
+		url = fmt.Sprintf("%s&validate_only=true&validate_link=true", url)
+	}
+	// Marshal the ClusterLink to Json
+	data, err := config.AsJSON()
+	if err != nil {
+		log.Errorf("Failed to get ClusterLink payload as json for link %s with error %s", name, err)
+	}
+	log.Debugf("JSON payload to push to ClusterLInk Create: %s\n", data)
+	respBody, statusCode, err := admin.doREST("POST", url, bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}
 	if statusCode != 201 {
 		errorResp := RestErrorResponse{}
 		err = json.Unmarshal(respBody, &errorResp)
-		log.Errorf("Failed to create cluster link: %+v", errorResp)
-		return err
+		log.Debugf("Failed to create link: %+v", errorResp)
+		return fmt.Errorf("Failed to create cluster link: %s", errorResp.String())
 	}
 	return nil
 }

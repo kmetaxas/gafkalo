@@ -1,9 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 type CLinkCmd struct {
@@ -11,13 +13,13 @@ type CLinkCmd struct {
 	Create CreateClusterLinkCmd `cmd help:"Create a cluster link"`
 }
 type ListClusterLinksCmd struct {
-	Expanded bool `default:"false" help:"Expanded status"`
+	Expanded bool `arg default:"false" help:"Expanded status"`
 }
 
 type CreateClusterLinkCmd struct {
-	Name       string `help:"Name of the cluster link"`
-	ConfigFile string `help:"Path to cluster link configuration file"`
-	Dryrun     bool   `default:"false" help:"If set to 'true' only validation will be performed"`
+	Name       string `required help:"Name of the cluster link"`
+	ConfigFile string `required help:"Path to cluster link configuration file"`
+	Dryrun     bool   `flag help:"If set to 'true' only validation will be performed"`
 }
 
 func (cmd *ListClusterLinksCmd) Run(ctx *CLIContext) error {
@@ -32,20 +34,36 @@ func (cmd *ListClusterLinksCmd) Run(ctx *CLIContext) error {
 }
 
 func (cmd *CreateClusterLinkCmd) Run(ctx *CLIContext) error {
-	var linkData *ClusterLink
+	var linkData ClusterLink
 	config := LoadConfig(ctx.Config)
 	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
 	// Read config file
 	data, err := os.ReadFile(cmd.ConfigFile)
 	if err != nil {
+		log.Errorf("Failed to read cluster link yaml %s due to %s", cmd.ConfigFile, err)
 		return err
 	}
 	// Unmarshall into a ClusterLink obj
-	err = json.Unmarshal(data, linkData)
+	err = yaml.Unmarshal(data, &linkData)
 	if err != nil {
+		log.Errorf("Failed to parse cluster link yaml %s due to %s", cmd.ConfigFile, err)
 		return err
 	}
 
-	admin.CreateClusterLink(cmd.Name, linkData, cmd.Dryrun)
+	err = admin.CreateClusterLink(cmd.Name, &linkData, cmd.Dryrun)
+	if cmd.Dryrun {
+		if err != nil {
+			fmt.Printf("Validation of link %s failed with error %s\n", cmd.Name, err)
+		} else {
+			fmt.Printf("Dry run validation of link %s passed\n", cmd.Name)
+		}
+	} else {
+		if err != nil {
+			fmt.Printf("Failed to create cluster link %s with error: %s", cmd.Name, err)
+		} else {
+			fmt.Printf("Created cluster link %s (%s)\n", cmd.Name, err)
+		}
+	}
+
 	return nil
 }
