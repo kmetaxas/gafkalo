@@ -11,6 +11,7 @@ import (
 type CLinkCmd struct {
 	List   ListClusterLinksCmd  `cmd help:"List configured cluster links"`
 	Create CreateClusterLinkCmd `cmd help:"Create a cluster link"`
+	Delete DeleteClusterLinkCmd `cmd help:"Delete a cluster link"`
 }
 type ListClusterLinksCmd struct {
 	Expanded bool `arg default:"false" help:"Expanded status"`
@@ -20,6 +21,28 @@ type CreateClusterLinkCmd struct {
 	Name       string `required help:"Name of the cluster link"`
 	ConfigFile string `required help:"Path to cluster link configuration file"`
 	Dryrun     bool   `flag help:"If set to 'true' only validation will be performed"`
+}
+
+type DeleteClusterLinkCmd struct {
+	Name   string `required help:"Name of the cluster link"`
+	Dryrun bool   `flag help:"If set to 'true' only validation will be performed"`
+	Force  bool   `flag help:"Force delete"`
+}
+
+func (cmd *DeleteClusterLinkCmd) Run(ctx *CLIContext) error {
+	config := LoadConfig(ctx.Config)
+	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
+	err := admin.DeleteClusterLink(cmd.Name, cmd.Force, cmd.Dryrun)
+	if err != nil {
+		return err
+	} else {
+		if cmd.Dryrun {
+			fmt.Printf("Validated deletion of cluster link %s\n", cmd.Name)
+		} else {
+			fmt.Printf("Deleted cluster link %s\n", cmd.Name)
+		}
+	}
+	return err
 }
 
 func (cmd *ListClusterLinksCmd) Run(ctx *CLIContext) error {
@@ -59,9 +82,9 @@ func (cmd *CreateClusterLinkCmd) Run(ctx *CLIContext) error {
 		}
 	} else {
 		if err != nil {
-			fmt.Printf("Failed to create cluster link %s with error: %s", cmd.Name, err)
+			fmt.Printf("Failed to create cluster link %s with error: %s\n", cmd.Name, err)
 		} else {
-			fmt.Printf("Created cluster link %s (%s)\n", cmd.Name, err)
+			fmt.Printf("Created cluster link %s\n", cmd.Name)
 		}
 	}
 

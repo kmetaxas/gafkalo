@@ -258,6 +258,29 @@ func (admin *ClusterLinkAdmin) CreateClusterLink(name string, config *ClusterLin
 	return nil
 }
 
+func (admin *ClusterLinkAdmin) DeleteClusterLink(name string, force bool, dryRun bool) error {
+	var validateOnly string = "false"
+	var forceParam string = "false"
+	if dryRun {
+		validateOnly = "true"
+	}
+	if force {
+		forceParam = "true"
+	}
+	url := fmt.Sprintf("%s/clusters/%s/links/%s?validate_only=%s&force=%s", admin.Config.BasePath, admin.Config.ClusterID, name, validateOnly, forceParam)
+	respBody, statusCode, err := admin.doREST("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode != 204 {
+		errorResp := RestErrorResponse{}
+		err = json.Unmarshal(respBody, &errorResp)
+		log.Debugf("Failed to delete link: %+v", errorResp)
+		return fmt.Errorf("Failed to delete cluster link: %s", errorResp.String())
+	}
+	return nil
+}
+
 func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bool) []ClusterLinkResult {
 	var results []ClusterLinkResult
 	return results
