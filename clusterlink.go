@@ -325,7 +325,6 @@ func (admin *ClusterLinkAdmin) AlterClusterLinkConfig(linkName, configName strin
 		return fmt.Errorf("Failed to update config for cluster link: %s with error: %s", linkName, errorResp.String())
 	}
 
-	fmt.Println("Returning from AlterClusterLinkConfig")
 	return nil
 }
 
@@ -340,18 +339,17 @@ func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *Clu
 
 	oldConfigList, err := admin.DescribeLinkConfig(name)
 	if err != nil {
-		fmt.Printf("NeedsUpdateByLinkName: Failed ot describe link\n")
+		log.Debugf("NeedsUpdateByLinkName: Failed ot describe link\n")
 		return false, nil, err
 	}
 	oldConfig.ConfigsFromKafkaLinkConfigDataList(oldConfigList)
 	hasChanged, diff, err = admin.NeedsUpdate(&oldConfig, newConfig)
-	fmt.Printf("NeedsUpdateByLinkName: Returning hasChanged=%+v , diff %+v\n", hasChanged, diff)
 	for key, value := range diff.ChangedConfigs {
 		oldValue := value.OldValue
 		newValue := value.NewValue
 		if newValue == nil {
 		}
-		fmt.Printf("Key %s changed from %+v to %+v\n", key, *oldValue, SafeNullStr(newValue))
+		log.Debugf("Key %s changed from %+v to %+v\n", key, *oldValue, SafeNullStr(newValue))
 	}
 	return hasChanged, diff, err
 }
@@ -366,13 +364,13 @@ func compareConfigValues(key, value1, value2 string) bool {
 	var json1, json2 interface{}
 	err1 := json.Unmarshal([]byte(value1), &json1)
 	err2 := json.Unmarshal([]byte(value2), &json2)
-	
+
 	// If both are valid JSON, use jsondiff for semantic comparison
 	if err1 == nil && err2 == nil {
 		opts := jsondiff.DefaultConsoleOptions()
 		diff, _ := jsondiff.Compare([]byte(value1), []byte(value2), &opts)
 		isEqual := (diff == jsondiff.FullMatch)
-		
+
 		if !isEqual {
 			log.Debugf("Config '%s' JSON values differ semantically", key)
 		} else {
@@ -380,7 +378,7 @@ func compareConfigValues(key, value1, value2 string) bool {
 		}
 		return isEqual
 	}
-	
+
 	// If only one is JSON or neither is JSON, do string comparison
 	isEqual := value1 == value2
 	if !isEqual {
@@ -444,14 +442,14 @@ func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLin
 	return hasChanged, &diff, err
 }
 
-func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLink) error {
+func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLink) (bool, *ClusterLinkConfigDiff, error) {
 	// Steps:
 	// retrieve link data.
 	// compare with new link. (call a function as it needs to be reusable)
 	// Update changed configs.
 	needsUpdate, diff, err := admin.NeedsUpdateByLinkName(name, config)
 	if err != nil {
-		return err
+		return needsUpdate, diff, err
 	}
 	if needsUpdate {
 		// For each key that needs updating ,perform a REST API CAll
@@ -459,11 +457,11 @@ func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLin
 			newValue := changes.NewValue
 			err = admin.AlterClusterLinkConfig(name, key, newValue)
 			if err != nil {
-				return err
+				return needsUpdate, diff, err
 			}
 		}
 	}
-	return nil
+	return needsUpdate, diff, nil
 }
 
 func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bool) []ClusterLinkResult {

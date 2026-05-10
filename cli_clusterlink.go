@@ -37,6 +37,7 @@ type UpdateClisterLinkCmd struct {
 
 func (cmd *UpdateClisterLinkCmd) Run(ctx *CLIContext) error {
 	var linkData ClusterLink
+	var diff *ClusterLinkConfigDiff
 	config := LoadConfig(ctx.Config)
 	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
 	// Read config file
@@ -51,11 +52,19 @@ func (cmd *UpdateClisterLinkCmd) Run(ctx *CLIContext) error {
 		log.Errorf("Failed to parse cluster link yaml %s due to %s", cmd.ConfigFile, err)
 		return err
 	}
-	err = admin.UpdateClusterLink(cmd.Name, &linkData)
+	updated, diff, err := admin.UpdateClusterLink(cmd.Name, &linkData)
 	if err != nil {
 		return err
 	}
-	fmt.Print("Updated cluster link\n")
+	if updated {
+		fmt.Print("Updated cluster link\n")
+		for key, value := range diff.ChangedConfigs {
+			fmt.Printf("Config %s was changed from %s to %s\n", key, SafeNullStr(value.OldValue), SafeNullStr(value.NewValue))
+		}
+
+	} else {
+		fmt.Println("No changes to cluster link were needed.")
+	}
 
 	return nil
 }
