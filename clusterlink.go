@@ -466,5 +466,139 @@ func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLin
 
 func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bool) []ClusterLinkResult {
 	var results []ClusterLinkResult
+
+	// Step 1: List existing cluster links
+	log.Info("Fetching existing cluster links from the cluster")
+	existingLinks, err := admin.ListClusterLinks()
+	if err != nil {
+		// If we can't list links, we can't proceed with reconciliation
+		log.Errorf("Failed to list cluster links: %v", err)
+		// Return a single error result
+		result := ClusterLinkResult{
+			Name:   "CLUSTER_LINK_LIST_ERROR",
+			Status: "Error",
+			Error:  fmt.Errorf("failed to list cluster links: %w", err),
+		}
+		return []ClusterLinkResult{result}
+	}
+
+	log.Debugf("Found %d existing cluster links", len(existingLinks))
+
+	// Step 2: Process each desired cluster link
+	for linkName, desiredLink := range links {
+		log.Debugf("Processing cluster link: %s", linkName)
+		
+		// Initialize result for this link
+		result := ClusterLinkResult{
+			Name:       linkName,
+			Configs:    desiredLink.Configs,
+			OldConfigs: make(map[string]string),
+		}
+
+		// Check if link exists
+		existingLink, exists := existingLinks[linkName]
+		
+		if !exists {
+			// Link doesn't exist - create it
+			log.Infof("Cluster link '%s' does not exist. Creating new link.", linkName)
+			
+			if dryRun {
+				log.Infof("[DRY RUN] Would create cluster link '%s' with remote cluster ID '%s'", linkName, desiredLink.ClusterID)
+				result.Status = "Created"
+			} else {
+				err := admin.CreateClusterLink(linkName, &desiredLink, false)
+				if err != nil {
+					log.Errorf("Failed to create cluster link '%s': %v", linkName, err)
+					result.Status = "Error"
+					result.Error = fmt.Errorf("failed to create link: %w", err)
+				} else {
+					log.Infof("Successfully created cluster link '%s'", linkName)
+					result.Status = "Created"
+				}
+			}
+		} else {
+			// Link exists - check if it needs update
+			log.Debugf("Cluster link '%s' exists. Checking if update is needed.", linkName)
+			
+			// Store old configs for reporting
+			result.OldConfigs = existingLink.Configs
+			
+			// Check if the link needs updating
+			needsUpdate, diff, err := admin.NeedsUpdate(&existingLink, &desiredLink)
+			if err != nil {
+				log.Errorf("Failed to compare configs for link '%s': %v", linkName, err)
+				result.Status = "Error"
+				result.Error = fmt.Errorf("failed to compare configs: %w", err)
+			} else if needsUpdate {
+				log.Infof("Cluster link '%s' needs update. Found %d config changes.", linkName, len(diff.ChangedConfigs))
+				
+				// Log the specific changes
+				for configKey, change := range diff.ChangedConfigs {
+					if change.OldValue == nil {
+						log.Debugf("  - Adding config '%s' = '%s'", configKey, SafeNullStr(change.NewValue))
+					} else if change.NewValue == nil {
+						log.Debugf("  - Removing config '%s' (was '%s')", configKey, *change.OldValue)
+					} else {
+						log.Debugf("  - Updating config '%s' from '%s' to '%s'", configKey, *change.OldValue, *change.NewValue)
+					}
+				}
+				
+				if dryRun {
+					log.Infof("[DRY RUN] Would update cluster link '%s' with %d config changes", linkName, len(diff.ChangedConfigs))
+					result.Status = "Updated"
+				} else {
+					// Perform the update by changing each config individually
+					updateFailed := false
+					for configKey, change := range diff.ChangedConfigs {
+						err := admin.AlterClusterLinkConfig(linkName, configKey, change.NewValue)
+						if err != nil {
+							log.Errorf("Failed to update config '%s' for link '%s': %v", configKey, linkName, err)
+							updateFailed = true
+							result.Status = "Error"
+							result.Error = fmt.Errorf("failed to update config '%s': %w", configKey, err)
+							break
+						}
+					}
+					
+					if !updateFailed {
+						log.Infof("Successfully updated cluster link '%s'", linkName)
+						result.Status = "Updated"
+					}
+				}
+			} else {
+				log.Debugf("Cluster link '%s' is up to date. No changes needed.", linkName)
+				result.Status = "NoChange"
+			}
+		}
+		
+		results = append(results, result)
+	}
+
+	// Log summary
+	created := 0
+	updated := 0
+	unchanged := 0
+	errors := 0
+	for _, r := range results {
+		switch r.Status {
+		case "Created":
+			created++
+		case "Updated":
+			updated++
+		case "NoChange":
+			unchanged++
+		case "Error":
+			errors++
+		}
+	}
+	
+	if dryRun {
+		log.Infof("[DRY RUN] Cluster link reconciliation plan: %d to create, %d to update, %d unchanged, %d errors", 
+			created, updated, unchanged, errors)
+	} else {
+		log.Infof("Cluster link reconciliation complete: %d created, %d updated, %d unchanged, %d errors", 
+			created, updated, unchanged, errors)
+	}
+
 	return results
 }
