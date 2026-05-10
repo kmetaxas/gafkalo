@@ -50,14 +50,23 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 			state.Connectors[connector.Name] = connector
 		}
 	}
+
+	for _, clusterLink := range data.ClusterLinks {
+		if _, exists := state.ClusterLinks[clusterLink.Name]; exists {
+			log.Fatalf("Duplicate definition for cluster link %s", clusterLink.Name)
+		} else {
+			state.ClusterLinks[clusterLink.Name] = clusterLink
+		}
+	}
 	return nil
 }
 
 func Parse(inputFiles []string) DesiredState {
 	desiredState := DesiredState{
-		Topics:     make(map[string]Topic),
-		Clients:    make(map[string]Client, 20),
-		Connectors: make(map[string]Connector),
+		Topics:       make(map[string]Topic),
+		Clients:      make(map[string]Client, 20),
+		Connectors:   make(map[string]Connector),
+		ClusterLinks: make(map[string]ClusterLink),
 	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)
