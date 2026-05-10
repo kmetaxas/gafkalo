@@ -142,6 +142,14 @@ func NewSRAdmin(config *Configuration) SRAdmin {
 	return sradmin
 }
 
+// Can this SRAdmin be used?
+func (admin *SRAdmin) IsUsuable() bool {
+	if admin.url != "" {
+		return true
+	}
+	return false
+}
+
 func (admin *SRAdmin) RegisterSubject(schema Schema) (int, error) {
 	// Create a value subject (isKey = false)
 	newSchema, err := admin.Client.CreateSchema(schema.SubjectName, schema.SchemaData, schema.SchemaType)

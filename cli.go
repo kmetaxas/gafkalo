@@ -156,7 +156,10 @@ func GetInputData(config Configuration) DesiredState {
 
 func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin, ClusterLinkAdmin) {
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
-	sradmin := NewSRAdmin(&config)
+	var sradmin SRAdmin
+	if config.Connections.Schemaregistry.Url != "" {
+		sradmin = NewSRAdmin(&config)
+	}
 	mdsadmin := new(MDSAdmin)
 	if config.Connections.Mds != (MDSConfig{}) {
 		mdsadmin = NewMDSAdmin(config.Connections.Mds)
@@ -170,7 +173,7 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 		}
 	}
 	clusterLinkAdmin := new(ClusterLinkAdmin)
-	if config.Connections.RestProxy != (RestProxyConfig{}) {
+	if config.Connections.RestProxy.Url != "" {
 		clusterLinkAdmin = NewClusterLinkAdmin(config.Connections.RestProxy)
 	} else {
 		clusterLinkAdmin = nil
@@ -181,8 +184,12 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connectadmin *ConnectAdmin, clusterLinkAdmin *ClusterLinkAdmin, inputData *DesiredState, dryRun bool) *Report {
 	var connectResults []ConnectorResult
 	var clusterLinkResults []ClusterLinkResult
+	var schemaResults []SchemaResult
 	topicResults := kafkadmin.ReconcileTopics(inputData.Topics, dryRun)
-	schemaResults := sradmin.Reconcile(inputData.Topics, dryRun)
+
+	if sradmin.IsUsuable() {
+		schemaResults = sradmin.Reconcile(inputData.Topics, dryRun)
+	}
 	// Do MDS
 	roleResults := mdsadmin.Reconcile(inputData.Clients, dryRun)
 	if (*connectadmin != ConnectAdmin{}) {
