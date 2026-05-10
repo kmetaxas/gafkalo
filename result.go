@@ -9,8 +9,18 @@ type Results struct {
 	Schemas          []SchemaResult
 	Clients          []ClientResult
 	Connectors       []ConnectorResult
+	ClusterLinks     []ClusterLinkResult
 	IsPlan           bool
 	ExtraContextKeys map[string]string // Used to pass extra context keys for use by templates
+}
+
+type ClusterLinkResult struct {
+	Name       string
+	Status     string // "Created", "Updated", "NoChange", "Error"
+	Configs    map[string]string
+	OldConfigs map[string]string
+	Changes    *ClusterLinkConfigDiff
+	Error      error
 }
 
 type TopicResult struct {
@@ -182,4 +192,53 @@ func (cr *ConnectorResult) ChangedConfigs() []ChangedConnectorConfig {
 		res = append(res, changedConf)
 	}
 	return res
+}
+
+// ChangedClusterLinkConfig represents a changed configuration in a cluster link
+type ChangedClusterLinkConfig struct {
+	Name   string
+	OldVal string
+	NewVal string
+}
+
+// ChangedConfigs returns the list of changed configurations for a cluster link
+func (clr *ClusterLinkResult) ChangedConfigs() []ChangedClusterLinkConfig {
+	var res []ChangedClusterLinkConfig
+
+	// For new links, all specified configs are considered new.
+	if clr.Status == "Created" {
+		for name, value := range clr.Configs {
+			res = append(res, ChangedClusterLinkConfig{Name: name, NewVal: value, OldVal: ""})
+		}
+		return res
+	}
+
+	// For updated links, use the stored diff.
+	if clr.Status == "Updated" && clr.Changes != nil {
+		for name, change := range clr.Changes.ChangedConfigs {
+			newItem := ChangedClusterLinkConfig{Name: name}
+			if change.OldValue != nil {
+				newItem.OldVal = *change.OldValue
+			}
+			if change.NewValue != nil {
+				newItem.NewVal = *change.NewValue
+			}
+			res = append(res, newItem)
+		}
+	}
+
+	return res
+}
+
+// HasChangedConfigs returns true if the cluster link has any config changes
+func (clr *ClusterLinkResult) HasChangedConfigs() bool {
+	// For new links, any config is a change.
+	if clr.Status == "Created" {
+		return len(clr.Configs) > 0
+	}
+	// For updated links, check if a diff was stored.
+	if clr.Status == "Updated" && clr.Changes != nil {
+		return len(clr.Changes.ChangedConfigs) > 0
+	}
+	return false
 }

@@ -12,16 +12,18 @@ import (
 // This represents the desired state that the user asked for
 // It a merge of all individual input files
 type DesiredState struct {
-	Topics     map[string]Topic
-	Clients    map[string]Client
-	Connectors map[string]Connector
+	Topics       map[string]Topic
+	Clients      map[string]Client
+	Connectors   map[string]Connector
+	ClusterLinks map[string]ClusterLink
 }
 
 // This is the input Yaml file schema
 type InputYaml struct {
-	Topics     []Topic     `yaml:"topics"`
-	Clients    []Client    `yaml:"clients"`
-	Connectors []Connector `yaml:"connectors"`
+	Topics       []Topic       `yaml:"topics"`
+	Clients      []Client      `yaml:"clients"`
+	Connectors   []Connector   `yaml:"connectors"`
+	ClusterLinks []ClusterLink `yaml:"clusterlinks"`
 }
 
 func (state *DesiredState) mergeInput(data *InputYaml) error {
@@ -48,14 +50,23 @@ func (state *DesiredState) mergeInput(data *InputYaml) error {
 			state.Connectors[connector.Name] = connector
 		}
 	}
+
+	for _, clusterLink := range data.ClusterLinks {
+		if _, exists := state.ClusterLinks[clusterLink.Name]; exists {
+			log.Fatalf("Duplicate definition for cluster link %s", clusterLink.Name)
+		} else {
+			state.ClusterLinks[clusterLink.Name] = clusterLink
+		}
+	}
 	return nil
 }
 
 func Parse(inputFiles []string) DesiredState {
 	desiredState := DesiredState{
-		Topics:     make(map[string]Topic),
-		Clients:    make(map[string]Client, 20),
-		Connectors: make(map[string]Connector),
+		Topics:       make(map[string]Topic),
+		Clients:      make(map[string]Client, 20),
+		Connectors:   make(map[string]Connector),
+		ClusterLinks: make(map[string]ClusterLink),
 	}
 	for _, filename := range inputFiles {
 		log.Debugf("Processing YAML file %s", filename)

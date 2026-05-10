@@ -61,3 +61,23 @@ Subject {{ .SubjectName }}:
 {{- end -}} {{/* If errors */}}
 {{ end }} {{/*End range over ChangedConfigs */}}
 {{- end }}
+## Cluster Links
+{{ range .ClusterLinks }}
+{{- if ne .Status "NoChange" -}}
+{{- if .Error -}}
+[ERROR] Failed to process link {{ .Name }}: {{ .Error }}
+{{- else -}}
+{{ if $.IsPlan }}[PLAN] Will {{ if eq .Status "Created" }}create{{ else }}update{{ end }}{{ else }}{{ .Status }}{{ end }} link {{ .Name }}.
+{{- if .HasChangedConfigs }}
+  {{- if eq .Status "Created" }}
+  Configs:
+  {{- else }}
+  Changed configs:
+  {{- end }}
+  {{- range .ChangedConfigs }}
+  - {{ .Name }}: {{ .NewVal }}{{ if ne .OldVal "" }} (was: {{ .OldVal }}){{ end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{ end }}

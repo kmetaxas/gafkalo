@@ -15,6 +15,7 @@ GitOps-ready tool for Kafka infrastructure. No external dependencies. Pure Go.
    schemas
    rbac
    connectors
+   clusterlinks
    cli
    config
    testing

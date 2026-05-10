@@ -45,6 +45,13 @@ connections:
     schema-registry-cluster-id: "schemaregistry"
     caPath: "/home/arcanum/Downloads/ca.crt" # Add a CA to trust store
     skipVerify: false # Skip TLS verify
+  restproxy:
+    url: "http://localhost:18090"
+    username: username # if needed
+    password: password # if needed
+    caPath: "/home/arcanum/Downloads/ca.crt" # Add a CA to trust store
+    basePath: /kafka/v3 # Defaults to that
+    clusterID: "some id" # the Cluster ID where we will install cluster link (usually destination).
 
 # App specific configs
 kafkalo:

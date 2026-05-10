@@ -55,13 +55,14 @@ func (r *Report) SetExtraContextKey(key string, value string) {
 	r.Context.ExtraContextKeys[key] = value
 }
 
-func NewReport(topicResults []TopicResult, schemaResults []SchemaResult, clientResults []ClientResult, connectResults []ConnectorResult, isPlan bool) *Report {
+func NewReport(topicResults []TopicResult, schemaResults []SchemaResult, clientResults []ClientResult, connectResults []ConnectorResult, clusterLinkResults []ClusterLinkResult, isPlan bool) *Report {
 	var report Report
 	var context Results
 	context.Topics = topicResults
 	context.Schemas = schemaResults
 	context.Clients = clientResults
 	context.Connectors = connectResults
+	context.ClusterLinks = clusterLinkResults
 	context.IsPlan = isPlan
 
 	report.Context = context

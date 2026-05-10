@@ -35,6 +35,7 @@ func TestNewReport(t *testing.T) {
 	}
 	connect_results = append(connect_results, connect_res1)
 
-	NewReport(topic_results, schema_results, client_results, connect_results, false)
-	NewReport(topic_results, schema_results, client_results, connect_results, true)
+	var clusterlink_results []ClusterLinkResult
+	NewReport(topic_results, schema_results, client_results, connect_results, clusterlink_results, false)
+	NewReport(topic_results, schema_results, client_results, connect_results, clusterlink_results, true)
 }
