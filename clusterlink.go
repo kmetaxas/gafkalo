@@ -16,6 +16,20 @@ type ClusterLink struct {
 	Name      string            `yaml:"name"`
 	ClusterID string            `yaml:"cluster_id"` // Remote cluster ID
 	Configs   map[string]string `yaml:"configs"`
+	// List of matching topics. This is used when listing/describing a cluster link.
+	// Not when creating one.
+	MatchedTopics []string
+}
+
+// Populate the configs map from KafkaLinkConfigDataList object
+func (link *ClusterLink) ConfigsFromKafkaLinkConfigDataList(configList *KafkaLinkConfigDataList) {
+	for _, config := range configList.Data {
+		// throw away defaults.
+		if !config.IsDefault {
+			log.Infof("Copying config %s - %s", config.Name, config.Value)
+			link.Configs[config.Name] = config.Value
+		}
+	}
 }
 
 type ClusterLinkAdmin struct {
@@ -45,20 +59,48 @@ type RestClusterLinkItem struct {
 	LinkErrorMessage string       `json:"link_error_message"`
 }
 
-type RestLinkResponse struct {
-	Kind         string            `json:"kind"`
-	Metadata     RestMetadata      `json:"metadata"`
-	LinkName     string            `json:"link_name"`
-	LinkID       string            `json:"link_id"`
-	ClusterID    string            `json:"cluster_id"`
-	Configs      map[string]string `json:"configs"`
-	ErrorCode    int               `json:"error_code,omitempty"`
-	ErrorMessage string            `json:"message,omitempty"`
+/* Get a ClusterLink from a RestClusterLinkItem object*/
+func NewClusterLinkFromRestuClusterLinkItem(item *RestClusterLinkItem) ClusterLink {
+	link := ClusterLink{
+		Name:          item.Name,
+		ClusterID:     item.RemoteClusterId,
+		Configs:       make(map[string]string),
+		MatchedTopics: item.TopicNames,
+	}
+	return link
+}
+
+// Rest api response for cluster link config.
+type KafkaLinkConfigDataList struct {
+	Kind     string                `json:"kind"`
+	Metadata RestMetadata          `json:"metadata"`
+	Data     []KafkaLinkConfigData `json:"data"`
+}
+
+// Rest Api response for each individual config item inside a KafkaLinkConfigDataList
+type KafkaLinkConfigData struct {
+	Kind        string       `json:"kind"`
+	Metadata    RestMetadata `json:"metadata"`
+	ClusterID   string       `json:"cluster_id"`
+	Name        string       `json:"name"`
+	Value       string       `json:"value"`
+	IsDefault   bool         `json:"is_default"`
+	IsReadOnly  bool         `json:"is_read_only"`
+	IsSensitive bool         `json:"is_sensitive"`
+	Source      string       `json:"source"`
+	Synonyms    []string     `json:"synonyms"`
+	LinkName    string       `json:"link_name"`
 }
 
 type RestMetadata struct {
 	Self string  `json:"self"`
 	Next *string `json:"next"`
+}
+
+/* This is returned when status code is not 2xx in responses of Rest api */
+type RestErrorResponse struct {
+	ErrorCode    int    `json:"error_code,omitempty"`
+	ErrorMessage string `json:"message,omitempty"`
 }
 
 /* The request payload of REST API for a Cluster Link */
@@ -139,8 +181,49 @@ func (admin *ClusterLinkAdmin) ListClusterLinks() (map[string]ClusterLink, error
 		return resp, err
 	}
 	err = json.Unmarshal(respBody, &clinkItems)
-	// fmt.Printf("Links=%v+\n")
+	for _, item := range clinkItems.Data {
+		link := NewClusterLinkFromRestuClusterLinkItem(&item)
+		// Now describe the configs for each link. Sadly that is a separate REST call...
+		configList, err := admin.DescribeLinkConfig(item.Name)
+		if err != nil {
+			log.Errorf("Failed to get configs for link: %s", item.Name)
+			return resp, err
+		}
+		log.Infof("Retrived configs for %s: %+v\n", link.Name, configList)
+		link.ConfigsFromKafkaLinkConfigDataList(configList)
+		resp[item.Name] = link
+	}
+	fmt.Printf("Links=%+v\n", clinkItems)
 	return resp, err
+}
+
+func (admin *ClusterLinkAdmin) DescribeLinkConfig(linkName string) (*KafkaLinkConfigDataList, error) {
+	var resp *KafkaLinkConfigDataList
+	url := fmt.Sprintf("%s/clusters/%s/links/%s/configs", admin.Config.BasePath, admin.Config.ClusterID, linkName)
+	respBody, statusCode, err := admin.doREST("GET", url, nil)
+	if err != nil {
+		return resp, err
+	}
+	if statusCode != 200 {
+		return resp, fmt.Errorf("Got http %d describing cluster link %s", statusCode, linkName)
+	}
+	err = json.Unmarshal(respBody, &resp)
+	return resp, nil
+}
+
+func (admin *ClusterLinkAdmin) CreateClusterLink(name string, config *ClusterLink, dryRun bool) error {
+	url := fmt.Sprintf("%s/clusters/%s/links?link_name=%s", admin.Config.BasePath, admin.Config.ClusterID, name)
+	respBody, statusCode, err := admin.doREST("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode != 201 {
+		errorResp := RestErrorResponse{}
+		err = json.Unmarshal(respBody, &errorResp)
+		log.Errorf("Failed to create cluster link: %+v", errorResp)
+		return err
+	}
+	return nil
 }
 
 func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bool) []ClusterLinkResult {
