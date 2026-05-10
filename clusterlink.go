@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -29,6 +28,17 @@ type ClusterLinkRequest struct {
 type ClusterLinkConfig struct {
 	Name  string `yaml:"name" json:"name"`
 	Value string `yaml:"value" json:"value"`
+}
+
+// When checking a new cluster link config against an running link,
+// we want to get all the configs that differ.
+type ClusterLinkConfigDiff struct {
+	Name           string                              `json:"name" yaml:"name"`
+	ChangedConfigs map[string]ClusterLinkChangedConfig `json:"changed_configs"`
+}
+type ClusterLinkChangedConfig struct {
+	OldValue *string `json:"old" yaml:"old"`
+	NewValue *string `json:"new" yaml:"new"`
 }
 
 // Emit a ClusterLink to JSON for passign to API
@@ -281,31 +291,94 @@ func (admin *ClusterLinkAdmin) DeleteClusterLink(name string, force bool, dryRun
 	return nil
 }
 
+// Alter a specific config for a cluster link. Maps to API:
+// PUT /clusters/{cluster_id}/links/{link_name}/configs/{config_name}
+func (admin *ClusterLinkAdmin) AlterClusterLinkConfig(linkName, configName, configValue string) error {
+	url := fmt.Sprintf("%s/clusters/%s/links/%s/configs/%s", admin.Config.BasePath, admin.Config.ClusterID, linkName, configName)
+	respBody, statusCode, err := admin.doREST("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if statusCode != 204 {
+		errorResp := RestErrorResponse{}
+		err = json.Unmarshal(respBody, &errorResp)
+		log.Debugf("Failed to update config %s for link: %+v", configName, errorResp)
+		return fmt.Errorf("Failed to update config %s to %s for cluster link: %s with error: %s", configName, configValue, linkName, errorResp.String())
+	}
+	return nil
+}
+
+func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *ClusterLink) (bool, *ClusterLinkConfigDiff, error) {
+	// Fetch the config first
+	var hasChanged bool = false
+	diff := new(ClusterLinkConfigDiff)
+	diff.ChangedConfigs = make(map[string]ClusterLinkChangedConfig)
+	var err error = nil
+	var oldConfig ClusterLink
+	oldConfig.Configs = make(map[string]string)
+
+	oldConfigList, err := admin.DescribeLinkConfig(name)
+	if err != nil {
+		fmt.Printf("NeedsUpdateByLinkName: Failed ot describe link\n")
+		return false, nil, err
+	}
+	oldConfig.ConfigsFromKafkaLinkConfigDataList(oldConfigList)
+	hasChanged, diff, err = admin.NeedsUpdate(&oldConfig, newConfig)
+	fmt.Printf("NeedsUpdateByLinkName: Returning hasChanged=%+v , diff %+v\n", hasChanged, diff)
+	return hasChanged, diff, err
+}
+
+func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLink) (bool, *ClusterLinkConfigDiff, error) {
+	var hasChanged bool = false
+	var diff ClusterLinkConfigDiff
+	diff.ChangedConfigs = make(map[string]ClusterLinkChangedConfig)
+	var err error = nil
+	diff.Name = current.Name
+	for key, value := range current.Configs {
+		newValue, exists := new.Configs[key]
+		if !exists {
+			change := ClusterLinkChangedConfig{
+				OldValue: &value,
+				NewValue: nil,
+			}
+			diff.ChangedConfigs[key] = change
+			hasChanged = true
+		} else {
+			if value != newValue {
+				change := ClusterLinkChangedConfig{
+					OldValue: &value,
+					NewValue: nil,
+				}
+				diff.ChangedConfigs[key] = change
+				hasChanged = true
+			}
+		}
+	}
+	return hasChanged, &diff, err
+}
+
+func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLink) error {
+	// Steps:
+	// retrieve link data.
+	// compare with new link. (call a function as it needs to be reusable)
+	// Update changed configs.
+	needsUpdate, diff, err := admin.NeedsUpdateByLinkName(name, config)
+	if err != nil {
+		return err
+	}
+	if needsUpdate {
+		// For each key that needs updating ,perform a REST API CAll
+		for key, changes := range diff.ChangedConfigs {
+			err = admin.AlterClusterLinkConfig(name, key, *changes.NewValue)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bool) []ClusterLinkResult {
 	var results []ClusterLinkResult
 	return results
-}
-
-func (admin *ClusterLinkAdmin) needsUpdate(existing, desired map[string]string) bool {
-	for k, v := range desired {
-		if existingVal, ok := existing[k]; !ok || existingVal != v {
-			// Be careful with secrets (jaas config, passwords).
-			// Existing might be redacted or hashed?
-			// For now, simple comparison.
-			// TODO: Handle sensitive redaction comparison if needed.
-			// Usually API returns redacted secrets as [hidden] or similar.
-			// If existing is [hidden] and we have a value, we might assume update needed?
-			// Or we assume "trust user intent".
-
-			if strings.Contains(existingVal, "[hidden]") {
-				continue // Can't compare, assume no change? Or always update?
-				// Safest is to Always Update if we can't be sure.
-				// But that causes churn.
-				// Let's assume always update if redacted.
-				return true
-			}
-			return true
-		}
-	}
-	return false
 }

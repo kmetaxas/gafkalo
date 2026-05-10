@@ -12,6 +12,7 @@ type CLinkCmd struct {
 	List   ListClusterLinksCmd  `cmd help:"List configured cluster links"`
 	Create CreateClusterLinkCmd `cmd help:"Create a cluster link"`
 	Delete DeleteClusterLinkCmd `cmd help:"Delete a cluster link"`
+	Update UpdateClisterLinkCmd `cmd help:"Update cluster link config"`
 }
 type ListClusterLinksCmd struct {
 	Expanded bool `arg default:"false" help:"Expanded status"`
@@ -27,6 +28,36 @@ type DeleteClusterLinkCmd struct {
 	Name   string `required help:"Name of the cluster link"`
 	Dryrun bool   `flag help:"If set to 'true' only validation will be performed"`
 	Force  bool   `flag help:"Force delete"`
+}
+
+type UpdateClisterLinkCmd struct {
+	Name       string `required help:"Name of the cluster link"`
+	ConfigFile string `required help:"Path to cluster link configuration file"`
+}
+
+func (cmd *UpdateClisterLinkCmd) Run(ctx *CLIContext) error {
+	var linkData ClusterLink
+	config := LoadConfig(ctx.Config)
+	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
+	// Read config file
+	data, err := os.ReadFile(cmd.ConfigFile)
+	if err != nil {
+		log.Errorf("Failed to read cluster link yaml %s due to %s", cmd.ConfigFile, err)
+		return err
+	}
+	// Unmarshall into a ClusterLink obj
+	err = yaml.Unmarshal(data, &linkData)
+	if err != nil {
+		log.Errorf("Failed to parse cluster link yaml %s due to %s", cmd.ConfigFile, err)
+		return err
+	}
+	err = admin.UpdateClusterLink(cmd.Name, &linkData)
+	if err != nil {
+		return err
+	}
+	fmt.Print("Updated cluster link\n")
+
+	return nil
 }
 
 func (cmd *DeleteClusterLinkCmd) Run(ctx *CLIContext) error {
