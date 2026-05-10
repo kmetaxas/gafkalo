@@ -443,10 +443,6 @@ func (admin *ClusterLinkAdmin) NeedsUpdate(current *ClusterLink, new *ClusterLin
 }
 
 func (admin *ClusterLinkAdmin) UpdateClusterLink(name string, config *ClusterLink) (bool, *ClusterLinkConfigDiff, error) {
-	// Steps:
-	// retrieve link data.
-	// compare with new link. (call a function as it needs to be reusable)
-	// Update changed configs.
 	needsUpdate, diff, err := admin.NeedsUpdateByLinkName(name, config)
 	if err != nil {
 		return needsUpdate, diff, err
@@ -487,7 +483,7 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 	// Step 2: Process each desired cluster link
 	for linkName, desiredLink := range links {
 		log.Debugf("Processing cluster link: %s", linkName)
-		
+
 		// Initialize result for this link
 		result := ClusterLinkResult{
 			Name:       linkName,
@@ -497,13 +493,9 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 
 		// Check if link exists
 		existingLink, exists := existingLinks[linkName]
-		
+
 		if !exists {
-			// Link doesn't exist - create it
-			log.Infof("Cluster link '%s' does not exist. Creating new link.", linkName)
-			
 			if dryRun {
-				log.Infof("[DRY RUN] Would create cluster link '%s' with remote cluster ID '%s'", linkName, desiredLink.ClusterID)
 				result.Status = "Created"
 			} else {
 				err := admin.CreateClusterLink(linkName, &desiredLink, false)
@@ -512,17 +504,14 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 					result.Status = "Error"
 					result.Error = fmt.Errorf("failed to create link: %w", err)
 				} else {
-					log.Infof("Successfully created cluster link '%s'", linkName)
 					result.Status = "Created"
 				}
 			}
 		} else {
-			// Link exists - check if it needs update
-			log.Debugf("Cluster link '%s' exists. Checking if update is needed.", linkName)
-			
+
 			// Store old configs for reporting
 			result.OldConfigs = existingLink.Configs
-			
+
 			// Check if the link needs updating
 			needsUpdate, diff, err := admin.NeedsUpdate(&existingLink, &desiredLink)
 			if err != nil {
@@ -531,8 +520,7 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 				result.Error = fmt.Errorf("failed to compare configs: %w", err)
 			} else if needsUpdate {
 				result.Changes = diff // Store the calculated diff
-				log.Infof("Cluster link '%s' needs update. Found %d config changes.", linkName, len(diff.ChangedConfigs))
-				
+
 				// Log the specific changes
 				for configKey, change := range diff.ChangedConfigs {
 					if change.OldValue == nil {
@@ -543,9 +531,8 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 						log.Debugf("  - Updating config '%s' from '%s' to '%s'", configKey, *change.OldValue, *change.NewValue)
 					}
 				}
-				
+
 				if dryRun {
-					log.Infof("[DRY RUN] Would update cluster link '%s' with %d config changes", linkName, len(diff.ChangedConfigs))
 					result.Status = "Updated"
 				} else {
 					// Perform the update by changing each config individually
@@ -560,9 +547,8 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 							break
 						}
 					}
-					
+
 					if !updateFailed {
-						log.Infof("Successfully updated cluster link '%s'", linkName)
 						result.Status = "Updated"
 					}
 				}
@@ -571,34 +557,8 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 				result.Status = "NoChange"
 			}
 		}
-		
-		results = append(results, result)
-	}
 
-	// Log summary
-	created := 0
-	updated := 0
-	unchanged := 0
-	errors := 0
-	for _, r := range results {
-		switch r.Status {
-		case "Created":
-			created++
-		case "Updated":
-			updated++
-		case "NoChange":
-			unchanged++
-		case "Error":
-			errors++
-		}
-	}
-	
-	if dryRun {
-		log.Infof("[DRY RUN] Cluster link reconciliation plan: %d to create, %d to update, %d unchanged, %d errors", 
-			created, updated, unchanged, errors)
-	} else {
-		log.Infof("Cluster link reconciliation complete: %d created, %d updated, %d unchanged, %d errors", 
-			created, updated, unchanged, errors)
+		results = append(results, result)
 	}
 
 	return results
