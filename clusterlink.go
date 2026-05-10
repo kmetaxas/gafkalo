@@ -216,7 +216,7 @@ func (admin *ClusterLinkAdmin) ListClusterLinks() (map[string]ClusterLink, error
 		link.ConfigsFromKafkaLinkConfigDataList(configList)
 		resp[item.Name] = link
 	}
-	fmt.Printf("Links=%+v\n", clinkItems)
+	log.Debugf("ListClusterLinks got links =%+v\n", clinkItems)
 	return resp, err
 }
 

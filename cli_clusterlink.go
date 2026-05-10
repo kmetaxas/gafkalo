@@ -50,9 +50,12 @@ func (cmd *ListClusterLinksCmd) Run(ctx *CLIContext) error {
 	admin := NewClusterLinkAdmin(config.Connections.RestProxy)
 	links, err := admin.ListClusterLinks()
 	if err != nil {
-		fmt.Printf("encountered Oos %s\n", err)
+		fmt.Printf("Unable to list cluster links %s\n", err)
 	}
-	fmt.Printf("Links = %+v\n", links)
+	fmt.Printf("Discovered %d cluster link(s)\n", len(links))
+	for name, link := range links {
+		fmt.Printf("Link %s: , ClusterID: %s , Configs: %s , Topics: %s\n", name, link.ClusterID, link.Configs, link.MatchedTopics)
+	}
 	return nil
 }
 
