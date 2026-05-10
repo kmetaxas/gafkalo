@@ -530,6 +530,7 @@ func (admin *ClusterLinkAdmin) Reconcile(links map[string]ClusterLink, dryRun bo
 				result.Status = "Error"
 				result.Error = fmt.Errorf("failed to compare configs: %w", err)
 			} else if needsUpdate {
+				result.Changes = diff // Store the calculated diff
 				log.Infof("Cluster link '%s' needs update. Found %d config changes.", linkName, len(diff.ChangedConfigs))
 				
 				// Log the specific changes
