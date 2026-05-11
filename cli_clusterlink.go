@@ -33,6 +33,7 @@ type DeleteClusterLinkCmd struct {
 type UpdateClisterLinkCmd struct {
 	Name       string `required help:"Name of the cluster link"`
 	ConfigFile string `required help:"Path to cluster link configuration file"`
+	Dryrun     bool   `flag help:"If set to 'true' only validation will be performed"`
 }
 
 func (cmd *UpdateClisterLinkCmd) Run(ctx *CLIContext) error {
@@ -52,6 +53,22 @@ func (cmd *UpdateClisterLinkCmd) Run(ctx *CLIContext) error {
 		log.Errorf("Failed to parse cluster link yaml %s due to %s", cmd.ConfigFile, err)
 		return err
 	}
+	if cmd.Dryrun {
+		needsUpdate, diff, err := admin.NeedsUpdateByLinkName(cmd.Name, &linkData)
+		if err != nil {
+			return err
+		}
+		if !needsUpdate {
+			fmt.Println("Nothing to do")
+		} else {
+			fmt.Printf("Would change:\n")
+			for key, value := range diff.ChangedConfigs {
+				fmt.Printf(" - config '%s' from '%s' to '%s'\n", key, SafeNullStr(value.OldValue), SafeNullStr(value.NewValue))
+			}
+		}
+		return nil
+	}
+
 	updated, diff, err := admin.UpdateClusterLink(cmd.Name, &linkData)
 	if err != nil {
 		return err
