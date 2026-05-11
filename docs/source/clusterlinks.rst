@@ -21,7 +21,7 @@ In ``config.yaml``, configure the ``restproxy`` connection:
    connections:
      restproxy:
        url: "http://localhost:8082" # URL of your Confluent REST Proxy
-       cluster_id: "lkc-abcde"      # The ID of the *destination* cluster
+       clusterId: "lkc-abcde"      # The ID of the *destination* cluster
        username: "rest-proxy-user"
        password: "rest-proxy-pass"
        caPath: "/path/to/ca.crt"
@@ -41,11 +41,10 @@ Define cluster links in your input YAML files (applied via ``gafkalo plan/apply`
          bootstrap.servers: "source-cluster:9092"
          security.protocol: "SASL_SSL"
          sasl.mechanism: "PLAIN"
-         sasl.jaas.config: "org.apache.kafka.common.security.plain.PlainLoginModule required username='user' password='pass';"
-          auto.create.mirror.topics.filters: |
-          auto.create.mirror.topics.enable: "true"
+         sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username='user' password='pass';
+         auto.create.mirror.topics.filters: |
             { "topicFilters": [ {"name": "TROL",  "patternType": "PREFIXED",  "filterType": "INCLUDE"} ] }
-
+         auto.create.mirror.topics.enable: "true"
      - name: another-link
        cluster_id: lkc-67890 # ID of the *source* cluster
        configs:
