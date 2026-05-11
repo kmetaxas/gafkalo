@@ -336,11 +336,7 @@ func (admin *ClusterLinkAdmin) NeedsUpdateByLinkName(name string, newConfig *Clu
 	oldConfig.ConfigsFromKafkaLinkConfigDataList(oldConfigList)
 	hasChanged, diff, err = admin.NeedsUpdate(&oldConfig, newConfig)
 	for key, value := range diff.ChangedConfigs {
-		oldValue := value.OldValue
-		newValue := value.NewValue
-		if newValue == nil {
-		}
-		log.Debugf("Key %s changed from %+v to %+v\n", key, *oldValue, SafeNullStr(newValue))
+		log.Debugf("Key %s changed from %+v to %+v\n", key, SafeNullStr(value.OldValue), SafeNullStr(value.NewValue))
 	}
 	return hasChanged, diff, err
 }
