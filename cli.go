@@ -155,6 +155,7 @@ func GetInputData(config Configuration) DesiredState {
 }
 
 func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, ConnectAdmin, ClusterLinkAdmin) {
+	var clusterLinkAdmin *ClusterLinkAdmin
 	kafkadmin := NewKafkaAdmin(config.Connections.Kafka)
 	var sradmin SRAdmin
 	if config.Connections.Schemaregistry.Url != "" {
@@ -172,11 +173,10 @@ func GetAdminClients(config Configuration) (KafkaAdmin, SRAdmin, MDSAdmin, Conne
 			log.Fatalf("Failed to create ConnectAdmin instance: %s", err)
 		}
 	}
-	clusterLinkAdmin := new(ClusterLinkAdmin)
-	if config.Connections.RestProxy.Url != "" {
+	if (config.Connections.RestProxy != RestProxyConfig{}) {
 		clusterLinkAdmin = NewClusterLinkAdmin(config.Connections.RestProxy)
 	} else {
-		clusterLinkAdmin = nil
+		clusterLinkAdmin = new(ClusterLinkAdmin)
 	}
 	return kafkadmin, sradmin, *mdsadmin, *connectAdmin, *clusterLinkAdmin
 }
@@ -195,7 +195,8 @@ func DoSync(kafkadmin *KafkaAdmin, sradmin *SRAdmin, mdsadmin *MDSAdmin, connect
 	if (*connectadmin != ConnectAdmin{}) {
 		connectResults = connectadmin.Reconcile(inputData.Connectors, dryRun)
 	}
-	if clusterLinkAdmin != nil {
+	if clusterLinkAdmin.Config.Url != "" {
+		fmt.Printf("Cluster admin is not NIL. Doing sync\n")
 		clusterLinkResults = clusterLinkAdmin.Reconcile(inputData.ClusterLinks, dryRun)
 	}
 
