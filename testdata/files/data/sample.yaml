@@ -77,3 +77,31 @@ clients:
         # if not specified, roles is [DeveloperRead]
         roles: ["ResourceOwner"]
         isLiteral: true
+    rolebindings:
+      # context can be one of:
+      # KAFKA | SR | KSQLDB | CONNECT 
+      - context: KAFKA 
+        # Scope can be one of CLUSTER | RESOURCE
+        scope: RESOURCE
+        # Role , for CLUSTER or RESOURCE scopes can be one of
+        # DeveloperRead | DeveloperWrite | ResourceOwner | DeveloperManage
+        # Or, for CLUSTER scope onle, one of:
+        # SystemAdmin | ClusterAdmin | UserAdmin | SecurityAdmin | AuditAdmin | Operator
+        role: DeveloperRead
+        # Resource is only needed when scope=RESOURCE. It should be empty otherwise
+        # So examples for resource type are:
+        # Topic | Subject | Group | Connector | TransactionalId
+        resources:
+          - name: trololo
+            resource_type: Topic
+            # Pattern type can be one of:
+            # LITERAL | PREFIXED
+            pattern_type: LITERAL
+          - name: Skata
+            resource_type: Topic
+            pattern_type: PREFIXED
+      - context: SR
+        scope: CLUSTER
+        role: SecurityAdmin 
+        # Pattern type 
+        pattern_type: LITERAL
