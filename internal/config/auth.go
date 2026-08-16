@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"crypto/sha256"
@@ -35,7 +35,7 @@ func (t *TokenProvider) Token() (*sarama.AccessToken, error) {
 	var respObj tokenResponse
 	var tlsConfig *tls.Config
 
-	tlsConfig = createTlsConfig(t.caPath, false)
+	tlsConfig = CreateTLSConfig(t.caPath, false)
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	hClient := &http.Client{Transport: transport}
 	req, err := http.NewRequest("GET", t.url, nil)

@@ -19,6 +19,7 @@ GitOps-ready tool for Kafka infrastructure. No external dependencies. Pure Go.
    cli
    config
    testing
+   package-layout
    authors
 
 Indices and tables

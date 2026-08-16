@@ -1,4 +1,4 @@
-package main
+package rbac
 
 import "testing"
 
@@ -24,6 +24,10 @@ func getTestRolebindings() MDSRolebindings {
 	res.DeveloperWrite = append(res.DeveloperRead, getTestMDSResourcePattern())
 	res.ResourceOwner = append(res.DeveloperRead, getTestMDSResourcePattern())
 	return res
+}
+
+func getTestClientResult() ClientResult {
+	return ClientResult{Principal: "User:testuser", ResourceType: "Topic", ResourceName: "TestTopic", Role: "DeveloperRead", PatternType: "LITERAL"}
 }
 
 func TestGetContext(t *testing.T) {

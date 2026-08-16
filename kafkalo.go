@@ -1,16 +1,13 @@
-package main
+package gafkalo
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/IBM/sarama"
 	"github.com/alecthomas/kong"
 	kongcompletion "github.com/jotaen/kong-completion"
 	log "github.com/sirupsen/logrus"
 )
 
-func main() {
+func Run(args []string) error {
 	var logLevel log.Level
 	var err error
 	// Initialize kong
@@ -18,10 +15,9 @@ func main() {
 	kongApp := kong.Must(&CLI)
 	kongcompletion.Register(kongApp)
 
-	ctx, err := kongApp.Parse(os.Args[1:])
+	ctx, err := kongApp.Parse(args)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 
 	// Initialize logrus
@@ -42,5 +38,5 @@ func main() {
 	}
 	// Run Kong CLI command user chose
 	err = ctx.Run(&CLIContext{Config: CLI.Config})
-	ctx.FatalIfErrorf(err)
+	return err
 }

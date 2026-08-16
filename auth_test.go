@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/IBM/sarama"
+	internalconfig "github.com/kmetaxas/gafkalo/internal/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -174,12 +175,12 @@ func TestMutualTLSConfigCreation(t *testing.T) {
 	assert.NotNil(t, baseTlsConfig.RootCAs)
 
 	// Test mutual TLS config creation
-	mutualTlsConfig := createMutualTlsConfig(baseTlsConfig, clientCertPath, clientKeyPath)
+	mutualTlsConfig := internalconfig.CreateMutualTLSConfig(baseTlsConfig, clientCertPath, clientKeyPath)
 	assert.NotNil(t, mutualTlsConfig)
 	assert.Len(t, mutualTlsConfig.Certificates, 1)
 
 	// Test with empty cert/key paths (should return original config)
-	unchangedConfig := createMutualTlsConfig(baseTlsConfig, "", "")
+	unchangedConfig := internalconfig.CreateMutualTLSConfig(baseTlsConfig, "", "")
 	assert.Equal(t, baseTlsConfig, unchangedConfig)
 }
 

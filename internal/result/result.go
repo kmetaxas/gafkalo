@@ -1,7 +1,8 @@
-package main
+package result
 
 import (
 	"github.com/IBM/sarama"
+	"github.com/kmetaxas/gafkalo/internal/state"
 )
 
 type Results struct {
@@ -19,7 +20,7 @@ type ClusterLinkResult struct {
 	Status     string // "Created", "Updated", "NoChange", "Error"
 	Configs    map[string]string
 	OldConfigs map[string]string
-	Changes    *ClusterLinkConfigDiff
+	Changes    *state.ClusterLinkConfigDiff
 	Error      error
 }
 
@@ -64,7 +65,7 @@ type ConnectorResult struct {
 	SensitiveFields map[string]bool // Fields that are sensitive (returned as asterisks from API)
 }
 
-func TopicResultFromTopic(topic Topic) TopicResult {
+func TopicResultFromTopic(topic state.Topic) TopicResult {
 	return TopicResult{
 		Name:                 topic.Name,
 		NewPartitions:        topic.Partitions,

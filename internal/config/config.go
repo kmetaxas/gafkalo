@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"crypto/tls"
@@ -113,7 +113,13 @@ type Configuration struct {
 	} `yaml:"kafkalo"`
 }
 
-func parseConfig(configFile string) Configuration {
+var current Configuration
+
+func SetCurrent(conf Configuration) {
+	current = conf
+}
+
+func ParseConfig(configFile string) Configuration {
 	var configData, data []byte
 	var err error
 	data, err = os.ReadFile(configFile)
@@ -153,7 +159,7 @@ func (conf *Configuration) ResolveFilesFromPatterns(patterns []string) ([]string
 			matches, err := filepath.Glob(pattern)
 			// Filter out unwanted matches (like directories)
 			for _, match := range matches {
-				if isValidInputFile(match) {
+				if IsValidInputFile(match) {
 					files = append(files, match)
 				}
 			}
@@ -161,7 +167,7 @@ func (conf *Configuration) ResolveFilesFromPatterns(patterns []string) ([]string
 				log.Fatalf("Could not read match pattern: %s\n", err)
 			}
 		} else {
-			if isValidInputFile(pattern) {
+			if IsValidInputFile(pattern) {
 				files = append(files, pattern)
 			}
 		}
@@ -172,10 +178,10 @@ func (conf *Configuration) ResolveFilesFromPatterns(patterns []string) ([]string
 // Takes a schema path as specified in the yaml and returns a "normalized" path
 // If it is an absolute path, it is returned as is
 // If it is a relative path it is made relative to the source dir
-func normalizeSchemaPath(inputFile string) string {
+func NormalizeSchemaPath(inputFile string) string {
 	var res string
-	if gafkaloConfig.Kafkalo.SchemaDir != "" {
-		res = path.Join(gafkaloConfig.Kafkalo.SchemaDir, inputFile)
+	if current.Kafkalo.SchemaDir != "" {
+		res = path.Join(current.Kafkalo.SchemaDir, inputFile)
 	} else {
 		res = inputFile
 	}
@@ -183,7 +189,7 @@ func normalizeSchemaPath(inputFile string) string {
 }
 
 // Validates an input filename as valid (exists, is not dir etc)
-func isValidInputFile(filename string) bool {
+func IsValidInputFile(filename string) bool {
 	fi, err := os.Stat(filename)
 	if err != nil {
 		// log.Printf("Ignoring file %s due to: %s\n", filename, err)
@@ -228,13 +234,14 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	// Set Sasl plain if configured
 	if conf.Scram.Enabled {
 		var generatorFunc scram.HashGeneratorFcn
-		if conf.Scram.Mechanism == "SCRAM-SHA-256" {
+		switch conf.Scram.Mechanism {
+		case "SCRAM-SHA-256":
 			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
 			generatorFunc = SHA256
-		} else if conf.Scram.Mechanism == "SCRAM-SHA-512" {
+		case "SCRAM-SHA-512":
 			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
 			generatorFunc = SHA512
-		} else {
+		default:
 			config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
 			generatorFunc = SHA256
 			log.Warnf("Undefined Scram mechanism: %s, defaulting to SCRAM-SHA-256\n", conf.Scram.Mechanism)
@@ -265,9 +272,9 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 		}
 	}
 	if conf.SSL.Enabled && (conf.SSL.CA != "" || conf.SSL.SkipVerify || conf.SSL.ClientCert != "" || conf.SSL.ClientKey != "") {
-		tlsConfig := createTlsConfig(conf.SSL.CA, conf.SSL.SkipVerify)
+		tlsConfig := CreateTLSConfig(conf.SSL.CA, conf.SSL.SkipVerify)
 		if conf.SSL.ClientCert != "" && conf.SSL.ClientKey != "" {
-			tlsConfig = createMutualTlsConfig(tlsConfig, conf.SSL.ClientCert, conf.SSL.ClientKey)
+			tlsConfig = CreateMutualTLSConfig(tlsConfig, conf.SSL.ClientCert, conf.SSL.ClientKey)
 		}
 		config.Net.TLS.Config = tlsConfig
 	}
@@ -294,7 +301,7 @@ func SaramaConfigFromKafkaConfig(conf KafkaConfig) *sarama.Config {
 	return config
 }
 
-func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
+func CreateTLSConfig(CAPath string, SkipVerify bool) *tls.Config {
 	// Get system Cert Pool
 	config := &tls.Config{}
 	rootCAs, err := x509.SystemCertPool()
@@ -320,7 +327,7 @@ func createTlsConfig(CAPath string, SkipVerify bool) *tls.Config {
 	return config
 }
 
-func createMutualTlsConfig(tlsConfig *tls.Config, clientCertPath, clientKeyPath string) *tls.Config {
+func CreateMutualTLSConfig(tlsConfig *tls.Config, clientCertPath, clientKeyPath string) *tls.Config {
 	if clientCertPath == "" || clientKeyPath == "" {
 		return tlsConfig
 	}

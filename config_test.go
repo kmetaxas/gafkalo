@@ -1,9 +1,10 @@
-package main
+package gafkalo
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	internalconfig "github.com/kmetaxas/gafkalo/internal/config"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -28,7 +29,7 @@ func TestParseConfig(t *testing.T) {
 	expectedConf.Kafkalo.SchemaDir = "testdata/files/"
 	expectedConf.Kafkalo.ConnectorsSensitiveKeysRegex = "^.*(auth|password|credential).*$"
 
-	config := parseConfig("testdata/files/config.sample.yaml")
+	config := internalconfig.ParseConfig("testdata/files/config.sample.yaml")
 	if config.Connections.Kafka.Brokers[0] != "localhost:9093" {
 		t.Error("Broker list is wrong")
 	}
@@ -39,7 +40,7 @@ func TestParseConfig(t *testing.T) {
 }
 
 func TestGetInutPatterns(t *testing.T) {
-	config := parseConfig("testdata/files/config.sample.yaml")
+	config := internalconfig.ParseConfig("testdata/files/config.sample.yaml")
 	inputPatterns := config.GetInputPatterns()
 	if len(inputPatterns) != 2 {
 		t.Error("Wrong number of inputPatterns returned")
@@ -47,7 +48,7 @@ func TestGetInutPatterns(t *testing.T) {
 
 }
 func TestResoveFilesFromPatterns(t *testing.T) {
-	config := parseConfig("testdata/files/config.sample.yaml")
+	config := internalconfig.ParseConfig("testdata/files/config.sample.yaml")
 	patterns, err := config.ResolveFilesFromPatterns(config.GetInputPatterns())
 	if err != nil {
 		t.Error(err)
@@ -57,10 +58,10 @@ func TestResoveFilesFromPatterns(t *testing.T) {
 	}
 }
 func TestIsValidInputFile(t *testing.T) {
-	if isValidInputFile("test") {
+	if internalconfig.IsValidInputFile("test") {
 		t.Error("test is a Dir and should NOT be vaild")
 	}
-	if !isValidInputFile("testdata/files/config.sample.yaml") {
+	if !internalconfig.IsValidInputFile("testdata/files/config.sample.yaml") {
 		t.Error("file testdata/files/config.sample.yaml should be valid")
 	}
 

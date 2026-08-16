@@ -1,4 +1,4 @@
-package main
+package rbac
 
 import (
 	"bytes"
@@ -9,43 +9,14 @@ import (
 	"net/http"
 	"net/url"
 
+	internalconfig "github.com/kmetaxas/gafkalo/internal/config"
+	internalresult "github.com/kmetaxas/gafkalo/internal/result"
+	"github.com/kmetaxas/gafkalo/internal/state"
 	log "github.com/sirupsen/logrus"
 )
 
-type ClientTopicRole struct {
-	Topic      string `yaml:"topic"`
-	IsLiteral  bool   `yaml:"isLiteral"`
-	Strict     bool   `yaml:"strict"`
-	Idempotent bool   `yaml:"idempotent"` // Only used for roles allowing producer
-}
-
-type ClientGroupRole struct {
-	Name      string   `yaml:"name"`
-	Roles     []string `yaml:"roles"`
-	IsLiteral bool     `yaml:"isLiteral" default:"true"`
-}
-
-type ClientTransactionalIdRole struct {
-	Name      string   `yaml:"name"`
-	Roles     []string `yaml:"roles"`
-	IsLiteral bool     `yaml:"isLiteral" default:"true"`
-}
-type Client struct {
-	Principal        string                      `yaml:"principal"`
-	ConsumerFor      []ClientTopicRole           `yaml:"consumer_for"`
-	ProducerFor      []ClientTopicRole           `yaml:"producer_for"`
-	ResourceownerFor []ClientTopicRole           `yaml:"resourceowner_for"`
-	Groups           []ClientGroupRole           `yaml:"groups"`
-	TransactionalIds []ClientTransactionalIdRole `yaml:"transactional_ids"`
-}
-
-func mergeClients(target Client, source Client) Client {
-	target.ConsumerFor = append(target.ConsumerFor, source.ConsumerFor...)
-	target.ProducerFor = append(target.ProducerFor, source.ProducerFor...)
-	target.ResourceownerFor = append(target.ResourceownerFor, source.ResourceownerFor...)
-	target.Groups = append(target.Groups, source.Groups...)
-	return target
-}
+type Client = state.Client
+type ClientResult = internalresult.ClientResult
 
 type MDSAdmin struct {
 	User                    string
@@ -83,7 +54,7 @@ type MDSContext struct {
 	Clusters map[string]string `json:"clusters"` // cluster name : cluster ID map
 }
 
-func NewMDSAdmin(config MDSConfig) *MDSAdmin {
+func NewMDSAdmin(config internalconfig.MDSConfig) *MDSAdmin {
 	admin := MDSAdmin{
 		User:     config.User,
 		Password: config.Password,
@@ -95,7 +66,7 @@ func NewMDSAdmin(config MDSConfig) *MDSAdmin {
 	admin.KSQLClusterID = config.KSQLClusterID
 	admin.RolebindingsCache = make(map[string]MDSRolebindings)
 	if config.CAPath != "" {
-		admin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+		admin.TlsConfig = internalconfig.CreateTLSConfig(config.CAPath, config.SkipVerify)
 	}
 	return &admin
 }

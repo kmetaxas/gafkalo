@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"bytes"
@@ -108,7 +108,7 @@ func (cmd *DescribeConnectorCmd) Run(ctx *CLIContext) error {
 	tasktb.SetOutputMirror(os.Stdout)
 	tasktb.AppendHeader(table.Row{"ID", "STATUS", "WORKER", "Is running"})
 	for _, task := range tasks {
-		tasktb.AppendRow(table.Row{task.ID, task.Status, task.WorkerID, task.isRunning})
+		tasktb.AppendRow(table.Row{task.ID, task.Status, task.WorkerID, task.IsRunning})
 	}
 	tasktb.Render()
 	return nil
@@ -240,7 +240,7 @@ func (cmd *HealthCheckCmd) Run(ctx *CLIContext) error {
 			return err
 		}
 		log.Debugf("Connector %s has status %v", connectorName, status)
-		if !status.isHealthy() {
+		if !status.IsHealthy() {
 			fmt.Fprintf(os.Stderr, "Connector %s is not healthy\n", errorColor(connectorName))
 			faultyConnectors += 1
 		}
@@ -263,7 +263,7 @@ func (cmd *HealCmd) Run(ctx *CLIContext) error {
 	if err != nil {
 		return err
 	}
-	if status.isHealthy() {
+	if status.IsHealthy() {
 		fmt.Printf("Connector %s is healthy. Doing nothing.\n", cmd.Name)
 		return nil
 	}

@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"bytes"
@@ -29,17 +29,6 @@ type ClusterLinkRequest struct {
 type ClusterLinkConfig struct {
 	Name  string `yaml:"name" json:"name"`
 	Value string `yaml:"value" json:"value"`
-}
-
-// When checking a new cluster link config against an running link,
-// we want to get all the configs that differ.
-type ClusterLinkConfigDiff struct {
-	Name           string                              `json:"name" yaml:"name"`
-	ChangedConfigs map[string]ClusterLinkChangedConfig `json:"changed_configs"`
-}
-type ClusterLinkChangedConfig struct {
-	OldValue *string `json:"old" yaml:"old"`
-	NewValue *string `json:"new" yaml:"new"`
 }
 
 // Emit a ClusterLink to JSON for passign to API

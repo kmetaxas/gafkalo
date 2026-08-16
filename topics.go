@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"errors"
@@ -8,28 +8,6 @@ import (
 	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
-
-type Topic struct {
-	Name              string             `yaml:"name"`
-	Partitions        int32              `yaml:"partitions"`
-	ReplicationFactor int16              `yaml:"replication_factor"`
-	Configs           map[string]*string `yaml:"configs"`
-	Key               Schema             `yaml:"key"`
-	Value             Schema             `yaml:"value"`
-}
-
-// Dry run data for a Topic
-type TopicPlan struct {
-	Topic string
-	// Any Reason given by the brokers for possible errors (for example not enough brokers for a replication factor etc)
-	Reason string
-	// An array of structs with a before and after key indicating the setting before and after the change for each Key
-	ConfigDelta []struct {
-		Key    string
-		Before string
-		After  string
-	}
-}
 
 type KafkaAdmin struct {
 	AdminClient sarama.ClusterAdmin
@@ -74,28 +52,6 @@ func (admin *KafkaAdmin) CreateTopic(topic *Topic, validateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-// Unmarshal yaml callback for Topic
-func (s *Topic) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawTopic Topic
-	raw := rawTopic{}
-	if err := unmarshal(&raw); err != nil {
-		return err
-	}
-	// Set key subject name
-	if (Schema{} == raw.Key) {
-	} else {
-		raw.Key.SubjectName = raw.Name + "-key"
-	}
-	// Set Value subject name
-	if (Schema{} == raw.Value) {
-	} else {
-		raw.Value.SubjectName = raw.Name + "-value"
-	}
-
-	*s = Topic(raw)
 	return nil
 }
 

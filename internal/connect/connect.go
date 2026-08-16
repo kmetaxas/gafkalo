@@ -1,4 +1,4 @@
-package main
+package connect
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 
+	internalconfig "github.com/kmetaxas/gafkalo/internal/config"
+	internalresult "github.com/kmetaxas/gafkalo/internal/result"
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,7 +21,7 @@ type ConnectAdmin struct {
 	TlsConfig *tls.Config
 }
 
-func NewConnectAdmin(config *ConnectConfig) (*ConnectAdmin, error) {
+func NewConnectAdmin(config *internalconfig.ConnectConfig) (*ConnectAdmin, error) {
 	var admin ConnectAdmin
 	if config.Url == "" {
 		return &admin, fmt.Errorf("url is required for connect")
@@ -28,13 +30,11 @@ func NewConnectAdmin(config *ConnectConfig) (*ConnectAdmin, error) {
 	admin.Username = config.User
 	admin.Password = config.Password
 	if config.CAPath != "" {
-		admin.TlsConfig = createTlsConfig(config.CAPath, config.SkipVerify)
+		admin.TlsConfig = internalconfig.CreateTLSConfig(config.CAPath, config.SkipVerify)
 	}
 	return &admin, nil
 }
 
-// Represents the current state of a Connect cluster.
-// It lists connectors , their config, tasks etc
 type ConnectClusterState struct {
 	Connectors map[string]Connector `json:"connectors"`
 }
@@ -44,7 +44,7 @@ type TaskStatus struct {
 	Status   string `json:"state" mapstructure:"state"`
 	WorkerID string `json:"worker_id" mapstructure:"worker_id"`
 	// not part of resposne but utility functions fill it in to make boolean check easy.
-	isRunning bool
+	IsRunning bool
 }
 
 type Task struct {
@@ -290,7 +290,7 @@ func (admin *ConnectAdmin) GetTaskStatus(connector string, task int) (*TaskStatu
 		return taskStatus, err
 	}
 	if taskStatus.Status == "RUNNING" {
-		taskStatus.isRunning = true
+		taskStatus.IsRunning = true
 	}
 	return taskStatus, nil
 }
@@ -462,7 +462,7 @@ func (admin *ConnectAdmin) RestartConnector(connector string) error {
 }
 
 // Get if the connector if healthy. This means that the connector itself reports healthy *and* all the tasks report healthy
-func (status *ConnectorStatus) isHealthy() bool {
+func (status *ConnectorStatus) IsHealthy() bool {
 	if status.Connector["state"] != "RUNNING" {
 		return false
 	}
@@ -556,8 +556,8 @@ func (c *Connector) detectSensitiveFields() map[string]bool {
 Reconcile connector status with config (yaml) contents
 This is called by plan/apply calls.
 */
-func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryRun bool) []ConnectorResult {
-	var connectorResults []ConnectorResult
+func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryRun bool) []internalresult.ConnectorResult {
+	var connectorResults []internalresult.ConnectorResult
 	/*
 		- Get existing connectors and their definitions
 		- For each connector defined in YAML,
@@ -591,7 +591,7 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 				if len(sensitiveFields) > 0 {
 					log.Infof("Connector %s: Detected %d sensitive field(s) that can't be compared (returned as asterisks from API). These fields will always be pushed to the cluster.", connectorConf.Name, len(sensitiveFields))
 				}
-				res := ConnectorResult{
+				res := internalresult.ConnectorResult{
 					Name:            connectorConf.Name,
 					NewConfigs:      connectorConf.Config,
 					OldConfigs:      oldConnector.Config,
@@ -608,7 +608,7 @@ func (admin *ConnectAdmin) Reconcile(connectorConfigs map[string]Connector, dryR
 					log.Fatalf("Failed to create connector %s - error: %s", name, err)
 				}
 			}
-			res := ConnectorResult{
+			res := internalresult.ConnectorResult{
 				Name:            connectorConf.Name,
 				NewConfigs:      connectorConf.Config,
 				OldConfigs:      existingConnectorNames.Connectors[connectorConf.Name].Config,

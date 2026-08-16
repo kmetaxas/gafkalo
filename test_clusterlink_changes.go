@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"fmt"
@@ -37,4 +37,3 @@ func testClusterLinkChanges() {
 		}
 	}
 }
-

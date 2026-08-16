@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 func SafeNullStr(str *string) string {
 	defaultVal := "NIL"

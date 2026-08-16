@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	"fmt"
@@ -142,6 +142,7 @@ func LoadConfig(config string) Configuration {
 	configuration := parseConfig(config)
 	// set global variable
 	gafkaloConfig = Configuration(configuration)
+	setCurrentConfig(configuration)
 	return configuration
 }
 

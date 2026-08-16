@@ -1,4 +1,4 @@
-package main
+package gafkalo
 
 import (
 	log "github.com/sirupsen/logrus"
